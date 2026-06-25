@@ -12,6 +12,18 @@ SOTA-on-GiantSteps methods benchmarked in the companion eval harness.
 
 Both key and tempo fall back to librosa automatically if Essentia isn't installed.
 
+## Requirements
+
+- **Python 3.14** — pinned in `.python-version`, so `uv` picks it automatically. This is
+  required: on macOS arm64 the `essentia-tensorflow` wheel ships **only** for CPython 3.14
+  (3.11/3.13 fail to resolve with a "no wheel for this platform" error). If you hit that,
+  check `python --version` / `.python-version`.
+- `uv` (https://docs.astral.sh/uv). First `uv sync` pulls `essentia-tensorflow` (~95 MB,
+  native) and TensorFlow — give it a minute.
+- The TempoCNN model is bundled (`src/jams/data/models/deepsquare-k16-3.pb`); no download.
+- For the librosa *fallback* path to decode mp3s you need `ffmpeg` on PATH (Essentia decodes
+  mp3 natively, so this only matters if Essentia is unavailable).
+
 ## Quickstart
 
 ```sh
@@ -83,7 +95,7 @@ The `eval/` harness benchmarks the production functions against GiantSteps and i
 numbers above were measured. Run in the project env with the `eval` extra:
 
 ```sh
-uv run --extra eval eval/acquire_dataset.py   # download the labeled dataset
+uv run --extra eval eval/acquire_dataset.py   # download GiantSteps Key (~816 MB audio, one time)
 uv run --extra eval eval/evaluate.py          # key MIREX + tempo Acc1/Acc2
 uv run --extra eval eval/analyze_errors.py    # where the errors are, by genre/mode/octave
 ```
