@@ -24,8 +24,8 @@ is freely downloadable from Zenodo. 567 usable after dropping 33 atonal/ambiguou
 
 | Metric | librosa baseline | **jams (SOTA)** |
 |--------|------------------|-----------------|
-| Key MIREX | 0.614 | **0.759** |
-| Key exact | 0.529 | **0.688** |
+| Key MIREX | 0.614 | **0.801** |
+| Key exact | 0.529 | **0.743** |
 | Tempo Acc1 (raw labels) | 0.830 | 0.921 |
 | **Tempo Acc1 (corrected labels + full-tempo)** | 0.830 | **0.965** |
 
@@ -47,9 +47,11 @@ applied by `evaluate.py --corrections` (on by default). Built by `build_correcti
 
 ## Where the remaining errors are (`analyze_errors.py`)
 
-- **Key — mode confusion.** 11.8% parallel errors, 65/67 minor→major (EDM is 89% minor).
-  Next lever: a minor-prior on edma's own per-mode HPCP scores (a librosa overlay was a
-  wash, +0.005). Weakest genres: Drum & Bass (0.539), Electronica/Downtempo (0.648).
+- **Key — mode confusion (addressed).** Was 11.8% parallel errors, 65/67 minor→major.
+  Fixed by a learned major/minor refinement (`train_mode_model.py` → `mode_model.json`):
+  a logistic classifier over chroma cues (third / 6th / 7th / bass-third) that overrides
+  edma's mode only when confident. CV MIREX 0.759→0.801, exact 0.688→0.743.
+  Further levers: more features (edma strength, beat-synchronous chroma), or a deep key model.
 - **Tempo — half/double-time**, fixed by octave resolution + label corrections (above).
   Residual D&B (~0.79) is tracks not covered by v2; extend `tempo_corrections.csv` by ear.
 
@@ -62,4 +64,5 @@ applied by `evaluate.py --corrections` (on by default). Built by `build_correcti
 | `benchmark_methods.py`, `benchmark_final.py` | Method comparisons |
 | `analyze_errors.py` | Domain error taxonomy (mode, octave, per-genre) |
 | `build_corrections.py` | Regenerate `tempo_corrections.csv` from GiantSteps-Tempo v2 |
+| `train_mode_model.py` | Train/export the major-minor refinement (`src/jams/data/mode_model.json`) |
 | `tempo_corrections.csv` | Curated tempo-label fixes (committed) |

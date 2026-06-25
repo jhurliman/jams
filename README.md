@@ -6,11 +6,12 @@ SOTA-on-GiantSteps methods benchmarked in the companion eval harness.
 
 | Analysis | Method | Accuracy (GiantSteps) |
 |----------|--------|-----------------------|
-| Key | Essentia `KeyExtractor` (EDM-tuned `edma` profile) | MIREX **0.759** / exact 0.688 |
+| Key | Essentia `edma` tonic + a learned major/minor refinement | MIREX **0.801** / exact 0.743 |
 | Tempo | Pretrained **TempoCNN** + genre-aware octave resolution | Acc1 **0.965** (corrected labels) |
 | Structure | All-In-One via Replicate (beats / downbeats / segments) | — |
 
-Both key and tempo fall back to librosa automatically if Essentia isn't installed.
+Both key and tempo fall back to librosa automatically if Essentia isn't installed. Key
+mode (major/minor) is refined by a small chroma classifier — see *Key mode* below.
 
 ## Requirements
 
@@ -64,6 +65,17 @@ the error concentrates in **Drum & Bass** and **Dubstep**. Pass a `genre` (or ex
 jungle resolve to **full tempo (~174)**, not half-time. `bpm_alt` always returns the
 other octave so a client can flip it. With no hint, the raw value is returned unchanged
 (nothing is silently folded).
+
+## Key mode (major vs minor)
+
+`edma` nails the *tonic* but, like all template methods, over-calls **major** on minor
+tracks — the diagnostic note is the **third** (minor 3rd vs major 3rd above the tonic),
+which a full-template correlation dilutes. We keep edma's tonic and refine the *mode*
+with a small logistic classifier over chroma cues (the third, 6th, 7th, and a
+bass-register third), overriding edma only when confident. 5-fold CV: MIREX
+**0.759→0.801**, exact **0.688→0.743**, with major-key recall preserved. The model ships
+at `src/jams/data/mode_model.json`; retrain with `eval/train_mode_model.py`. Pass
+`detect_key(path, refine_mode=False)` to skip it (saves a ~1-2 s chroma pass).
 
 ## Endpoints
 
