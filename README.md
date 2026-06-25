@@ -77,6 +77,20 @@ uv run ruff check src tests
 uv run mypy src
 ```
 
+## Reproduce / push the accuracy
+
+The `eval/` harness benchmarks the production functions against GiantSteps and is how the
+numbers above were measured. Run in the project env with the `eval` extra:
+
+```sh
+uv run --extra eval eval/acquire_dataset.py   # download the labeled dataset
+uv run --extra eval eval/evaluate.py          # key MIREX + tempo Acc1/Acc2
+uv run --extra eval eval/analyze_errors.py    # where the errors are, by genre/mode/octave
+```
+
+See `eval/README.md` for the method shoot-outs, the wrong-label story, and the curated
+`tempo_corrections.csv`.
+
 ## Layout
 
 ```

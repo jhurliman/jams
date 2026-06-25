@@ -1,0 +1,24 @@
+track_id,title,genre,key_label,v2,model_raw,corrected_tempo,source,confidence,needs_review
+32,"1234668 Eye-D, SPL - Another Realm (Origin",Drum & Bass,88.0,174.0,175.0,174.0,giantsteps-tempo-v2,high,no
+33,"1234669 Eye-D, SPL - Pyramid Punk (Origina",Drum & Bass,88.0,174.0,175.0,174.0,giantsteps-tempo-v2,high,no
+165,"2725284 DJ Hidden, Eye-D - Instinct (Origi",Drum & Bass,88.0,174.0,174.0,174.0,giantsteps-tempo-v2,high,no
+166,"2725286 DJ Hidden, Eye-D - Chemical Dreams",Drum & Bass,88.0,174.0,175.0,174.0,giantsteps-tempo-v2,high,no
+275,"3482733 Most Freedom, Red Mongoose - Dark ",Drum & Bass,86.0,174.0,173.0,174.0,giantsteps-tempo-v2,high,no
+308,"3629920 DeeJay Delta, Vaptor - Midnight Tr",Drum & Bass,88.0,174.0,87.0,174.0,giantsteps-tempo-v2,high,no
+379,"400259 Counterstrike, Eye-D - The Grind (O",Drum & Bass,86.0,174.0,173.0,174.0,giantsteps-tempo-v2,high,no
+431,4360488 MaxNRG - Danger Zone (Original Mix,Drum & Bass,87.0,174.0,174.0,174.0,giantsteps-tempo-v2,high,no
+436,4399289 Nimanslin - Mirrors (Clyde Machine,Drum & Bass,117.0,174.0,87.0,174.0,giantsteps-tempo-v2,high,no
+539,5073839 Astronaut - Rain (MitiS Remix),Drum & Bass,116.0,174.0,174.0,174.0,giantsteps-tempo-v2,high,no
+556,"5431709 Skye, Lambert McGaughy, Kubix - I ",Drum & Bass,117.0,87.0,87.0,87.0,giantsteps-tempo-v2,high,no
+592,"907837 Eye-D, Evol Intent - Rock And Roll ",Drum & Bass,86.0,174.0,172.0,174.0,giantsteps-tempo-v2,high,no
+297,3574815 Virtu - Arsenal (Trampboat Remix),Dubstep,93.0,139.0,140.0,139.0,giantsteps-tempo-v2,high,no
+423,"4315749 Showtek, Noisecontrollers - Get Lo",Electro House,140.0,130.0,130.0,130.0,giantsteps-tempo-v2,high,no
+233,3349486 Tehnik - Subliminal (Original Vers,Electronica / Downtempo,70.0,139.0,70.0,139.0,giantsteps-tempo-v2,high,no
+434,4366506 Astrolith - Thumbsucker (Original ,Electronica / Downtempo,132.0,197.0,99.0,197.0,giantsteps-tempo-v2,high,no
+542,5081990 Audiphobia - Grapefruit Titties (O,Electronica / Downtempo,113.0,85.0,85.0,85.0,giantsteps-tempo-v2,high,no
+37,1234750 Aly & Fila - Menes (Original Mix),Trance,93.0,142.0,140.0,142.0,giantsteps-tempo-v2,high,no
+541,5079918 John Askew - Shine (Original Mix),Trance,93.0,139.0,140.0,139.0,giantsteps-tempo-v2,high,no
+254,3397932 Lynx - March of the Living (Origin,Drum & Bass,86.0,,171.0,172,convention(full-tempo x2),medium,yes
+292,3568459 Current Value - Tangerine (Origina,Drum & Bass,88.0,,151.0,176,convention(full-tempo x2),medium,yes
+299,"3590070 Intelligent Manners, Command Stran",Drum & Bass,88.0,,87.0,176,convention(full-tempo x2),medium,yes
+358,3939148 Playback! - I Found Love (Blendrix,Drum & Bass,87.0,,87.0,174,convention(full-tempo x2),medium,yes

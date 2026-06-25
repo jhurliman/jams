@@ -21,6 +21,8 @@ dependencies = [
 [project.optional-dependencies]
 # Song-structure (beats / downbeats / segments) via the All-In-One model on Replicate.
 structure = ["replicate>=1.0.0", "requests>=2.31"]
+# Reproduce / extend the accuracy benchmark (GiantSteps via mirdata).
+eval = ["mirdata>=0.3.9", "tqdm>=4.66"]
 
 [project.scripts]
 jams = "jams.server:main"
