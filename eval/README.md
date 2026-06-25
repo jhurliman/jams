@@ -55,11 +55,47 @@ applied by `evaluate.py --corrections` (on by default). Built by `build_correcti
 - **Tempo — half/double-time**, fixed by octave resolution + label corrections (above).
   Residual D&B (~0.79) is tracks not covered by v2; extend `tempo_corrections.csv` by ear.
 
+## Song structure (Harmonix, per-fold CV)
+
+`acquire_harmonix.py` + `evaluate_structure.py` benchmark `jams.analysis.structure`
+(the local All-In-One backend) against the **Harmonix Set** — the standard
+beats/downbeats/segments benchmark, and the set All-In-One was trained on.
+
+```sh
+uv run --extra eval eval/acquire_harmonix.py                  # annotations + YouTube audio → manifest
+uv run --extra eval eval/evaluate_structure.py                # per-fold CV, mir_eval metrics
+uv run --extra eval eval/evaluate_structure.py --target none  # target_bpm ablation (off)
+```
+
+**Honest cross-validation.** All-In-One ships 8 fold models. The split is positional —
+`fold(track_i) = i % 8` over the sorted track list — so each track is scored *only* by the
+held-out model `harmonix-fold{i%8}` it never trained on. `acquire_harmonix.py` reproduces
+that exact split and records each track's fold; `evaluate_structure.py` uses it.
+
+**Audio caveat (important).** Harmonix annotations are public; the **audio is not**
+(copyright). We source each track from its YouTube URL (`yt-dlp` → m4a) and keep only tracks
+with alignment ≥ 0.95. Even so, YouTube uploads are different masters/edits than Harmonix's
+originals, so **absolute beat/boundary timing drifts** track-by-track — and no single shift
+reconciles beats *and* segments (`--align` is a diagnostic only). Treat beat-F / boundary-HR
+on this audio as a **lower bound**; the **segment-labeling** metrics (pairwise-F, V-measure)
+are the robust cross-domain signal. Paper-comparable timing needs Harmonix's own audio.
+
+**Metrics** (`mir_eval`): beats/downbeats F (70 ms); segment boundaries Hit-Rate F @0.5 s /
+@3 s; segment labeling pairwise-F + V-measure. `--target {jams,ref,none}` sets the
+beat-tracking BPM constraint (jams' tempo / Harmonix BPM / none) for the `target_bpm` ablation.
+
+Validation (7-track YouTube sample, per-fold CV, raw timings): pairwise-F **0.57**,
+V-measure **0.57** (up to **0.90 / 0.87** on cleanly-matched tracks); beat/boundary timing
+depressed by the audio caveat above. Harmonix is Western **pop** — an in-domain EDM structure
+set is future work.
+
 ## Files
 
 | File | Purpose |
 |------|---------|
 | `acquire_dataset.py` | Download GiantSteps Key → `data/manifest.jsonl` |
+| `acquire_harmonix.py` | Download Harmonix annotations + YouTube audio → `data/harmonix/manifest.jsonl` |
+| `evaluate_structure.py` | Per-fold-CV structure scoring (`mir_eval`) + `target_bpm` ablation |
 | `evaluate.py` | Score production `jams.detect_key` / `detect_tempo` |
 | `benchmark_methods.py`, `benchmark_final.py` | Method comparisons |
 | `analyze_errors.py` | Domain error taxonomy (mode, octave, per-genre) |

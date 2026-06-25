@@ -8,7 +8,7 @@ SOTA-on-GiantSteps methods benchmarked in the companion eval harness.
 |----------|--------|-----------------------|
 | Key | Essentia `edma` tonic + a learned major/minor refinement | MIREX **0.801** / exact 0.743 |
 | Tempo | Pretrained **TempoCNN** + genre-aware octave resolution | Acc1 **0.965** (corrected labels) |
-| Structure | All-In-One via Replicate (beats / downbeats / segments) | — |
+| Structure | **All-In-One on-device** (Apple-Silicon/MPS) + tempo-locked `target_bpm` | Harmonix per-fold CV (see `eval/`) |
 
 Both key and tempo fall back to librosa automatically if Essentia isn't installed. Key
 mode (major/minor) is refined by a small chroma classifier — see *Key mode* below.
@@ -77,6 +77,27 @@ bass-register third), overriding edma only when confident. 5-fold CV: MIREX
 at `src/jams/data/mode_model.json`; retrain with `eval/train_mode_model.py`. Pass
 `detect_key(path, refine_mode=False)` to skip it (saves a ~1-2 s chroma pass).
 
+## Song structure (on-device)
+
+Structure (beats / downbeats / **functional segments** — intro/verse/chorus/…) comes from
+**All-In-One** (Kim & Nam, WASPAA 2023). By default it runs **locally on Apple Silicon**
+via PyTorch-MPS — no Replicate, no network, no per-call cost. Because All-In-One needs
+torch/natten/demucs (which have no Python 3.14 wheels and so can't share jams' env), the
+worker `src/jams/data/structure_worker.py` is a **self-contained `uv` script** that
+bootstraps its own environment; jams launches it once via `uv run --script` and keeps it
+resident (model loaded once; first call pays a ~20–30 s build + load, then ~10 s/track).
+**Requirement:** `uv` on PATH and an Apple-Silicon Mac. Structure is opt-in per request
+(`structure=true`).
+
+`target_bpm` is the DJ-critical bit again: All-In-One's beat tracker lands an octave low on
+half-time genres (D&B/dubstep), so jams feeds its own (octave-resolved) tempo in as a
+`±1 BPM` constraint — e.g. a 174-BPM roller that the tracker calls 87 is locked back to 174.
+This happens automatically when you request `tempo` + `structure` together.
+
+Prefer the hosted model? Set `JAMS_STRUCTURE_BACKEND=replicate` (+ a Replicate token) to use
+the original `jhurliman/allinone-targetbpm` endpoint instead. Accuracy is benchmarked on the
+**Harmonix Set** with honest per-fold cross-validation — see `eval/README.md`.
+
 ## Endpoints
 
 | Method | Path | Purpose |
@@ -89,8 +110,10 @@ at `src/jams/data/mode_model.json`; retrain with `eval/train_mode_model.py`. Pas
 ## Configuration
 
 Env vars (prefix `JAMS_`, or a local `.env`): `JAMS_HOST`, `JAMS_PORT`, `JAMS_LOG_LEVEL`,
-`JAMS_MAX_UPLOAD_MB`, `JAMS_REPLICATE_API_TOKEN` (or `REPLICATE_API_TOKEN`) for the
-optional structure endpoint (`pip install 'jams[structure]'`).
+`JAMS_MAX_UPLOAD_MB`. Structure backend: `JAMS_STRUCTURE_BACKEND` (`local` default | `replicate`),
+`JAMS_STRUCTURE_MODEL` (`harmonix-all` default), `JAMS_STRUCTURE_UV` (path to `uv` if not on
+PATH); the `replicate` backend needs `JAMS_REPLICATE_API_TOKEN` (or `REPLICATE_API_TOKEN`) and
+`pip install 'jams[structure]'`.
 
 ## Develop
 
@@ -124,4 +147,5 @@ src/jams/
   models.py   pydantic schemas
   config.py   settings
   data/models/deepsquare-k16-3.pb                            (bundled TempoCNN)
+  data/structure_worker.py                                   (self-contained uv worker: All-In-One)
 ```

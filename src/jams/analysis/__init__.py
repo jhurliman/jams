@@ -36,6 +36,14 @@ def analyze_track(
     if structure:
         from jams.analysis.structure import analyze_structure
 
-        target = bpm_range and (bpm_range[0] + bpm_range[1]) / 2
+        # Lock structure's beat tracker to the tempo we already resolved (full-tempo
+        # for D&B etc.) — the half-time fix that matters most for DJ genres. Fall
+        # back to the genre/range midpoint when tempo wasn't requested.
+        if tempo:
+            target = out["tempo"]["bpm"]
+        elif bpm_range:
+            target = (bpm_range[0] + bpm_range[1]) / 2
+        else:
+            target = None
         out["structure"] = analyze_structure(path, target_bpm=target)
     return out

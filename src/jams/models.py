@@ -14,7 +14,10 @@ class KeyResult(BaseModel):
 
 
 class TempoResult(BaseModel):
-    bpm: float = Field(examples=[174.0], description="Resolved tempo (octave-corrected when a genre/range hint is given)")
+    bpm: float = Field(
+        examples=[174.0],
+        description="Resolved tempo (octave-corrected when a genre/range hint is given)",
+    )
     bpm_raw: float = Field(examples=[87.0], description="Tracker output before octave resolution")
     bpm_alt: float = Field(examples=[87.0], description="The half/double-time alternative")
     octave_resolved: bool
@@ -25,6 +28,8 @@ class Segment(BaseModel):
     start: float
     end: float
     label: str
+    start_beat: int | None = Field(default=None, description="1-indexed beat nearest start")
+    end_beat: int | None = Field(default=None, description="1-indexed beat nearest end")
 
 
 class StructureResult(BaseModel):
@@ -32,7 +37,7 @@ class StructureResult(BaseModel):
     beats: list[float] = Field(default_factory=list)
     downbeats: list[float] = Field(default_factory=list)
     segments: list[Segment] = Field(default_factory=list)
-    method: str = "allin1-replicate"
+    method: str = Field(default="allin1-mps-local", examples=["allin1-mps-local:harmonix-all"])
 
 
 class AnalyzeResponse(BaseModel):
@@ -50,6 +55,8 @@ class AnalyzePathRequest(BaseModel):
     key: bool = True
     tempo: bool = True
     structure: bool = False
-    genre: str | None = Field(default=None, examples=["Drum & Bass"], description="Genre hint for tempo octave resolution")
-    bpm_min: float | None = Field(default=None, description="Lower bound of the expected tempo octave")
-    bpm_max: float | None = Field(default=None, description="Upper bound of the expected tempo octave")
+    genre: str | None = Field(
+        default=None, examples=["Drum & Bass"], description="Genre hint for tempo octave resolution"
+    )
+    bpm_min: float | None = Field(default=None, description="Lower bound of expected tempo octave")
+    bpm_max: float | None = Field(default=None, description="Upper bound of expected tempo octave")
