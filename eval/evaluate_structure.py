@@ -133,10 +133,20 @@ def est_segments(structure: dict) -> tuple[np.ndarray, list[str]]:
     return intervals, [s["label"] for s in segs]
 
 
+def _positive_intervals(intervals: np.ndarray, labels: list[str]):
+    """Drop zero/negative-duration intervals — mir_eval rejects them (All-In-One can
+    emit a degenerate segment where start==end)."""
+    if intervals.size == 0:
+        return intervals, labels
+    keep = intervals[:, 1] > intervals[:, 0]
+    return intervals[keep], [lab for lab, k in zip(labels, keep, strict=True) if k]
+
+
 def score_track(ref_beats, ref_down, ref_seg_int, ref_seg_lab, structure) -> dict:
     est_beats = np.array(structure.get("beats") or [])
     est_down = np.array(structure.get("downbeats") or [])
-    est_int, est_lab = est_segments(structure)
+    est_int, est_lab = _positive_intervals(*est_segments(structure))
+    ref_seg_int, ref_seg_lab = _positive_intervals(np.asarray(ref_seg_int), ref_seg_lab)
 
     # None when the dataset lacks that reference (e.g. segments-only EDM-98).
     out: dict = {
@@ -144,20 +154,21 @@ def score_track(ref_beats, ref_down, ref_seg_int, ref_seg_lab, structure) -> dic
         if (ref_beats.size and est_beats.size) else None,
         "downbeat_f": mir_eval.beat.f_measure(ref_down, est_down)
         if (ref_down.size and est_down.size) else None,
+        "bound_f_0.5": None, "bound_f_3.0": None, "pairwise_f": None, "v_measure": None,
     }
     if est_int.size and ref_seg_int.size:
-        t_max = float(max(ref_seg_int[-1, 1], est_int[-1, 1]))
-        adjust = mir_eval.util.adjust_intervals
-        ref_i, ref_l = adjust(ref_seg_int, ref_seg_lab, t_min=0.0, t_max=t_max)
-        est_i, est_l = adjust(est_int, est_lab, t_min=0.0, t_max=t_max)
-        out["bound_f_0.5"] = mir_eval.segment.detection(ref_i, est_i, window=0.5, trim=True)[2]
-        out["bound_f_3.0"] = mir_eval.segment.detection(ref_i, est_i, window=3.0, trim=True)[2]
-        out["pairwise_f"] = mir_eval.segment.pairwise(ref_i, ref_l, est_i, est_l)[2]
-        over, under, _ = mir_eval.segment.nce(ref_i, ref_l, est_i, est_l)
-        out["v_measure"] = 0.0 if (over + under) == 0 else 2 * over * under / (over + under)
-    else:
-        out.update({"bound_f_0.5": None, "bound_f_3.0": None,
-                    "pairwise_f": None, "v_measure": None})
+        try:
+            t_max = float(max(ref_seg_int[-1, 1], est_int[-1, 1]))
+            adjust = mir_eval.util.adjust_intervals
+            ref_i, ref_l = adjust(ref_seg_int, ref_seg_lab, t_min=0.0, t_max=t_max)
+            est_i, est_l = adjust(est_int, est_lab, t_min=0.0, t_max=t_max)
+            out["bound_f_0.5"] = mir_eval.segment.detection(ref_i, est_i, window=0.5, trim=True)[2]
+            out["bound_f_3.0"] = mir_eval.segment.detection(ref_i, est_i, window=3.0, trim=True)[2]
+            out["pairwise_f"] = mir_eval.segment.pairwise(ref_i, ref_l, est_i, est_l)[2]
+            over, under, _ = mir_eval.segment.nce(ref_i, ref_l, est_i, est_l)
+            out["v_measure"] = 0.0 if (over + under) == 0 else 2 * over * under / (over + under)
+        except ValueError:  # degenerate intervals mir_eval still rejects — skip this track's segs
+            pass
     return out
 
 
