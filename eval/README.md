@@ -55,47 +55,56 @@ applied by `evaluate.py --corrections` (on by default). Built by `build_correcti
 - **Tempo — half/double-time**, fixed by octave resolution + label corrections (above).
   Residual D&B (~0.79) is tracks not covered by v2; extend `tempo_corrections.csv` by ear.
 
-## Song structure (Harmonix, per-fold CV)
+## Song structure (multi-dataset)
 
-`acquire_harmonix.py` + `evaluate_structure.py` benchmark `jams.analysis.structure`
-(the local All-In-One backend) against the **Harmonix Set** — the standard
-beats/downbeats/segments benchmark, and the set All-In-One was trained on.
+`evaluate_structure.py` scores `jams.analysis.structure` (the local All-In-One backend)
+against any dataset via a common manifest built by a per-dataset `acquire_*` script. Each
+manifest row carries the `model` to score with and a `format` for loading its annotations;
+the evaluator computes the same `mir_eval` metrics across all of them.
+
+| Dataset | Domain | Tracks | Annotations | Model | Audio |
+|---------|--------|--------|-------------|-------|-------|
+| **Raveform** *(primary)* | EDM / DJ | 1,423 | beats, downbeats, functional segments | `harmonix-all` (out-of-domain) | YouTube id — **annotations made on the same video → native alignment** |
+| Harmonix | Western pop | 912 | beats, downbeats, segments | per-fold CV `harmonix-fold{i%8}` (held out) | YouTube — **different master → needs alignment** |
+| EDM-98 | EDM | 98 | segments only | `harmonix-all` | *not publicly released yet* |
 
 ```sh
-uv run --extra eval eval/acquire_harmonix.py                  # annotations + YouTube audio → manifest
-uv run --extra eval eval/evaluate_structure.py                # per-fold CV, mir_eval metrics
-uv run --extra eval eval/evaluate_structure.py --target none  # target_bpm ablation (off)
+uv run --extra eval eval/acquire_raveform.py     # primary: MIT annotations + YouTube audio
+uv run --extra eval eval/evaluate_structure.py --manifest eval/data/raveform/manifest.jsonl
+uv run --extra eval eval/acquire_harmonix.py     # pop cross-domain (per-fold CV)
+uv run --extra eval eval/evaluate_structure.py   # defaults to the Harmonix manifest
 ```
 
-**Honest cross-validation.** All-In-One ships 8 fold models. The split is positional —
-`fold(track_i) = i % 8` over the sorted track list — so each track is scored *only* by the
-held-out model `harmonix-fold{i%8}` it never trained on. `acquire_harmonix.py` reproduces
-that exact split and records each track's fold; `evaluate_structure.py` uses it.
-
-**Audio caveat (important).** Harmonix annotations are public; the **audio is not**
-(copyright). We source each track from its YouTube URL (`yt-dlp` → m4a) and keep only tracks
-with alignment ≥ 0.95. Even so, YouTube uploads are different masters/edits than Harmonix's
-originals, so **absolute beat/boundary timing drifts** track-by-track — and no single shift
-reconciles beats *and* segments (`--align` is a diagnostic only). Treat beat-F / boundary-HR
-on this audio as a **lower bound**; the **segment-labeling** metrics (pairwise-F, V-measure)
-are the robust cross-domain signal. Paper-comparable timing needs Harmonix's own audio.
-
 **Metrics** (`mir_eval`): beats/downbeats F (70 ms); segment boundaries Hit-Rate F @0.5 s /
-@3 s; segment labeling pairwise-F + V-measure. `--target {jams,ref,none}` sets the
-beat-tracking BPM constraint (jams' tempo / Harmonix BPM / none) for the `target_bpm` ablation.
+@3 s; segment labeling pairwise-F + V-measure. Segments-only datasets (EDM-98) skip the beat
+metrics automatically. `--target {jams,ref,none}` sets the beat-tracking BPM constraint
+(jams' tempo / dataset BPM / none) — the `target_bpm` ablation.
 
-Validation (7-track YouTube sample, per-fold CV, raw timings): pairwise-F **0.57**,
-V-measure **0.57** (up to **0.90 / 0.87** on cleanly-matched tracks); beat/boundary timing
-depressed by the audio caveat above. Harmonix is Western **pop** — an in-domain EDM structure
-set is future work.
+**Model selection.** Harmonix trained All-In-One, so it uses **per-fold CV** — the positional
+split `fold(track_i)=i%8` means each track is scored only by the held-out `harmonix-fold{i%8}`.
+Raveform/EDM-98 are **out-of-domain test sets** for that model, so they use `harmonix-all`
+directly (no leakage; the numbers read as "how well the model generalizes to EDM").
+
+**Harmonix audio alignment.** Harmonix annotations are public but its audio isn't, so we
+source YouTube uploads — which are different masters/edits and drift in time. `align_harmonix.py`
+fits a per-track affine map `t_audio = a·t_anno + b` + a chance-corrected confidence, classes
+each track case1 (offset) / case2 (speed-changed) / case3 (different edit), and writes
+`alignment.jsonl`; `evaluate_structure.py` applies the warp and drops case3. **Raveform needs
+none of this** — its annotations were made on the same YouTube audio we download.
+
+Preliminary Raveform (4-track, `harmonix-all`, target=ref, native alignment): beat-F **0.63**,
+boundary-HR@0.5 **0.53**, pairwise-F **0.70**, V-measure **0.77** — trustworthy timings, and a
+baseline for pushing in-domain EDM structure accuracy.
 
 ## Files
 
 | File | Purpose |
 |------|---------|
 | `acquire_dataset.py` | Download GiantSteps Key → `data/manifest.jsonl` |
+| `acquire_raveform.py` | Download Raveform (primary EDM structure set) → `data/raveform/manifest.jsonl` |
 | `acquire_harmonix.py` | Download Harmonix annotations + YouTube audio → `data/harmonix/manifest.jsonl` |
-| `evaluate_structure.py` | Per-fold-CV structure scoring (`mir_eval`) + `target_bpm` ablation |
+| `align_harmonix.py` | Fit per-track YouTube↔annotation affine warp + confidence → `alignment.jsonl` |
+| `evaluate_structure.py` | Multi-dataset structure scoring (`mir_eval`) + `target_bpm` ablation |
 | `evaluate.py` | Score production `jams.detect_key` / `detect_tempo` |
 | `benchmark_methods.py`, `benchmark_final.py` | Method comparisons |
 | `analyze_errors.py` | Domain error taxonomy (mode, octave, per-genre) |
