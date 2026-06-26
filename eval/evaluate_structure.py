@@ -29,6 +29,7 @@ whose audio matches the annotations natively (Raveform) need no alignment file.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import csv as csvmod
 import json
 import statistics as st
@@ -196,28 +197,43 @@ def main() -> None:
 
     align = load_alignment(args.manifest)
     dataset = rows[0].get("dataset", "?")
+
+    # Checkpoint: append each scored track to a partial JSONL so a crash/sleep resumes
+    # instead of restarting from track 1 (the full run is multi-hour). Needs --out.
+    ckpt = args.out.with_suffix(".partial.jsonl") if args.out else None
+    per_track: list[dict] = []
+    done: set[str] = set()
+    if ckpt and ckpt.exists():
+        per_track = [json.loads(x) for x in ckpt.read_text().splitlines() if x.strip()]
+        done = {t["track_id"] for t in per_track}
+        print(f"=> Resuming from {ckpt}: {len(done)} tracks already scored", file=sys.stderr)
+
     print(f"=> Scoring {len(rows)} {dataset} tracks "
           f"(target_bpm={args.target}, alignment={'on' if align else 'native'})", file=sys.stderr)
 
-    per_track, dropped = [], 0
-    for i, r in enumerate(rows, 1):
-        tid = r.get("track_id") or r.get("file")
-        al = align.get(tid)
-        if al and al.get("klass") == "case3" and not args.keep_case3:
-            dropped += 1
-            print(f"   [skip] {tid}: alignment case3 (conf {al.get('confidence')})",
-                  file=sys.stderr)
-            continue
-        ref_beats, ref_down, ref_int, ref_lab = load_refs(r)
-        target = resolve_target(args.target, r["audio_path"], r.get("bpm_ref"))
-        structure = analyze_structure(r["audio_path"], target_bpm=target, model=r["model"])
-        if al:
-            structure = warp_structure(structure, al["a"], al["b"])
-        s = score_track(ref_beats, ref_down, ref_int, ref_lab, structure)
-        s.update(track_id=tid, model=r["model"])
-        per_track.append(s)
-        shown = " ".join(f"{m}={s[m]:.3f}" for m in METRICS if s[m] is not None)
-        print(f"   [{i}/{len(rows)}] {tid} ({r['model']}): {shown}", file=sys.stderr)
+    dropped = 0
+    with (open(ckpt, "a") if ckpt else contextlib.nullcontext()) as ckpt_fh:
+        for i, r in enumerate(rows, 1):
+            tid = r.get("track_id") or r.get("file")
+            if tid in done:
+                continue  # already scored in a previous run
+            al = align.get(tid)
+            if al and al.get("klass") == "case3" and not args.keep_case3:
+                dropped += 1
+                continue
+            ref_beats, ref_down, ref_int, ref_lab = load_refs(r)
+            target = resolve_target(args.target, r["audio_path"], r.get("bpm_ref"))
+            structure = analyze_structure(r["audio_path"], target_bpm=target, model=r["model"])
+            if al:
+                structure = warp_structure(structure, al["a"], al["b"])
+            s = score_track(ref_beats, ref_down, ref_int, ref_lab, structure)
+            s.update(track_id=tid, model=r["model"])
+            per_track.append(s)
+            if ckpt_fh is not None:
+                ckpt_fh.write(json.dumps(s) + "\n")
+                ckpt_fh.flush()
+            shown = " ".join(f"{m}={s[m]:.3f}" for m in METRICS if s[m] is not None)
+            print(f"   [{i}/{len(rows)}] {tid} ({r['model']}): {shown}", file=sys.stderr)
 
     agg = {m: _mean(t[m] for t in per_track) for m in METRICS}
     print(f"\n=== {dataset} structure ===")
