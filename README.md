@@ -107,6 +107,18 @@ the original `jhurliman/allinone-targetbpm` endpoint instead. Accuracy is benchm
 | `GET`  | `/health` | Liveness + version |
 | `GET`  | `/docs` | OpenAPI / Swagger UI |
 
+Add **`?format=jams`** to either analyze endpoint to get the result as a
+[JAMS](https://jams.readthedocs.io) document (the standard MIR annotation format the
+Harmonix Set ships in) instead of the native schema: key → `key_mode`, tempo → `tempo`,
+structure → `beat` + `segment_open`, each with per-observation `time`/`duration`/`confidence`
+and `annotation_metadata` provenance (the producing `method` lands in `annotation_tools`).
+
+```sh
+curl -s 'http://localhost:8000/v1/analyze/path?format=jams' \
+  -H 'content-type: application/json' \
+  -d '{"path": "/Users/me/Music/track.wav", "structure": true, "genre": "Drum & Bass"}' | jq
+```
+
 ## Configuration
 
 Env vars (prefix `JAMS_`, or a local `.env`): `JAMS_HOST`, `JAMS_PORT`, `JAMS_LOG_LEVEL`,
