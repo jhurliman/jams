@@ -222,7 +222,7 @@ def main() -> None:
     print(f"=> Scoring {len(rows)} {dataset} tracks "
           f"(target_bpm={args.target}, alignment={'on' if align else 'native'})", file=sys.stderr)
 
-    dropped = 0
+    dropped, failed = 0, 0
     with (open(ckpt, "a") if ckpt else contextlib.nullcontext()) as ckpt_fh:
         for i, r in enumerate(rows, 1):
             tid = r.get("track_id") or r.get("file")
@@ -232,12 +232,17 @@ def main() -> None:
             if al and al.get("klass") == "case3" and not args.keep_case3:
                 dropped += 1
                 continue
-            ref_beats, ref_down, ref_int, ref_lab = load_refs(r)
-            target = resolve_target(args.target, r["audio_path"], r.get("bpm_ref"))
-            structure = analyze_structure(r["audio_path"], target_bpm=target, model=r["model"])
-            if al:
-                structure = warp_structure(structure, al["a"], al["b"])
-            s = score_track(ref_beats, ref_down, ref_int, ref_lab, structure)
+            try:
+                ref_beats, ref_down, ref_int, ref_lab = load_refs(r)
+                target = resolve_target(args.target, r["audio_path"], r.get("bpm_ref"))
+                structure = analyze_structure(r["audio_path"], target_bpm=target, model=r["model"])
+                if al:
+                    structure = warp_structure(structure, al["a"], al["b"])
+                s = score_track(ref_beats, ref_down, ref_int, ref_lab, structure)
+            except Exception as exc:  # noqa: BLE001 - transient worker/IO error; skip & resume later
+                failed += 1
+                print(f"   [{i}/{len(rows)}] {tid}: FAILED ({exc}); skipping", file=sys.stderr)
+                continue
             s.update(track_id=tid, model=r["model"])
             per_track.append(s)
             if ckpt_fh is not None:
@@ -248,13 +253,14 @@ def main() -> None:
 
     agg = {m: _mean(t[m] for t in per_track) for m in METRICS}
     print(f"\n=== {dataset} structure ===")
-    print(f"tracks: {len(per_track)} scored, {dropped} dropped (case3)   target_bpm: {args.target}")
+    print(f"tracks: {len(per_track)} scored, {dropped} dropped (case3), {failed} failed   "
+          f"target_bpm: {args.target}")
     for m in METRICS:
         print(f"  {m:<12} {agg[m] if agg[m] is not None else 'n/a'}")
 
     if args.out:
         args.out.write_text(json.dumps(
-            {"dataset": dataset, "n": len(per_track), "dropped_case3": dropped,
+            {"dataset": dataset, "n": len(per_track), "dropped_case3": dropped, "failed": failed,
              "target": args.target, "aggregate": agg, "per_track": per_track}, indent=2))
         print(f"=> Wrote {args.out}", file=sys.stderr)
 
