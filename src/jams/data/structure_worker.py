@@ -118,10 +118,11 @@ _RAVEFORM_LABELS = [
 # Boundary peak-strength threshold for functional segmentation. Upstream (both the mps port
 # AND mir-aidj's original) hard-codes ``> 0.0``, which keeps every peak above the local mean
 # and 2-3x over-segments (~22 segments vs ~11 true on Raveform) — boundary HR@0.5 collapses
-# to ~0.56. Raising it to the model's *configured* ``threshold_section`` (0.1) cuts the noise
-# phrase-boundaries: ~13 segments, HR@0.5 ~0.71-0.79 (near the paper's 0.835), and cleaner,
-# more useful functional sections for DJ/structure work. ``None`` => use cfg.threshold_section.
-_BOUNDARY_THRESHOLD: float | None = None
+# to ~0.56. 0.2 is the sweet spot from a 90-track genre-balanced sweep: HR@0.5 (trim) peaks at
+# 0.741 (vs 0.720 at the model's configured 0.1) and the segment count (~11.7) best matches the
+# ground truth (~10.8); per-genre tuning adds only ~0.006 so a single global value is used.
+# ``None`` => fall back to the model's configured ``threshold_section`` (0.1 for EDM).
+_BOUNDARY_THRESHOLD: float | None = 0.2
 
 
 def _postprocess_functional(logits, cfg):
