@@ -67,9 +67,9 @@ default** — see *Harmonix status* below for why.
 
 | Dataset | Domain | Tracks | Annotations | Model | Audio | Default |
 |---------|--------|--------|-------------|-------|-------|---------|
-| **Raveform** | EDM / DJ | 1,423 | beats, downbeats, functional segments | `harmonix-all` (out-of-domain) | YouTube id — **annotations made on the same video → native alignment** | ✅ |
+| **Raveform** | EDM / DJ | 1,423 | beats, downbeats, functional segments | honest 8-fold CV `all-fold{fold}` (EDM-trained; `manifest_foldcv.jsonl`) | YouTube id — **annotations made on the same video → native alignment** | ✅ |
 | Harmonix | Western pop | 912 | beats, downbeats, segments | per-fold CV `harmonix-fold{i%8}` | YouTube — **different master → misaligned** | ❌ |
-| EDM-98 | EDM | 98 | segments only | `harmonix-all` | *not publicly released* | — |
+| EDM-98 | EDM | 98 | segments only | `all-all` | *not publicly released* | — |
 
 ```sh
 uv run --extra eval eval/acquire_raveform.py    # MIT annotations + YouTube audio → manifest
@@ -78,10 +78,32 @@ uv run --extra eval eval/evaluate_structure.py  # scores Raveform by default
 
 **Metrics** (`mir_eval`): beats/downbeats F (70 ms); segment boundaries Hit-Rate F @0.5 s /
 @3 s; segment labeling pairwise-F + V-measure. Segments-only datasets (EDM-98) skip the beat
-metrics automatically. `--target {jams,ref,none}` sets the beat-tracking BPM constraint
-(jams' tempo / dataset BPM / none) — the `target_bpm` ablation. `harmonix-all` is used for
-out-of-domain sets (no fold/CV leakage; the numbers read as "how well the model generalizes
-to EDM").
+metrics automatically. `--target {jams,genre,ref,none}` sets the beat-tracking BPM prior:
+`none` (model-native, the paper's protocol), `jams` (jams' TempoCNN), `genre` (TempoCNN folded
+into the track's genre octave — D&B etc.), or `ref` (dataset BPM, the octave-correct ceiling).
+
+### SOTA reproduced — Raveform held-out 8-fold CV
+
+The EDM-trained ensemble loads locally via a state-dict remap (no training; see
+`structure_worker.py`). Scored with each track's **held-out** `all-fold{fold}`:
+
+| Metric | jams (104-track CV) | paper "v2" (EDM-trained) |
+|--------|--------------------:|-------------------------:|
+| Beats F | **0.978** | 0.991 |
+| Downbeats F | **0.964** | 0.965 |
+| Boundary HR@0.5 s | **0.755** | 0.835 |
+| Pairwise F | **0.825** | 0.847 |
+| V-measure | **0.877** | (Sf 0.890) |
+
+Two fixes were needed to get here (each a large jump): the boundary peak threshold was hard-coded
+to `> 0.0` (2–3× over-segmentation → HR 0.53; now a tunable default 0.2), and segments were scored
+against the coarse beat-CSV `section` column instead of canonical `segments.json` (which preserves
+same-label phrase boundaries — embed as `row["sections"]`).
+
+**Held-out CV understates production.** Each CV track is scored by a single held-out fold; the
+shipped model is the 8-fold `all-all` ensemble, which is more robust (e.g. D&B track 0098: 0.228
+under its held-out fold → **0.964** under `all-all`). Raveform can't honestly eval `all-all`
+(contamination), so production D&B is better than the CV row suggests — measure it on an external set.
 
 ### Harmonix status — disabled by default
 
@@ -93,21 +115,27 @@ it. But an affine map **cannot fix a discrete downbeat-phase shift** introduced 
 edit has a different intro length — so the precision-sensitive metrics stay corrupted. Full
 runs make this unambiguous:
 
-| Metric | **Raveform** (native) | Harmonix (YouTube-aligned) |
-|--------|----------------------:|---------------------------:|
-| Downbeats F | **~0.50** | 0.20 |
-| Boundary HR@0.5s | **~0.46** | 0.18 |
-| Beats F | 0.58 | 0.68 |
-
 On Harmonix, **468/728 tracks score exactly 0 on downbeats** (302 of them with beats-F > 0.7) —
 a bimodal phase artifact, not model behaviour. Conclusion: Harmonix-on-YouTube is **not a
 usable target** for the metrics we care about. The scripts (`acquire_harmonix.py`,
 `align_harmonix.py`) are kept for reference / cross-domain curiosity; pass
 `--manifest eval/data/harmonix/manifest.jsonl` to run it, but don't optimize against it.
 
-Raveform (native alignment) is the trustworthy benchmark and points at **EDM beat tracking**
-(beats-F 0.58, *below* pop) as the lever for improvement — consistent with the Raveform paper's
-finding that pop-trained models degrade on EDM.
+### Where the remaining error is (error analysis)
+
+Raveform (native alignment) is the trustworthy benchmark. With the EDM model the headroom is no
+longer beat tracking (0.978, near-ceiling) but:
+- **Boundary HR** (0.755, weakest metric, 29/104 tracks < 0.7) — threshold 0.2 is the optimum;
+  per-genre tuning adds only ~0.006. D&B boundaries stay ~0.60 (genuinely ambiguous sections).
+- **Label confusion** (pairwise 0.825): the model over-predicts *drop* — buildup (acc 0.49) and
+  cooldown (0.48) are lost to it. A positional relabel heuristic was tried and **hurt** (−0.024
+  pairwise); the fix needs training (class weighting), not postprocessing.
+- **Downbeat phase**: not a separate bug — bar offsets are already correct (0 tracks improvable),
+  downbeat just tracks beat.
+- **D&B beat**: mostly a held-out single-fold artifact (the `all-all` ensemble recovers it).
+
+See `TRAINING.md` for the D&B-oversampling + tempo-augmentation training plan that targets the
+genuine remainders.
 
 ## Files
 
@@ -117,7 +145,9 @@ finding that pop-trained models degrade on EDM.
 | `acquire_raveform.py` | Download Raveform (primary EDM structure set) → `data/raveform/manifest.jsonl` |
 | `acquire_harmonix.py` | Download Harmonix annotations + YouTube audio → `data/harmonix/manifest.jsonl` |
 | `align_harmonix.py` | Fit per-track YouTube↔annotation affine warp + confidence → `alignment.jsonl` |
-| `evaluate_structure.py` | Multi-dataset structure scoring (`mir_eval`) + `target_bpm` ablation |
+| `evaluate_structure.py` | Multi-dataset structure scoring (`mir_eval`); `--target {none,jams,genre,ref}` |
+| `prepare_raveform_training.py` | Raveform → Harmonix-shaped training set (for `TRAINING.md`) |
+| `TRAINING.md` | Ready-to-run D&B fine-tune recipe (v1 trainer, oversampling + tempo aug) |
 | `evaluate.py` | Score production `jams.detect_key` / `detect_tempo` |
 | `benchmark_methods.py`, `benchmark_final.py` | Method comparisons |
 | `analyze_errors.py` | Domain error taxonomy (mode, octave, per-genre) |
