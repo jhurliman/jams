@@ -8,7 +8,7 @@ SOTA-on-GiantSteps methods benchmarked in the companion eval harness.
 |----------|--------|-----------------------|
 | Key | Essentia `edma` tonic + a learned major/minor refinement | MIREX **0.801** / exact 0.743 |
 | Tempo | Pretrained **TempoCNN** + genre-aware octave resolution | Acc1 **0.965** (corrected labels) |
-| Structure | **All-In-One on-device** (Apple-Silicon/MPS) + tempo-locked `target_bpm` | Raveform EDM benchmark (see `eval/`) |
+| Structure | **All-In-One EDM ensemble on-device** (Apple-Silicon/MPS) | Raveform held-out CV reproduces SOTA (see `eval/`) |
 
 Both key and tempo fall back to librosa automatically if Essentia isn't installed. Key
 mode (major/minor) is refined by a small chroma classifier — see *Key mode* below.
@@ -79,24 +79,28 @@ at `src/jams/data/mode_model.json`; retrain with `eval/train_mode_model.py`. Pas
 
 ## Song structure (on-device)
 
-Structure (beats / downbeats / **functional segments** — intro/verse/chorus/…) comes from
-**All-In-One** (Kim & Nam, WASPAA 2023). By default it runs **locally on Apple Silicon**
-via PyTorch-MPS — no Replicate, no network, no per-call cost. Because All-In-One needs
-torch/natten/demucs (which have no Python 3.14 wheels and so can't share jams' env), the
-worker `src/jams/data/structure_worker.py` is a **self-contained `uv` script** that
-bootstraps its own environment; jams launches it once via `uv run --script` and keeps it
-resident (model loaded once; first call pays a ~20–30 s build + load, then ~10 s/track).
-**Requirement:** `uv` on PATH and an Apple-Silicon Mac. Structure is opt-in per request
-(`structure=true`).
+Structure (beats / downbeats / **functional segments** — intro/buildup/drop/breakdown/…) comes
+from **All-In-One** (Kim & Nam, WASPAA 2023). By default it runs the **EDM-trained `all-all`
+8-fold ensemble locally on Apple Silicon** via PyTorch-MPS — no Replicate, no network, no
+per-call cost. The EDM weights live on the same HuggingFace repo as the stock model and load via
+a state-dict remap (no retraining). Because All-In-One needs torch/natten/demucs (which have no
+Python 3.14 wheels and so can't share jams' env), the worker `src/jams/data/structure_worker.py`
+is a **self-contained `uv` script** that bootstraps its own environment; jams launches it once
+and keeps the models resident. **Requirement:** `uv` on PATH and an Apple-Silicon Mac. Structure
+is opt-in per request (`structure=true`).
 
-`target_bpm` is the DJ-critical bit again: All-In-One's beat tracker lands an octave low on
-half-time genres (D&B/dubstep), so jams feeds its own (octave-resolved) tempo in as a
-`±1 BPM` constraint — e.g. a 174-BPM roller that the tracker calls 87 is locked back to 174.
-This happens automatically when you request `tempo` + `structure` together.
+On Raveform's held-out 8-fold CV this reproduces the paper's SOTA (beat 0.978 / downbeat 0.964 /
+boundary HR 0.755 / pairwise 0.825), and the production ensemble is more robust still — see
+`eval/README.md`.
+
+`target_bpm` (jams' octave-resolved tempo, fed automatically when you request `tempo` + `structure`)
+is a *secondary* octave-correction safety net: it post-hoc rescales the beat grid only on a clean
+half/double-time read. The EDM model already tracks D&B/dubstep at the right octave, so it's
+usually a no-op — but harmless. (The earlier `±1 BPM` DBN-constraint approach was removed; it
+crippled beat-F.)
 
 Prefer the hosted model? Set `JAMS_STRUCTURE_BACKEND=replicate` (+ a Replicate token) to use
-the original `jhurliman/allinone-targetbpm` endpoint instead. Accuracy is benchmarked on the
-**Harmonix Set** with honest per-fold cross-validation — see `eval/README.md`.
+the original `jhurliman/allinone-targetbpm` endpoint instead.
 
 ## Endpoints
 
@@ -123,7 +127,7 @@ curl -s 'http://localhost:8000/v1/analyze/path?format=jams' \
 
 Env vars (prefix `JAMS_`, or a local `.env`): `JAMS_HOST`, `JAMS_PORT`, `JAMS_LOG_LEVEL`,
 `JAMS_MAX_UPLOAD_MB`. Structure backend: `JAMS_STRUCTURE_BACKEND` (`local` default | `replicate`),
-`JAMS_STRUCTURE_MODEL` (`harmonix-all` default), `JAMS_STRUCTURE_UV` (path to `uv` if not on
+`JAMS_STRUCTURE_MODEL` (`all-all` EDM ensemble default; `harmonix-all` for pop), `JAMS_STRUCTURE_UV` (path to `uv` if not on
 PATH); the `replicate` backend needs `JAMS_REPLICATE_API_TOKEN` (or `REPLICATE_API_TOKEN`) and
 `pip install 'jams[structure]'`.
 
