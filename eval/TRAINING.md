@@ -13,16 +13,23 @@ checkpoint our port already loads (`structure_worker._remap_v2_to_v1` treats `ra
 no-op). So a v1-trained Raveform checkpoint is a drop-in. **Don't** try to fine-tune `all-fold*` —
 that needs the unpublished v2 trainer.
 
-## Calibrate expectations first (important)
-The held-out 8-fold CV understates production. The catastrophic D&B case (track 0098, beat-F
-**0.228** under its held-out single fold) is **0.964** under the production `all-all` ensemble — the
-0.228 was a single-fold weak-intro artifact, not a model failure. Across the D&B set the ensemble
-already tracks the correct global tempo on 63/64 tracks. So:
-- **Beat/downbeat headroom on D&B is small** (the ensemble largely solves it).
-- The real wins to chase: **boundary HR** (weakest metric, 0.755; D&B 0.60 — genuinely hard) and
-  the **buildup/cooldown→drop label confusion** (buildup acc 0.49, cooldown 0.48 — both lost to
-  "drop"). Tempo augmentation + class weighting target these.
+## Calibrate expectations first (important — measured 2026-06-27)
+The held-out 8-fold CV understates production. Scored with the production `all-all` ensemble on a
+90-track genre-balanced sample (vs each track's held-out single fold):
+
+| metric (D&B, n=20) | held-out CV | **all-all ensemble** |
+|---|---|---|
+| beat-F | 0.941 | **0.980** |
+| downbeat-F | 0.906 | **0.974** |
+
+The catastrophic 0098 (held-out 0.228 → **0.964** ensemble) drove most of the gap. **D&B beat/
+downbeat are near-solved in production** (~0.98), ~0.004 off the overall — so:
+- **Do NOT spend tomorrow on D&B beat/tempo.** Tempo augmentation chases a nearly-closed gap.
+- The genuine remaining headroom is the **section head (boundary HR: 0.755 overall, D&B ~0.60)**
+  and the **function head (buildup acc 0.49, cooldown 0.48 — both lost to "drop")**. These need
+  D&B oversampling + **function-class balancing** + boundary supervision, NOT tempo aug.
 - Measure on an **external** D&B set too (Raveform can't honestly eval the ensemble — contamination).
+- If beats matter for an external library, the ensemble already ships ~0.98; verify there first.
 
 ## Steps
 
@@ -53,13 +60,20 @@ Produces `metadata.csv` (File, BPM, **true fold**, genre), `beats/*.txt` (`time<
 3. **D&B oversampling** — swap the train DataLoader's `shuffle=True` for a `WeightedRandomSampler`
    with per-track weight ∝ inverse genre frequency, **capped ≤4×** for D&B (Techno dominates). Mild,
    to protect generalization.
-4. **Tempo augmentation** — in the 5-min-chunk loader, time-stretch ±8–12% on the fly (resample the
-   mel-frame axis, rescale beat/downbeat/section *times* by the same factor). This directly attacks
-   local half-time drift. Optionally inject occasional half/double-time hard negatives on D&B chunks.
-   (Pitch-shift is low value here; tempo is the lever.)
+4. **Target the section + function heads, not beats** (production beats are already ~0.98 — see
+   expectations). Two levers:
+   - **Function-class balancing.** buildup/cooldown are systematically lost to "drop". Up-weight the
+     function-head cross-entropy for the minority classes (buildup, cooldown, altintro, altoutro,
+     bridge) — inverse-frequency class weights, or bump `loss_weight_function` (default 0.1 is very
+     low) so the head is actually optimized. This directly attacks pairwise/V-measure.
+   - **Boundary supervision.** `loss_weight_section` is already 15; the gap is harder D&B sections.
+     D&B oversampling (step 3) plus mild tempo augmentation (±8–12% time-stretch in the loader,
+     rescaling annotation times) mainly helps the section head generalize — keep tempo-aug *mild*
+     and secondary, since its beat benefit is now marginal.
 
 Keep v1 defaults otherwise: `lr=0.005` radam, SWA, `batch_size=1`, `segment_size=300`,
-early-stopping patience 10; loss weights beat 1 / downbeat 3 / section 15 / function 0.1.
+early-stopping patience 10; loss weights beat 1 / downbeat 3 / section 15 / function 0.1 (consider
+raising the function weight given the label-confusion target).
 
 ### 3. Preprocess once (GPU, ~1–3 h, demucs-bound)
 ```bash
@@ -82,9 +96,11 @@ with `harmonix-fold{i%8}`; replicate using the true fold). Then:
 uv run --extra eval eval/evaluate_structure.py \
   --manifest eval/data/raveform/manifest_foldcv.jsonl --target jams --out runs/raveform_trained.jsonl
 ```
-**Gate (no-regression):** D&B beat-F > 0.962 (held-out) AND overall beat ≥ 0.978, downbeat ≥ 0.964,
-boundary HR@0.5 ≥ 0.755. Slice metrics by `genre == "Drum & Bass"`. Use `--target jams` so the gain
-is the *model*, not the post-hoc octave-correct.
+**Gate (the target is segments, not beats):** improve held-out boundary HR@0.5 (> 0.755 overall,
+> 0.60 D&B) and pairwise-F (> 0.825; especially recover buildup/cooldown accuracy from ~0.49) with
+NO regression on beat (≥ 0.974 held-out) / downbeat (≥ 0.96). Slice by `genre == "Drum & Bass"`.
+Use `--target none` (model-native). Note: held-out CV understates production, so also compare the
+new ensemble to the current `all-all` numbers above before declaring a win.
 
 ### 6. Deploy a winner
 Drop the 8 `raveform-fold{0..7}.pth` into `structure_worker.py` `_EXTRA_FILES` + an
