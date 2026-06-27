@@ -81,9 +81,17 @@ def _harmonix_refs(row: dict):
 
 
 def _raveform_refs(row: dict):
-    """Beats/downbeats/segments from a Raveform combined beat CSV (time,downbeat,section)."""
-    beats, downbeats, seg_times, seg_labels = [], [], [], []
+    """Beats/downbeats from the Raveform beat CSV (time,downbeat,section).
+
+    Segments come from the canonical ``segments.json`` sections embedded in the manifest
+    (``row["sections"]``) when present — those preserve boundaries *between consecutive
+    same-label sections* (e.g. drop/drop phrase splits), which the beat-CSV ``section``
+    name column collapses. Falling back to the CSV column under-counts boundaries and
+    depresses boundary HR. Beats/downbeats always come from the CSV.
+    """
+    beats, downbeats = [], []
     prev = None
+    seg_times, seg_labels = [], []
     for r in csvmod.DictReader(Path(row["beats_csv"]).read_text().splitlines()):
         t = float(r["time"])
         beats.append(t)
@@ -94,7 +102,13 @@ def _raveform_refs(row: dict):
             seg_labels.append(r["section"])
             prev = r["section"]
     end = beats[-1] if beats else 0.0
-    seg_int, seg_lab = _boundaries_to_intervals(seg_times + [end], seg_labels + ["end"])
+
+    sections = row.get("sections")
+    if sections:
+        seg_int = np.array([[s["start"], s["end"]] for s in sections])
+        seg_lab = [s["name"] for s in sections]
+    else:  # fallback: coarse CSV-derived boundaries (same-label sections merged)
+        seg_int, seg_lab = _boundaries_to_intervals(seg_times + [end], seg_labels + ["end"])
     return np.array(beats), np.array(downbeats), seg_int, seg_lab
 
 
