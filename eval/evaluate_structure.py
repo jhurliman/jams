@@ -192,13 +192,20 @@ def score_track(ref_beats, ref_down, ref_seg_int, ref_seg_lab, structure) -> dic
     return out
 
 
-def resolve_target(mode: str, audio: str, bpm_ref: float | None) -> float | None:
+def resolve_target(
+    mode: str, audio: str, bpm_ref: float | None, genre: str | None = None
+) -> float | None:
     if mode == "none":
         return None
     if mode == "ref":
         return bpm_ref
     from jams.analysis.tempo import detect_tempo
 
+    # "genre": jams' tempo folded into the track's genre octave (D&B/jungle full-tempo etc.),
+    # which fixes the half-time octave errors that drag beat-F on the D&B tail. "jams": plain
+    # detection (no octave prior).
+    if mode == "genre":
+        return detect_tempo(audio, genre=genre)["bpm"]
     return detect_tempo(audio)["bpm"]
 
 
@@ -210,7 +217,7 @@ def _mean(vals) -> float | None:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--manifest", type=Path, default=MANIFEST)
-    ap.add_argument("--target", choices=["jams", "ref", "none"], default="jams")
+    ap.add_argument("--target", choices=["jams", "genre", "ref", "none"], default="jams")
     ap.add_argument("--keep-case3", action="store_true",
                     help="keep aligner-flagged case3 tracks (different edit); default drops them")
     ap.add_argument("--limit", type=int, default=None)
@@ -254,7 +261,8 @@ def main() -> None:
                 continue
             try:
                 ref_beats, ref_down, ref_int, ref_lab = load_refs(r)
-                target = resolve_target(args.target, r["audio_path"], r.get("bpm_ref"))
+                target = resolve_target(
+                    args.target, r["audio_path"], r.get("bpm_ref"), r.get("genre"))
                 structure = analyze_structure(r["audio_path"], target_bpm=target, model=r["model"])
                 if al:
                     structure = warp_structure(structure, al["a"], al["b"])
