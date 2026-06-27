@@ -62,39 +62,52 @@ against any dataset via a common manifest built by a per-dataset `acquire_*` scr
 manifest row carries the `model` to score with and a `format` for loading its annotations;
 the evaluator computes the same `mir_eval` metrics across all of them.
 
-| Dataset | Domain | Tracks | Annotations | Model | Audio |
-|---------|--------|--------|-------------|-------|-------|
-| **Raveform** *(primary)* | EDM / DJ | 1,423 | beats, downbeats, functional segments | `harmonix-all` (out-of-domain) | YouTube id — **annotations made on the same video → native alignment** |
-| Harmonix | Western pop | 912 | beats, downbeats, segments | per-fold CV `harmonix-fold{i%8}` (held out) | YouTube — **different master → needs alignment** |
-| EDM-98 | EDM | 98 | segments only | `harmonix-all` | *not publicly released yet* |
+**Raveform is the structure benchmark.** Harmonix is supported in code but **disabled by
+default** — see *Harmonix status* below for why.
+
+| Dataset | Domain | Tracks | Annotations | Model | Audio | Default |
+|---------|--------|--------|-------------|-------|-------|---------|
+| **Raveform** | EDM / DJ | 1,423 | beats, downbeats, functional segments | `harmonix-all` (out-of-domain) | YouTube id — **annotations made on the same video → native alignment** | ✅ |
+| Harmonix | Western pop | 912 | beats, downbeats, segments | per-fold CV `harmonix-fold{i%8}` | YouTube — **different master → misaligned** | ❌ |
+| EDM-98 | EDM | 98 | segments only | `harmonix-all` | *not publicly released* | — |
 
 ```sh
-uv run --extra eval eval/acquire_raveform.py     # primary: MIT annotations + YouTube audio
-uv run --extra eval eval/evaluate_structure.py --manifest eval/data/raveform/manifest.jsonl
-uv run --extra eval eval/acquire_harmonix.py     # pop cross-domain (per-fold CV)
-uv run --extra eval eval/evaluate_structure.py   # defaults to the Harmonix manifest
+uv run --extra eval eval/acquire_raveform.py    # MIT annotations + YouTube audio → manifest
+uv run --extra eval eval/evaluate_structure.py  # scores Raveform by default
 ```
 
 **Metrics** (`mir_eval`): beats/downbeats F (70 ms); segment boundaries Hit-Rate F @0.5 s /
 @3 s; segment labeling pairwise-F + V-measure. Segments-only datasets (EDM-98) skip the beat
 metrics automatically. `--target {jams,ref,none}` sets the beat-tracking BPM constraint
-(jams' tempo / dataset BPM / none) — the `target_bpm` ablation.
+(jams' tempo / dataset BPM / none) — the `target_bpm` ablation. `harmonix-all` is used for
+out-of-domain sets (no fold/CV leakage; the numbers read as "how well the model generalizes
+to EDM").
 
-**Model selection.** Harmonix trained All-In-One, so it uses **per-fold CV** — the positional
-split `fold(track_i)=i%8` means each track is scored only by the held-out `harmonix-fold{i%8}`.
-Raveform/EDM-98 are **out-of-domain test sets** for that model, so they use `harmonix-all`
-directly (no leakage; the numbers read as "how well the model generalizes to EDM").
+### Harmonix status — disabled by default
 
-**Harmonix audio alignment.** Harmonix annotations are public but its audio isn't, so we
-source YouTube uploads — which are different masters/edits and drift in time. `align_harmonix.py`
-fits a per-track affine map `t_audio = a·t_anno + b` + a chance-corrected confidence, classes
-each track case1 (offset) / case2 (speed-changed) / case3 (different edit), and writes
-`alignment.jsonl`; `evaluate_structure.py` applies the warp and drops case3. **Raveform needs
-none of this** — its annotations were made on the same YouTube audio we download.
+Harmonix's annotations are public but **its audio is not**, so we source YouTube uploads —
+which are *different masters/edits* than the audio the annotations were made on. We built a
+per-track affine aligner (`align_harmonix.py`: `t_audio = a·t_anno + b` + a chance-corrected
+confidence, classing tracks case1/case2/case3 and dropping case3), and the evaluator applies
+it. But an affine map **cannot fix a discrete downbeat-phase shift** introduced when a YouTube
+edit has a different intro length — so the precision-sensitive metrics stay corrupted. Full
+runs make this unambiguous:
 
-Preliminary Raveform (4-track, `harmonix-all`, target=ref, native alignment): beat-F **0.63**,
-boundary-HR@0.5 **0.53**, pairwise-F **0.70**, V-measure **0.77** — trustworthy timings, and a
-baseline for pushing in-domain EDM structure accuracy.
+| Metric | **Raveform** (native) | Harmonix (YouTube-aligned) |
+|--------|----------------------:|---------------------------:|
+| Downbeats F | **~0.50** | 0.20 |
+| Boundary HR@0.5s | **~0.46** | 0.18 |
+| Beats F | 0.58 | 0.68 |
+
+On Harmonix, **468/728 tracks score exactly 0 on downbeats** (302 of them with beats-F > 0.7) —
+a bimodal phase artifact, not model behaviour. Conclusion: Harmonix-on-YouTube is **not a
+usable target** for the metrics we care about. The scripts (`acquire_harmonix.py`,
+`align_harmonix.py`) are kept for reference / cross-domain curiosity; pass
+`--manifest eval/data/harmonix/manifest.jsonl` to run it, but don't optimize against it.
+
+Raveform (native alignment) is the trustworthy benchmark and points at **EDM beat tracking**
+(beats-F 0.58, *below* pop) as the lever for improvement — consistent with the Raveform paper's
+finding that pop-trained models degrade on EDM.
 
 ## Files
 

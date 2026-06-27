@@ -22,8 +22,14 @@ whose audio matches the annotations natively (Raveform) need no alignment file.
 ``--target`` sets the beat-tracking BPM constraint: jams' own tempo (default) / dataset
 ``ref`` BPM / ``none``.
 
-    uv run --extra eval eval/evaluate_structure.py                                   # Harmonix
-    uv run --extra eval eval/evaluate_structure.py --manifest eval/data/raveform/manifest.jsonl
+The default manifest is **Raveform** — our in-domain EDM benchmark with native audio
+alignment. Harmonix is supported but disabled by default: its audio is YouTube-sourced and
+differs from the masters the annotations were made on, which corrupts the precision-sensitive
+metrics (downbeat-F, boundary HR@0.5s) beyond what the affine aligner can fix. See
+``eval/README.md`` for that status. Point ``--manifest`` at Harmonix to run it anyway.
+
+    uv run --extra eval eval/evaluate_structure.py                                    # Raveform
+    uv run --extra eval eval/evaluate_structure.py --manifest eval/data/harmonix/manifest.jsonl
 """
 
 from __future__ import annotations
@@ -41,7 +47,7 @@ import numpy as np
 
 from jams.analysis.structure import analyze_structure
 
-MANIFEST = Path(__file__).resolve().parent / "data" / "harmonix" / "manifest.jsonl"
+MANIFEST = Path(__file__).resolve().parent / "data" / "raveform" / "manifest.jsonl"
 METRICS = ["beat_f", "downbeat_f", "bound_f_0.5", "bound_f_3.0", "pairwise_f", "v_measure"]
 
 
