@@ -115,6 +115,60 @@ _RAVEFORM_LABELS = [
     "breakdown", "buildup", "cooldown", "bridge", "drop",
 ]
 
+# Boundary peak-strength threshold for functional segmentation. Upstream (both the mps port
+# AND mir-aidj's original) hard-codes ``> 0.0``, which keeps every peak above the local mean
+# and 2-3x over-segments (~22 segments vs ~11 true on Raveform) — boundary HR@0.5 collapses
+# to ~0.56. Raising it to the model's *configured* ``threshold_section`` (0.1) cuts the noise
+# phrase-boundaries: ~13 segments, HR@0.5 ~0.71-0.79 (near the paper's 0.835), and cleaner,
+# more useful functional sections for DJ/structure work. ``None`` => use cfg.threshold_section.
+_BOUNDARY_THRESHOLD: float | None = None
+
+
+def _postprocess_functional(logits, cfg):
+    """Drop-in for allin1's ``postprocess_functional_structure`` with a tunable boundary
+    threshold (upstream hard-codes 0.0). Mirrors the original otherwise."""
+    import numpy as np
+    import torch
+    from allin1.postprocessing import functional as _fnl
+    from allin1.postprocessing.helpers import (
+        event_frames_to_time,
+        local_maxima,
+        peak_picking,
+    )
+    from allin1.typings import Segment
+
+    raw_prob_sections = torch.sigmoid(logits.logits_section[0])
+    raw_prob_functions = torch.softmax(logits.logits_function[0], dim=0)
+    prob_sections, _ = local_maxima(raw_prob_sections, filter_size=4 * cfg.min_hops_per_beat + 1)
+    prob_sections = prob_sections.cpu().numpy()
+    prob_functions = raw_prob_functions.cpu().numpy()
+
+    candidates = peak_picking(prob_sections, window_past=12 * cfg.fps, window_future=12 * cfg.fps)
+    thr = _BOUNDARY_THRESHOLD
+    if thr is None:
+        thr = float(getattr(cfg, "threshold_section", 0.1) or 0.1)
+    boundary = candidates > thr
+
+    duration = len(prob_sections) * cfg.hop_size / cfg.sample_rate
+    times = event_frames_to_time(boundary, cfg)
+    if len(times) == 0:
+        times = np.array([0.0, duration], dtype=float)
+    else:
+        if times[0] != 0:
+            times = np.insert(times, 0, 0)
+        if times[-1] != duration:
+            times = np.append(times, duration)
+    pred_boundaries = np.stack([times[:-1], times[1:]]).T
+
+    indices = np.flatnonzero(boundary)
+    indices = indices[indices > 0]
+    prob_segment_function = np.split(prob_functions, indices, axis=1)
+    pred_labels = [p.mean(axis=1).argmax().item() for p in prob_segment_function]
+
+    labels = _fnl.HARMONIX_LABELS  # swapped to the EDM vocab by _set_label_vocab when needed
+    return [Segment(start=s, end=e, label=labels[lab])
+            for (s, e), lab in zip(pred_boundaries, pred_labels, strict=False)]
+
 
 def _remap_v2_to_v1(state_dict: dict) -> dict:
     """Rewrite an ``all-fold*`` (v2) state dict into the v1 ``AllInOne`` layout.
@@ -196,11 +250,17 @@ def _register_extra_models() -> None:
     # via ``sys.modules`` — ``import allin1.analyze`` would bind the re-exported *function*
     # (``allin1.__init__`` does ``from .analyze import analyze``), not the submodule.
     import allin1.analyze  # noqa: F401 - ensure the submodule is imported
+    import allin1.helpers  # noqa: F401
     import allin1.models  # noqa: F401
 
     loaders.load_pretrained_model = _patched
     sys.modules["allin1.models"].load_pretrained_model = _patched
     sys.modules["allin1.analyze"].load_pretrained_model = _patched
+
+    # Tunable boundary threshold (upstream hard-codes 0.0 -> over-segmentation). ``run_inference``
+    # in allin1.helpers did ``from .postprocessing import postprocess_functional_structure``, so
+    # patch that binding (same re-export caveat as the loader above).
+    sys.modules["allin1.helpers"].postprocess_functional_structure = _postprocess_functional
 
 
 def _set_label_vocab(model: str) -> None:
