@@ -22,10 +22,13 @@ it as a subprocess via ``uv run`` and never imports it. Two modes:
                 The All-In-One model is loaded lazily and kept resident, so the
                 ~15-20s cold start is paid once per worker, not per request.
 
-``target_bpm`` is applied by re-running All-In-One's own DBN beat tracker on the
-frame-level activations with ``min_bpm/max_bpm = target_bpm +/- 1`` — the same
-constraint the Replicate fork used, and the diagnostic note for half-time genres
-(D&B/dubstep) where the tracker otherwise lands an octave low.
+``target_bpm`` is applied as a *post-hoc octave correction* of All-In-One's native
+beat grid (see ``_octave_correct``): the native beats are high quality and usually at
+the right octave, so we keep them untouched and only densify/thin the grid when
+``target_bpm`` shows the native tempo is a clean half/double (the half-time-genre case,
+e.g. D&B/dubstep read an octave low). An earlier approach re-ran the DBN beat tracker
+with a tight ``min_bpm/max_bpm = target_bpm +/- 1`` window — that wrecked beat-F (0.99 ->
+0.70) even at the correct tempo, so it was replaced.
 
 Heavy imports live inside functions so the module is import-safe in jams' env.
 """
@@ -36,9 +39,6 @@ import bisect
 import contextlib
 import json
 import sys
-
-# All-In-One emits at 100 frames/sec (44100 Hz / 441-sample hop).
-_FPS = 100
 
 
 def _beat_index(timestamp: float, beats: list[float]) -> int:
@@ -55,45 +55,46 @@ def _beat_index(timestamp: float, beats: list[float]) -> int:
     return idx + 1
 
 
-def _retrack_with_target_bpm(result, target_bpm: float):
-    """Re-run the DBN on activations constrained to target_bpm +/- 1 BPM.
+def _densify(times: list[float]) -> list[float]:
+    """Insert the midpoint between each consecutive pair (doubles the grid density)."""
+    if len(times) < 2:
+        return times
+    out: list[float] = []
+    for a, b in zip(times, times[1:], strict=False):
+        out.append(a)
+        out.append((a + b) / 2.0)
+    out.append(times[-1])
+    return out
 
-    Returns (beats, downbeats, bpm). Mirrors allin1's metrical postprocessing.
+
+def _octave_correct(beats: list[float], downbeats: list[float], native_bpm: float,
+                    target_bpm: float) -> tuple[list[float], list[float], float]:
+    """Scale the native beat grid to ``target_bpm``'s octave on a clean half/double.
+
+    All-In-One's native beats are high quality and usually at the right octave already; a
+    tight DBN re-track to fix the rare half/double-time error wrecks beat-F. Instead we keep
+    the native grid and only adjust its *density* when the native tempo is ~2× (heard
+    half-time → densify) or ~0.5× (heard double-time → thin) the target. When the octave
+    already matches — the common case — the native beats pass through untouched, so there is
+    no precision penalty.
     """
-    import numpy as np
-    from allin1.postprocessing.dbn_native import DBNDownBeatTrackingProcessor
-    from allin1.postprocessing.tempo import estimate_tempo_from_beats
-
-    act_beat = np.asarray(result.activations["beat"], dtype=np.float64)
-    act_down = np.asarray(result.activations["downbeat"], dtype=np.float64)
-    no_beat = 1.0 - act_beat
-    no_down = 1.0 - act_down
-    no = (no_beat + no_down) / 2.0
-    xbeat = np.maximum(1e-8, act_beat - act_down)
-    combined = np.stack([xbeat, act_down, no], axis=-1)
-    combined /= combined.sum(axis=-1, keepdims=True)
-
-    dbn = DBNDownBeatTrackingProcessor(
-        beats_per_bar=[3, 4], threshold=0.5, fps=_FPS,
-        min_bpm=max(1.0, target_bpm - 1.0), max_bpm=target_bpm + 1.0,
-    )
-    pred = dbn(combined[:, :2])
-    beats = pred[:, 0].astype(float).tolist()
-    positions = pred[:, 1].astype(int)
-    downbeats = pred[positions == 1, 0].astype(float).tolist()
-    est = estimate_tempo_from_beats(beats)  # None if < 2 beats
-    bpm = float(est) if est is not None else None
-    return beats, downbeats, bpm
+    if not native_bpm or native_bpm <= 0:
+        return beats, downbeats, native_bpm
+    ratio = target_bpm / native_bpm
+    if 1.6 <= ratio <= 2.4:        # native heard half-time → double the grid
+        return _densify(beats), _densify(downbeats), native_bpm * 2.0
+    if 0.42 <= ratio <= 0.62:      # native heard double-time → thin the grid
+        return beats[::2], downbeats[::2], native_bpm / 2.0
+    return beats, downbeats, native_bpm  # octave already correct → untouched
 
 
 def analyze(audio: str, target_bpm: float | None, model: str) -> dict:
     import allin1
 
-    need_act = target_bpm is not None
     # All-In-One prints progress to stdout; keep our stdout protocol clean.
     with contextlib.redirect_stdout(sys.stderr):
         result = allin1.analyze(
-            paths=audio, model=model, include_activations=need_act, keep_byproducts=False,
+            paths=audio, model=model, include_activations=False, keep_byproducts=False,
         )
 
     beats = [float(b) for b in result.beats]
@@ -101,9 +102,14 @@ def analyze(audio: str, target_bpm: float | None, model: str) -> dict:
     bpm = float(result.bpm) if result.bpm is not None else None
     method = f"allin1-mps-local:{model}"
 
-    if target_bpm is not None and result.activations is not None:
-        beats, downbeats, bpm = _retrack_with_target_bpm(result, target_bpm)
-        method += f"+targetbpm{target_bpm:g}"
+    # Keep the native beats (high quality); only octave-correct when target_bpm says the
+    # native tempo is a clean half/double. Octave-correct tracks pass through untouched.
+    if target_bpm is not None and bpm:
+        new_beats, new_downbeats, new_bpm = _octave_correct(
+            beats, downbeats, bpm, float(target_bpm))
+        if new_bpm != bpm:
+            beats, downbeats, bpm = new_beats, new_downbeats, new_bpm
+            method += f"+octave{bpm:g}"
 
     segments = [
         {
