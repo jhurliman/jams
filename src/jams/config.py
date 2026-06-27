@@ -28,8 +28,10 @@ class Settings(BaseSettings):
     # Command used to launch the self-contained worker script. Override if `uv`
     # isn't on PATH (e.g. an absolute path to the uv binary).
     structure_uv: str = "uv"
-    # All-In-One model: "harmonix-all" (8-fold ensemble) or "harmonix-foldN".
-    structure_model: str = "harmonix-all"
+    # All-In-One model. "all-all" = 8-fold Pop+EDM ensemble (best general accuracy,
+    # esp. on electronic music); "harmonix-all" = Pop-only 8-fold ensemble; or a
+    # single fold "all-foldN"/"harmonix-foldN" (used for held-out cross-validation).
+    structure_model: str = "all-all"
 
     # Token for structure analysis on Replicate. Falls back to the standard
     # REPLICATE_API_TOKEN env var if the JAMS_-prefixed one is unset.

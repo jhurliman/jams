@@ -16,7 +16,7 @@ it as a subprocess via ``uv run`` and never imports it. Two modes:
 
   serve (JSONL): structure_worker.py --serve
                 reads one JSON request per line on stdin:
-                  {"audio": "...", "target_bpm": 174.0|null, "model": "harmonix-all"}
+                  {"audio": "...", "target_bpm": 174.0|null, "model": "all-all"}
                 writes one JSON response per line on stdout:
                   {"ok": true, "result": {...}} | {"ok": false, "error": "..."}
                 The All-In-One model is loaded lazily and kept resident, so the
@@ -88,8 +88,139 @@ def _octave_correct(beats: list[float], downbeats: list[float], native_bpm: floa
     return beats, downbeats, native_bpm  # octave already correct → untouched
 
 
+# Pop+EDM-trained ("all") and EDM-only ("raveform") checkpoints live in the same
+# HuggingFace repo (``taejunkim/allinone``) the loader already downloads from, but
+# upstream's name map only registers the Harmonix folds. Filenames are the exact HF
+# object names. ``all-all`` is the 8-fold Pop+EDM ensemble = the paper's best Raveform
+# result (beat .991 / downbeat .965 / HR.5F .835).
+_EXTRA_FILES = {
+    "all-fold0": "all-fold0-40pa2vpn.pth",
+    "all-fold1": "all-fold1-ixhnrlbv.pth",
+    "all-fold2": "all-fold2-b9yx1jtt.pth",
+    "all-fold3": "all-fold3-ri1y9ns9.pth",
+    "all-fold4": "all-fold4-u6l5vhox.pth",
+    "all-fold5": "all-fold5-m7dx7spr.pth",
+    "all-fold6": "all-fold6-4j7nqihf.pth",
+    "all-fold7": "all-fold7-f0qjbkoz.pth",
+    "raveform-fold3": "raveform-fold3-mrkbf2f8.pth",
+}
+_EXTRA_ENSEMBLES = {"all-all": [f"all-fold{i}" for i in range(8)]}
+
+# Raveform's 11-class functional vocabulary, in the trained classifier's index order
+# (calibrated empirically against the dataset's labelled segments — see eval/). The
+# upstream port hard-codes the 10-class Harmonix vocab, so we swap this in when running
+# an EDM model. start/end are boundary sentinels, matching the Harmonix convention.
+_RAVEFORM_LABELS = [
+    "start", "end", "altintro", "altoutro", "intro", "outro",
+    "breakdown", "buildup", "cooldown", "bridge", "drop",
+]
+
+
+def _remap_v2_to_v1(state_dict: dict) -> dict:
+    """Rewrite an ``all-fold*`` (v2) state dict into the v1 ``AllInOne`` layout.
+
+    The v2 checkpoints share the v1 trunk verbatim (encoder/embeddings/beat/downbeat/
+    section heads, identical keys + shapes) but add a ``dataset_classifier`` and split
+    ``function_classifier`` into per-dataset heads (``.harmonix`` 10-class, ``.raveform``
+    11-class). For EDM inference we keep the raveform head, rename it to the flat v1 key,
+    and drop the harmonix head + dataset_classifier — yielding exactly the 491 keys the
+    installed port expects. (``raveform-fold3`` is already in v1 form, so this is a no-op.)
+    """
+    out = {}
+    for key, value in state_dict.items():
+        if key.startswith(("dataset_classifier", "function_classifier.harmonix")):
+            continue
+        if key.startswith("function_classifier.raveform."):
+            key = key.replace("function_classifier.raveform.", "function_classifier.")
+        out[key] = value
+    return out
+
+
+def _register_extra_models() -> None:
+    """Register ``all-fold*`` / ``raveform-fold3`` / ``all-all`` and a v2->v1 remap loader."""
+    from allin1.models import loaders
+
+    for name, filename in _EXTRA_FILES.items():
+        loaders.NAME_TO_FILE.setdefault(name, filename)
+    for name, folds in _EXTRA_ENSEMBLES.items():
+        loaders.ENSEMBLE_MODELS.setdefault(name, list(folds))
+
+    if getattr(loaders, "_jams_patched", False):
+        return
+    loaders._jams_patched = True
+
+    import torch
+    from allin1.models.allinone import AllInOne
+    from huggingface_hub import hf_hub_download
+    from omegaconf import OmegaConf
+
+    _orig = loaders.load_pretrained_model
+
+    def _load_edm(model_name, cache_dir, device):
+        if device is None:
+            device = "mps" if torch.backends.mps.is_available() else "cpu"
+        path = hf_hub_download(
+            repo_id="taejunkim/allinone", filename=_EXTRA_FILES[model_name], cache_dir=cache_dir)
+        checkpoint = torch.load(path, map_location=device)
+        config = OmegaConf.create(checkpoint["config"])
+        OmegaConf.set_struct(config, False)
+        config.data.num_labels = len(_RAVEFORM_LABELS)  # v2 configs nest this per-dataset
+        model = AllInOne(config).to(device)
+        model.load_state_dict(_remap_v2_to_v1(checkpoint["state_dict"]))
+        model.eval()
+        return model
+
+    # Upstream reloads weights on every analyze() call; cache loaded models by name so
+    # the resident worker keeps them in memory (big speedup when scoring many tracks or
+    # cycling fold models, and for production library scans). Inference is read-only, so
+    # sharing a model instance across requests is safe.
+    cache: dict = {}
+
+    def _patched(model_name=None, cache_dir=None, device=None):
+        key = (model_name, str(device))
+        if key in cache:
+            return cache[key]
+        if model_name in loaders.ENSEMBLE_MODELS:
+            model = loaders.load_ensemble_model(model_name, cache_dir, device)
+        elif model_name in _EXTRA_FILES:
+            model = _load_edm(model_name, cache_dir, device)
+        else:
+            model = _orig(model_name, cache_dir, device)
+        cache[key] = model
+        return model
+
+    # ``allin1/analyze.py`` did ``from .models import load_pretrained_model`` at import time, so
+    # it holds its own module-level binding — patching only ``loaders`` routes ensembles (resolved
+    # inside loaders) correctly but leaves single ``all-foldN`` loads on the un-remapped path. We
+    # must patch the binding in the analyze module's namespace too. Reach the real module objects
+    # via ``sys.modules`` — ``import allin1.analyze`` would bind the re-exported *function*
+    # (``allin1.__init__`` does ``from .analyze import analyze``), not the submodule.
+    import allin1.analyze  # noqa: F401 - ensure the submodule is imported
+    import allin1.models  # noqa: F401
+
+    loaders.load_pretrained_model = _patched
+    sys.modules["allin1.models"].load_pretrained_model = _patched
+    sys.modules["allin1.analyze"].load_pretrained_model = _patched
+
+
+def _set_label_vocab(model: str) -> None:
+    """Point allin1's segment-label decoder at the right vocabulary for ``model``.
+
+    The port decodes function classes through a module-level ``HARMONIX_LABELS`` list;
+    EDM models (``all-*``/``raveform-*``) use the 11-class Raveform vocab instead.
+    """
+    import allin1.config
+    import allin1.postprocessing.functional as fnl
+
+    is_edm = model.startswith(("all-", "raveform-"))
+    fnl.HARMONIX_LABELS = _RAVEFORM_LABELS if is_edm else allin1.config.HARMONIX_LABELS
+
+
 def analyze(audio: str, target_bpm: float | None, model: str) -> dict:
     import allin1
+
+    _register_extra_models()
+    _set_label_vocab(model)
 
     # All-In-One prints progress to stdout; keep our stdout protocol clean.
     with contextlib.redirect_stdout(sys.stderr):
@@ -136,7 +267,7 @@ def _serve() -> None:
             continue
         try:
             req = json.loads(line)
-            res = analyze(req["audio"], req.get("target_bpm"), req.get("model", "harmonix-all"))
+            res = analyze(req["audio"], req.get("target_bpm"), req.get("model", "all-all"))
             out = {"ok": True, "result": res}
         except Exception as exc:  # noqa: BLE001 - report any failure to the caller
             out = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
@@ -149,7 +280,7 @@ def main() -> None:
     ap.add_argument("--serve", action="store_true", help="persistent JSONL stdin/stdout mode")
     ap.add_argument("--audio", help="audio file (single-shot mode)")
     ap.add_argument("--target-bpm", type=float, default=None)
-    ap.add_argument("--model", default="harmonix-all")
+    ap.add_argument("--model", default="all-all")
     args = ap.parse_args()
 
     if args.serve:
