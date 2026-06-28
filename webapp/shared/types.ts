@@ -56,4 +56,6 @@ export interface TrackListItem {
   genre: string;
   bpm: number;
   edited: boolean;
+  /** Eval accuracy (0–1) of the model prediction vs ground truth; null when no prediction. */
+  score: number | null;
 }

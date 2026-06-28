@@ -56,7 +56,35 @@ export function listTracks(): TrackListItem[] {
       genre: t.genre,
       bpm: Math.round(t.average_bpm),
       edited: existsSync(editedPath(t.key)),
+      score: scoreTrack(t),
     }));
+}
+
+const scoreCache = new Map<string, number | null>();
+
+/** Eval accuracy for a track: the fraction of the timeline where the model's predicted label
+ *  matches the canonical ground-truth label. null when there's no prediction. Lower = larger
+ *  error, so the UI can sort worst-first. */
+function scoreTrack(t: RawTrack): number | null {
+  if (scoreCache.has(t.key)) return scoreCache.get(t.key)!;
+  let score: number | null = null;
+  if (hasPrediction(t.key) && t.duration > 0) {
+    const pred = loadPrediction(t.key);
+    if (pred) {
+      let correct = 0;
+      for (const g of t.sections) {
+        for (const p of pred.segments) {
+          if (p.label === g.name) {
+            const ov = Math.min(g.end, p.end) - Math.max(g.start, p.start);
+            if (ov > 0) correct += ov;
+          }
+        }
+      }
+      score = Math.min(1, correct / t.duration);
+    }
+  }
+  scoreCache.set(t.key, score);
+  return score;
 }
 
 export function trackMeta(id: string) {
