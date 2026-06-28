@@ -38,7 +38,11 @@ import argparse
 import bisect
 import contextlib
 import json
+import os
+import statistics
+import subprocess
 import sys
+import tempfile
 
 
 def _beat_index(timestamp: float, beats: list[float]) -> int:
@@ -277,22 +281,123 @@ def _set_label_vocab(model: str) -> None:
     fnl.HARMONIX_LABELS = _RAVEFORM_LABELS if is_edm else allin1.config.HARMONIX_LABELS
 
 
-def analyze(audio: str, target_bpm: float | None, model: str) -> dict:
+# All-In-One's DiNAT inference breaks past ~2**16 frames (655 s at 100 fps): it emits beats for
+# only the first ~40 s and collapses the rest into one segment. Process longer tracks in
+# overlapping windows (each safely under the cap) and stitch. Threshold is well below the cap.
+_LEN_CAP_SEC = 600.0
+_CHUNK_SEC = 480.0
+_CHUNK_OVERLAP_SEC = 30.0
+
+
+def _audio_duration(audio: str) -> float:
+    out = subprocess.run(  # noqa: S603,S607
+        ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+         "-of", "default=nw=1:nk=1", audio],
+        capture_output=True, text=True, check=True)
+    return float(out.stdout.strip())
+
+
+def _slice_audio(audio: str, start: float, length: float) -> str:
+    """Write a `length`-second slice of `audio` from `start` to a temp WAV; return its path."""
+    fd, tmp = tempfile.mkstemp(suffix=".wav")
+    os.close(fd)
+    subprocess.run(  # noqa: S603,S607
+        ["ffmpeg", "-y", "-v", "error", "-ss", f"{start:.3f}", "-t", f"{length:.3f}",
+         "-i", audio, "-ac", "2", "-ar", "44100", tmp],
+        check=True)
+    return tmp
+
+
+def _run_single(
+    audio: str, model: str,
+) -> tuple[list[float], list[float], list[tuple], float | None]:
+    """Run All-In-One on a single (short-enough) audio path -> beats, downbeats, segments, bpm."""
     import allin1
 
+    with contextlib.redirect_stdout(sys.stderr):  # keep our stdout protocol clean
+        r = allin1.analyze(
+            paths=audio, model=model, include_activations=False, keep_byproducts=False)
+    beats = [float(b) for b in r.beats]
+    downbeats = [float(d) for d in r.downbeats]
+    segments = [(float(s.start), float(s.end), s.label) for s in r.segments]
+    bpm = float(r.bpm) if r.bpm is not None else None
+    return beats, downbeats, segments, bpm
+
+
+def _run_chunked(audio: str, model: str, duration: float):
+    """Analyse a long track in overlapping windows and stitch the results.
+
+    Each window stays under the model's frame cap. Outputs are assigned to whichever window
+    *owns* each timestamp — the seam sits at the middle of each overlap — so beats/downbeats
+    dedupe cleanly and segments are clipped to their window, then same-label runs merge across
+    the seam.
+    """
+    step = _CHUNK_SEC - _CHUNK_OVERLAP_SEC
+    starts: list[float] = []
+    s = 0.0
+    while s < duration:
+        starts.append(s)
+        s += step
+
+    chunks = []  # (start, end, beats, downbeats, segments)
+    for cs in starts:
+        length = min(_CHUNK_SEC, duration - cs)
+        if length < 1.0:
+            continue
+        tmp = _slice_audio(audio, cs, length)
+        try:
+            b, db, segs, _ = _run_single(tmp, model)
+        finally:
+            os.remove(tmp)
+        chunks.append((cs, cs + length, b, db, segs))
+
+    bounds = [0.0]
+    for i in range(len(chunks) - 1):
+        bounds.append((chunks[i + 1][0] + chunks[i][1]) / 2.0)  # middle of the overlap
+    bounds.append(duration)
+
+    beats: list[float] = []
+    downbeats: list[float] = []
+    raw_segs: list[tuple] = []
+    for i, (cs, _ce, b, db, segs) in enumerate(chunks):
+        lo, hi = bounds[i], bounds[i + 1]
+        beats += [cs + t for t in b if lo <= cs + t < hi]
+        downbeats += [cs + t for t in db if lo <= cs + t < hi]
+        for st, en, lab in segs:
+            a, z = max(cs + st, lo), min(cs + en, hi)
+            if z - a > 0.05:
+                raw_segs.append((a, z, lab))
+    beats.sort()
+    downbeats.sort()
+    raw_segs.sort(key=lambda x: x[0])
+
+    merged: list[tuple] = []
+    for st, en, lab in raw_segs:
+        if merged and merged[-1][2] == lab and st - merged[-1][1] < 1.0:
+            merged[-1] = (merged[-1][0], en, lab)
+        else:
+            merged.append((st, en, lab))
+
+    diffs = [b - a for a, b in zip(beats, beats[1:], strict=False) if b > a]
+    bpm = round(60.0 / statistics.median(diffs), 2) if diffs else None
+    return beats, downbeats, merged, bpm
+
+
+def analyze(audio: str, target_bpm: float | None, model: str) -> dict:
     _register_extra_models()
     _set_label_vocab(model)
 
-    # All-In-One prints progress to stdout; keep our stdout protocol clean.
-    with contextlib.redirect_stdout(sys.stderr):
-        result = allin1.analyze(
-            paths=audio, model=model, include_activations=False, keep_byproducts=False,
-        )
+    try:
+        duration = _audio_duration(audio)
+    except Exception:  # noqa: BLE001 - ffprobe unavailable -> just run the model directly
+        duration = 0.0
 
-    beats = [float(b) for b in result.beats]
-    downbeats = [float(d) for d in result.downbeats]
-    bpm = float(result.bpm) if result.bpm is not None else None
-    method = f"allin1-mps-local:{model}"
+    if duration > _LEN_CAP_SEC:
+        beats, downbeats, raw_segs, bpm = _run_chunked(audio, model, duration)
+        method = f"allin1-mps-local:{model}+chunked"
+    else:
+        beats, downbeats, raw_segs, bpm = _run_single(audio, model)
+        method = f"allin1-mps-local:{model}"
 
     # Keep the native beats (high quality); only octave-correct when target_bpm says the
     # native tempo is a clean half/double. Octave-correct tracks pass through untouched.
@@ -305,11 +410,11 @@ def analyze(audio: str, target_bpm: float | None, model: str) -> dict:
 
     segments = [
         {
-            "start": float(s.start), "end": float(s.end), "label": s.label,
-            "start_beat": _beat_index(float(s.start), beats),
-            "end_beat": _beat_index(float(s.end), beats),
+            "start": st, "end": en, "label": lab,
+            "start_beat": _beat_index(st, beats),
+            "end_beat": _beat_index(en, beats),
         }
-        for s in result.segments
+        for st, en, lab in raw_segs
     ]
     return {
         "bpm": bpm, "beats": beats, "downbeats": downbeats,
