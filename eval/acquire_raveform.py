@@ -32,13 +32,17 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 import statistics as st
 import subprocess
 import sys
 import zipfile
 from pathlib import Path
 
-DATA_DIR = Path(__file__).resolve().parent / "data" / "raveform"
+# Defaults next to the script; override with RAVEFORM_DIR to keep the data outside a git worktree
+# (matches the webapp's RAVEFORM_DIR), so it survives `git worktree remove`.
+_DEFAULT_DIR = Path(__file__).resolve().parent / "data" / "raveform"
+DATA_DIR = Path(os.environ.get("RAVEFORM_DIR") or _DEFAULT_DIR)
 ZIP_PATH = DATA_DIR / "raveform.zip"
 ZIP_URL = "https://huggingface.co/datasets/taejunkim/raveform/resolve/main/raveform.zip"
 BEATS_DIR = DATA_DIR / "raveform" / "structures" / "beats"
