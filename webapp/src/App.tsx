@@ -17,7 +17,7 @@ export function App() {
   const loading = useEditor((s) => s.loading);
   const url = trackId ? api.audioUrl(trackId) : null;
   const audio = useAudio(url);
-  const { peaks, error } = usePeaks(url);
+  const { peaks, error } = usePeaks(url, trackId);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

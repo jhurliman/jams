@@ -17,6 +17,8 @@ interface EditorState {
   prediction: Annotation | null;
   showEval: boolean;
   loading: boolean;
+  /** Bumped on every annotation change; lets the canvas invalidate its cached render. */
+  rev: number;
   dirty: boolean;
   saving: boolean;
   selectedSegment: number | null;
@@ -58,6 +60,7 @@ export const useEditor = create<EditorState>((set, get) => {
       dirty: true,
       past: [...get().past, cur].slice(-200),
       future: [],
+      rev: get().rev + 1,
     });
   };
 
@@ -68,6 +71,7 @@ export const useEditor = create<EditorState>((set, get) => {
     prediction: null,
     showEval: true,
     loading: false,
+    rev: 0,
     dirty: false,
     saving: false,
     selectedSegment: null,
@@ -98,6 +102,7 @@ export const useEditor = create<EditorState>((set, get) => {
         dirty: false,
         past: [],
         future: [],
+        rev: get().rev + 1,
         view: { ...get().view, pxPerSec, scrollLeft: 0 },
       });
     },
@@ -192,6 +197,7 @@ export const useEditor = create<EditorState>((set, get) => {
         past: past.slice(0, -1),
         future: [annotation, ...get().future].slice(0, 200),
         dirty: true,
+        rev: get().rev + 1,
       });
     },
 
@@ -204,6 +210,7 @@ export const useEditor = create<EditorState>((set, get) => {
         future: future.slice(1),
         past: [...get().past, annotation],
         dirty: true,
+        rev: get().rev + 1,
       });
     },
   };
