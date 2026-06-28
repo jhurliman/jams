@@ -101,6 +101,10 @@ export function Inspector({ audio }: { audio: AudioControls }) {
               <strong>E</strong> toggles the read-only model prediction lane (eval) under the ruler
             </li>
           </ul>
+          <p className="legend">
+            <span style={{ color: '#46cad8' }}>▮</span> ground-truth downbeats ·{' '}
+            <span style={{ color: '#f5b84a' }}>▮</span> eval (model) beats in the lane
+          </p>
         </div>
       )}
     </aside>

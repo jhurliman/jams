@@ -7,9 +7,15 @@ import { useEditor } from '../store.ts';
 
 const H = 260;
 const RULER_H = 22;
-const EVAL_H = 26;
+const EVAL_SEG_H = 22;
+const EVAL_BEAT_H = 14;
+const EVAL_H = EVAL_SEG_H + EVAL_BEAT_H;
 const BOUNDARY_HIT = 6;
 const BEAT_HIT = 4;
+
+// Downbeats get a distinct accent so the bar grid reads at a glance; eval uses a warm hue.
+const GT_DOWNBEAT = '70,202,216'; // cyan
+const EVAL_DOWNBEAT = '245,184,74'; // amber
 
 /** Top of the editable (ground-truth) content; the eval lane occupies RULER_H..contentTop. */
 const contentTop = (): number => {
@@ -68,25 +74,45 @@ export function Waveform({ peaks, audio }: Props) {
     const evalActive = showEval && !!prediction?.segments.length;
     const top = RULER_H + (evalActive ? EVAL_H : 0);
 
-    // --- eval lane (read-only model prediction), drawn as solid blocks under the ruler ---
+    // --- eval lane (read-only model prediction): segment blocks + a beat strip below ---
     if (evalActive && prediction) {
+      const segBottom = RULER_H + EVAL_SEG_H;
       ctx.fillStyle = '#0a0d13';
       ctx.fillRect(0, RULER_H, W, EVAL_H);
+      // predicted segments
       for (const seg of prediction.segments) {
         const x = seg.start * pxPerSec - scrollLeft;
         const w = (seg.end - seg.start) * pxPerSec;
         if (x + w < 0 || x > W) continue;
         const color = labelColor(seg.label);
         ctx.fillStyle = color + 'cc';
-        ctx.fillRect(x + 0.5, RULER_H + 3, Math.max(1, w - 1), EVAL_H - 6);
+        ctx.fillRect(x + 0.5, RULER_H + 3, Math.max(1, w - 1), EVAL_SEG_H - 5);
         if (w > 26) {
           ctx.fillStyle = '#0b0e14';
           ctx.font = '600 11px ui-sans-serif, system-ui, sans-serif';
-          ctx.fillText(seg.label, Math.max(x, 0) + 5, RULER_H + 17);
+          ctx.fillText(seg.label, Math.max(x, 0) + 5, RULER_H + 15);
         }
       }
+      // predicted beats (density-gated; downbeats amber, off-beats dim)
+      const ebeatPx = meta ? (60 / Math.max(meta.bpm, 1)) * pxPerSec : 12;
+      const eShowOff = ebeatPx >= 6;
+      ctx.lineWidth = 1;
+      for (const b of prediction.beats) {
+        if (b.time < t0 - 0.1 || b.time > t1 + 0.1) continue;
+        const down = b.bar === 1;
+        if (!down && !eShowOff) continue;
+        const x = Math.round(b.time * pxPerSec - scrollLeft) + 0.5;
+        ctx.strokeStyle = down ? `rgba(${EVAL_DOWNBEAT},0.95)` : 'rgba(150,140,118,0.5)';
+        ctx.beginPath();
+        ctx.moveTo(x, down ? segBottom + 1 : top - 4);
+        ctx.lineTo(x, top - 1);
+        ctx.stroke();
+      }
+      // separators
       ctx.strokeStyle = '#2a3242';
       ctx.beginPath();
+      ctx.moveTo(0, segBottom + 0.5);
+      ctx.lineTo(W, segBottom + 0.5);
       ctx.moveTo(0, top + 0.5);
       ctx.lineTo(W, top + 0.5);
       ctx.stroke();
@@ -140,7 +166,7 @@ export function Waveform({ peaks, audio }: Props) {
       const beatPx = meta ? (60 / Math.max(meta.bpm, 1)) * pxPerSec : 12;
       const showOffbeats = beatPx >= 6;
       // Downbeats fade as the bar grid gets dense; off-beats only appear once zoomed in.
-      const downbeatAlpha = showOffbeats ? 0.5 : clampNum((beatPx * 4) / 90, 0.08, 0.32);
+      const downbeatAlpha = showOffbeats ? 0.85 : clampNum((beatPx * 4) / 70, 0.35, 0.7);
       // As downbeats marks only (when off-beats hidden), keep them as short top ticks rather than
       // full-height lines so they read as a grid, not bars across the waveform.
       const downbeatTop = showOffbeats ? top : top + 4;
@@ -160,7 +186,7 @@ export function Waveform({ peaks, audio }: Props) {
           ctx.lineWidth = 2;
           y0 = top;
         } else if (downbeat) {
-          ctx.strokeStyle = `rgba(206,214,230,${downbeatAlpha})`;
+          ctx.strokeStyle = `rgba(${GT_DOWNBEAT},${downbeatAlpha})`;
           ctx.lineWidth = 1;
           y0 = downbeatTop;
           bottom = downbeatBottom;
