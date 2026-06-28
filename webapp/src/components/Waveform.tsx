@@ -83,7 +83,7 @@ export function Waveform({ peaks, audio }: Props) {
     if (peaks) {
       const mid = (H + RULER_H) / 2;
       const amp = (H - RULER_H) / 2 - 4;
-      ctx.fillStyle = '#3a4a63';
+      ctx.fillStyle = '#6f86b3';
       for (let px = 0; px < W; px++) {
         const ta = (px + scrollLeft) / pxPerSec;
         const tb = (px + 1 + scrollLeft) / pxPerSec;
@@ -101,24 +101,43 @@ export function Waveform({ peaks, audio }: Props) {
       }
     }
 
-    // --- beats ---
-    if (annotation) {
+    // --- beats (density-aware so the waveform stays the hero when zoomed out) ---
+    if (annotation && annotation.beats.length) {
+      const beatPx = meta ? (60 / Math.max(meta.bpm, 1)) * pxPerSec : 12;
+      const showOffbeats = beatPx >= 6;
+      // Downbeats fade as the bar grid gets dense; off-beats only appear once zoomed in.
+      const downbeatAlpha = showOffbeats ? 0.5 : clampNum((beatPx * 4) / 90, 0.08, 0.32);
+      // As downbeats marks only (when off-beats hidden), keep them as short top ticks rather than
+      // full-height lines so they read as a grid, not bars across the waveform.
+      const downbeatTop = showOffbeats ? RULER_H : RULER_H + 4;
+      const downbeatBottom = showOffbeats ? H : RULER_H + 12;
+      ctx.lineWidth = 1;
       for (let i = 0; i < annotation.beats.length; i++) {
         const beat = annotation.beats[i]!;
         if (beat.time < t0 - 0.1 || beat.time > t1 + 0.1) continue;
-        const x = Math.round(beat.time * pxPerSec - scrollLeft) + 0.5;
         const downbeat = beat.bar === 1;
-        if (i === selectedBeat) {
+        const selected = i === selectedBeat;
+        if (!downbeat && !showOffbeats && !selected) continue;
+        const x = Math.round(beat.time * pxPerSec - scrollLeft) + 0.5;
+        let top: number;
+        let bottom = H;
+        if (selected) {
           ctx.strokeStyle = '#ffd24a';
           ctx.lineWidth = 2;
-        } else {
-          ctx.strokeStyle = downbeat ? '#e8e8ec' : '#5b6678';
+          top = RULER_H;
+        } else if (downbeat) {
+          ctx.strokeStyle = `rgba(206,214,230,${downbeatAlpha})`;
           ctx.lineWidth = 1;
+          top = downbeatTop;
+          bottom = downbeatBottom;
+        } else {
+          ctx.strokeStyle = 'rgba(124,136,158,0.3)';
+          ctx.lineWidth = 1;
+          top = H - 30;
         }
-        const top = downbeat ? RULER_H : H - 46;
         ctx.beginPath();
         ctx.moveTo(x, top);
-        ctx.lineTo(x, H);
+        ctx.lineTo(x, bottom);
         ctx.stroke();
       }
     }
@@ -323,6 +342,8 @@ export function Waveform({ peaks, audio }: Props) {
     </div>
   );
 }
+
+const clampNum = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
 
 function niceStep(pxPerSec: number): number {
   const target = 80 / pxPerSec;
