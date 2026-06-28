@@ -8,7 +8,7 @@ SOTA-on-GiantSteps methods benchmarked in the companion eval harness.
 |----------|--------|-----------------------|
 | Key | Essentia `edma` tonic + a learned major/minor refinement | MIREX **0.801** / exact 0.743 |
 | Tempo | Pretrained **TempoCNN** + genre-aware octave resolution | Acc1 **0.965** (corrected labels) |
-| Structure | All-In-One via Replicate (beats / downbeats / segments) | — |
+| Structure | **All-In-One EDM ensemble on-device** (Apple-Silicon/MPS) | Raveform held-out CV reproduces SOTA (see `eval/`) |
 
 Both key and tempo fall back to librosa automatically if Essentia isn't installed. Key
 mode (major/minor) is refined by a small chroma classifier — see *Key mode* below.
@@ -77,6 +77,31 @@ bass-register third), overriding edma only when confident. 5-fold CV: MIREX
 at `src/jams/data/mode_model.json`; retrain with `eval/train_mode_model.py`. Pass
 `detect_key(path, refine_mode=False)` to skip it (saves a ~1-2 s chroma pass).
 
+## Song structure (on-device)
+
+Structure (beats / downbeats / **functional segments** — intro/buildup/drop/breakdown/…) comes
+from **All-In-One** (Kim & Nam, WASPAA 2023). By default it runs the **EDM-trained `all-all`
+8-fold ensemble locally on Apple Silicon** via PyTorch-MPS — no Replicate, no network, no
+per-call cost. The EDM weights live on the same HuggingFace repo as the stock model and load via
+a state-dict remap (no retraining). Because All-In-One needs torch/natten/demucs (which have no
+Python 3.14 wheels and so can't share jams' env), the worker `src/jams/data/structure_worker.py`
+is a **self-contained `uv` script** that bootstraps its own environment; jams launches it once
+and keeps the models resident. **Requirement:** `uv` on PATH and an Apple-Silicon Mac. Structure
+is opt-in per request (`structure=true`).
+
+On Raveform's held-out 8-fold CV this reproduces the paper's SOTA (beat 0.978 / downbeat 0.964 /
+boundary HR 0.755 / pairwise 0.825), and the production ensemble is more robust still — see
+`eval/README.md`.
+
+`target_bpm` (jams' octave-resolved tempo, fed automatically when you request `tempo` + `structure`)
+is a *secondary* octave-correction safety net: it post-hoc rescales the beat grid only on a clean
+half/double-time read. The EDM model already tracks D&B/dubstep at the right octave, so it's
+usually a no-op — but harmless. (The earlier `±1 BPM` DBN-constraint approach was removed; it
+crippled beat-F.)
+
+Prefer the hosted model? Set `JAMS_STRUCTURE_BACKEND=replicate` (+ a Replicate token) to use
+the original `jhurliman/allinone-targetbpm` endpoint instead.
+
 ## Endpoints
 
 | Method | Path | Purpose |
@@ -86,11 +111,25 @@ at `src/jams/data/mode_model.json`; retrain with `eval/train_mode_model.py`. Pas
 | `GET`  | `/health` | Liveness + version |
 | `GET`  | `/docs` | OpenAPI / Swagger UI |
 
+Add **`?format=jams`** to either analyze endpoint to get the result as a
+[JAMS](https://jams.readthedocs.io) document (the standard MIR annotation format the
+Harmonix Set ships in) instead of the native schema: key → `key_mode`, tempo → `tempo`,
+structure → `beat` + `segment_open`, each with per-observation `time`/`duration`/`confidence`
+and `annotation_metadata` provenance (the producing `method` lands in `annotation_tools`).
+
+```sh
+curl -s 'http://localhost:8000/v1/analyze/path?format=jams' \
+  -H 'content-type: application/json' \
+  -d '{"path": "/Users/me/Music/track.wav", "structure": true, "genre": "Drum & Bass"}' | jq
+```
+
 ## Configuration
 
 Env vars (prefix `JAMS_`, or a local `.env`): `JAMS_HOST`, `JAMS_PORT`, `JAMS_LOG_LEVEL`,
-`JAMS_MAX_UPLOAD_MB`, `JAMS_REPLICATE_API_TOKEN` (or `REPLICATE_API_TOKEN`) for the
-optional structure endpoint (`pip install 'jams[structure]'`).
+`JAMS_MAX_UPLOAD_MB`. Structure backend: `JAMS_STRUCTURE_BACKEND` (`local` default | `replicate`),
+`JAMS_STRUCTURE_MODEL` (`all-all` EDM ensemble default; `harmonix-all` for pop), `JAMS_STRUCTURE_UV` (path to `uv` if not on
+PATH); the `replicate` backend needs `JAMS_REPLICATE_API_TOKEN` (or `REPLICATE_API_TOKEN`) and
+`pip install 'jams[structure]'`.
 
 ## Develop
 
@@ -124,4 +163,5 @@ src/jams/
   models.py   pydantic schemas
   config.py   settings
   data/models/deepsquare-k16-3.pb                            (bundled TempoCNN)
+  data/structure_worker.py                                   (self-contained uv worker: All-In-One)
 ```

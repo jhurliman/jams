@@ -5,17 +5,22 @@ from __future__ import annotations
 import logging
 import os
 import tempfile
+from typing import Literal
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import JSONResponse
 
 from jams.analysis import analyze_track
 from jams.analysis.audio import SUPPORTED_FORMATS
 from jams.config import get_settings
+from jams.jams_export import to_jams
 from jams.models import AnalyzePathRequest, AnalyzeResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/v1", tags=["analyze"])
+
+Format = Literal["native", "jams"]
 
 
 def _bpm_range(bpm_min: float | None, bpm_max: float | None) -> tuple[float, float] | None:
@@ -24,16 +29,21 @@ def _bpm_range(bpm_min: float | None, bpm_max: float | None) -> tuple[float, flo
     return None
 
 
-def _run(path: str, *, key, tempo, structure, genre, bpm_range) -> AnalyzeResponse:
+def _run(path: str, *, key, tempo, structure, genre, bpm_range, filename, fmt: Format):
     try:
         result = analyze_track(
             path, key=key, tempo=tempo, structure=structure, genre=genre, bpm_range=bpm_range
         )
     except ValueError as exc:  # bad/missing file, unsupported format
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except RuntimeError as exc:  # e.g. structure requested without Replicate
+    except RuntimeError as exc:  # e.g. structure backend not configured
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-    return AnalyzeResponse(**result)
+    if fmt == "jams":
+        # Returning a Response bypasses response_model (the native AnalyzeResponse).
+        return JSONResponse(content=to_jams(result, filename=filename))
+    response = AnalyzeResponse(**result)
+    response.filename = filename
+    return response
 
 
 @router.post("/analyze", response_model=AnalyzeResponse, summary="Analyze an uploaded audio file")
@@ -45,7 +55,8 @@ async def analyze_upload(
     genre: str | None = Form(None),
     bpm_min: float | None = Form(None),
     bpm_max: float | None = Form(None),
-) -> AnalyzeResponse:
+    format: Format = Query("native", description="'native' (default) or 'jams' (JAMS spec)"),
+):
     suffix = os.path.splitext(file.filename or "")[1].lower()
     if suffix not in SUPPORTED_FORMATS:
         raise HTTPException(status_code=422, detail=f"Unsupported format '{suffix}'")
@@ -60,21 +71,22 @@ async def analyze_upload(
     try:
         tmp.write(data)
         tmp.close()
-        response = await run_in_threadpool(
+        return await run_in_threadpool(
             _run, tmp.name, key=key, tempo=tempo, structure=structure,
             genre=genre, bpm_range=_bpm_range(bpm_min, bpm_max),
+            filename=file.filename, fmt=format,
         )
     finally:
         os.unlink(tmp.name)
-    response.filename = file.filename
-    return response
 
 
 @router.post("/analyze/path", response_model=AnalyzeResponse, summary="Analyze a file on the server filesystem")
-async def analyze_path(req: AnalyzePathRequest) -> AnalyzeResponse:
-    response = await run_in_threadpool(
+async def analyze_path(
+    req: AnalyzePathRequest,
+    format: Format = Query("native", description="'native' (default) or 'jams' (JAMS spec)"),
+):
+    return await run_in_threadpool(
         _run, req.path, key=req.key, tempo=req.tempo, structure=req.structure,
         genre=req.genre, bpm_range=_bpm_range(req.bpm_min, req.bpm_max),
+        filename=os.path.basename(req.path), fmt=format,
     )
-    response.filename = os.path.basename(req.path)
-    return response
