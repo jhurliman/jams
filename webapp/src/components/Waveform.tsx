@@ -139,25 +139,36 @@ export function Waveform({ peaks, audio }: Props) {
       });
     }
 
-    // --- waveform (min/max per pixel column) ---
+    // --- waveform: 3-band frequency-colored, mirrored (Rekordbox-style) ---
+    // Each column's half-height = perceptual loudness; coloured center-out by spectral share:
+    // bass (blue) at the centre, mids (amber) as a ring, highs (white) at the tips.
     if (peaks) {
-      const mid = (H + top) / 2;
-      const amp = (H - top) / 2 - 4;
-      ctx.fillStyle = '#6f86b3';
+      const { low, mid, high } = peaks;
+      const midY = (H + top) / 2;
+      const amp = (H - top) / 2 - 3;
+      const invBucket = 1 / (peaks.bucketDur * pxPerSec);
       for (let px = 0; px < W; px++) {
-        const ta = (px + scrollLeft) / pxPerSec;
-        const tb = (px + 1 + scrollLeft) / pxPerSec;
-        let bi = Math.floor(ta / peaks.bucketDur);
-        const bEnd = Math.min(Math.ceil(tb / peaks.bucketDur), peaks.max.length);
-        let lo = 0;
-        let hi = 0;
-        for (; bi < bEnd; bi++) {
-          if (peaks.min[bi]! < lo) lo = peaks.min[bi]!;
-          if (peaks.max[bi]! > hi) hi = peaks.max[bi]!;
+        const bi0 = Math.floor((px + scrollLeft) * invBucket);
+        const bi1 = Math.min(Math.ceil((px + 1 + scrollLeft) * invBucket), low.length);
+        let l = 0;
+        let m = 0;
+        let h = 0;
+        for (let bi = bi0; bi < bi1; bi++) {
+          if (low[bi]! > l) l = low[bi]!;
+          if (mid[bi]! > m) m = mid[bi]!;
+          if (high[bi]! > h) h = high[bi]!;
         }
-        const y1 = mid - hi * amp;
-        const y2 = mid - lo * amp;
-        ctx.fillRect(px, y1, 1, Math.max(1, y2 - y1));
+        const s = l + m + h;
+        if (s <= 0.002) continue;
+        const env = Math.min(amp, Math.sqrt(s) * amp * 0.7); // perceptual half-height
+        const hBlue = (env * l) / s;
+        const hAmber = (env * (l + m)) / s;
+        ctx.fillStyle = '#eaeefe'; // highs — tips
+        ctx.fillRect(px, midY - env, 1, Math.max(1, 2 * env));
+        ctx.fillStyle = '#e6962e'; // mids — ring
+        ctx.fillRect(px, midY - hAmber, 1, Math.max(1, 2 * hAmber));
+        ctx.fillStyle = '#2f6ad0'; // bass — centre body
+        ctx.fillRect(px, midY - hBlue, 1, Math.max(1, 2 * hBlue));
       }
     }
 
