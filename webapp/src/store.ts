@@ -93,6 +93,9 @@ export const useEditor = create<EditorState>((set, get) => {
         api.getAnnotation(id),
         api.getPrediction(id),
       ]);
+      // Ignore a stale response: if another track was selected while these fetches were in
+      // flight, don't clobber its state (which would also make save() write to the wrong track).
+      if (get().trackId !== id) return;
       const pxPerSec = clamp(get().view.viewportWidth / Math.max(meta.durationSec, 1), 4, 400);
       set({
         meta,
