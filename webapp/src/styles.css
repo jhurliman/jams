@@ -218,6 +218,11 @@ body {
   border-color: #5a2530;
   color: #ff8a9a;
 }
+.btn.toggled {
+  background: #243650;
+  border-color: #3d5d8a;
+  color: #bcd6ff;
+}
 input,
 select {
   background: var(--panel2);

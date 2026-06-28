@@ -46,6 +46,8 @@ export interface TrackMeta {
   durationSec: number;
   /** Whether an edited annotation has been saved (vs. only the source reference exists). */
   edited: boolean;
+  /** Whether a read-only model prediction (eval layer) is available for this track. */
+  hasPrediction: boolean;
 }
 
 export interface TrackListItem {

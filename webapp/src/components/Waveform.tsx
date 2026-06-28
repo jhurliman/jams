@@ -7,8 +7,15 @@ import { useEditor } from '../store.ts';
 
 const H = 260;
 const RULER_H = 22;
+const EVAL_H = 26;
 const BOUNDARY_HIT = 6;
 const BEAT_HIT = 4;
+
+/** Top of the editable (ground-truth) content; the eval lane occupies RULER_H..contentTop. */
+const contentTop = (): number => {
+  const { showEval, prediction } = useEditor.getState();
+  return RULER_H + (showEval && prediction?.segments.length ? EVAL_H : 0);
+};
 
 interface DragState {
   kind: 'boundary' | 'beat';
@@ -42,7 +49,8 @@ export function Waveform({ peaks, audio }: Props) {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    const { annotation, view, selectedSegment, selectedBeat, meta } = useEditor.getState();
+    const { annotation, view, selectedSegment, selectedBeat, meta, prediction, showEval } =
+      useEditor.getState();
     const W = view.viewportWidth;
     const dpr = window.devicePixelRatio || 1;
     if (canvas.width !== W * dpr || canvas.height !== H * dpr) {
@@ -57,6 +65,32 @@ export function Waveform({ peaks, audio }: Props) {
     const { pxPerSec, scrollLeft } = view;
     const t0 = scrollLeft / pxPerSec;
     const t1 = (scrollLeft + W) / pxPerSec;
+    const evalActive = showEval && !!prediction?.segments.length;
+    const top = RULER_H + (evalActive ? EVAL_H : 0);
+
+    // --- eval lane (read-only model prediction), drawn as solid blocks under the ruler ---
+    if (evalActive && prediction) {
+      ctx.fillStyle = '#0a0d13';
+      ctx.fillRect(0, RULER_H, W, EVAL_H);
+      for (const seg of prediction.segments) {
+        const x = seg.start * pxPerSec - scrollLeft;
+        const w = (seg.end - seg.start) * pxPerSec;
+        if (x + w < 0 || x > W) continue;
+        const color = labelColor(seg.label);
+        ctx.fillStyle = color + 'cc';
+        ctx.fillRect(x + 0.5, RULER_H + 3, Math.max(1, w - 1), EVAL_H - 6);
+        if (w > 26) {
+          ctx.fillStyle = '#0b0e14';
+          ctx.font = '600 11px ui-sans-serif, system-ui, sans-serif';
+          ctx.fillText(seg.label, Math.max(x, 0) + 5, RULER_H + 17);
+        }
+      }
+      ctx.strokeStyle = '#2a3242';
+      ctx.beginPath();
+      ctx.moveTo(0, top + 0.5);
+      ctx.lineTo(W, top + 0.5);
+      ctx.stroke();
+    }
 
     // --- segment bands (translucent fill + boundaries + label) ---
     if (annotation) {
@@ -66,23 +100,23 @@ export function Waveform({ peaks, audio }: Props) {
         if (x + w < 0 || x > W) return;
         const color = labelColor(seg.label);
         ctx.fillStyle = color + (i === selectedSegment ? '40' : '22');
-        ctx.fillRect(x, RULER_H, w, H - RULER_H);
+        ctx.fillRect(x, top, w, H - top);
         ctx.strokeStyle = color;
         ctx.lineWidth = i === selectedSegment ? 2 : 1;
         ctx.beginPath();
-        ctx.moveTo(x + 0.5, RULER_H);
+        ctx.moveTo(x + 0.5, top);
         ctx.lineTo(x + 0.5, H);
         ctx.stroke();
         ctx.fillStyle = color;
         ctx.font = '600 12px ui-sans-serif, system-ui, sans-serif';
-        ctx.fillText(seg.label, Math.max(x, 0) + 6, RULER_H + 14);
+        ctx.fillText(seg.label, Math.max(x, 0) + 6, top + 14);
       });
     }
 
     // --- waveform (min/max per pixel column) ---
     if (peaks) {
-      const mid = (H + RULER_H) / 2;
-      const amp = (H - RULER_H) / 2 - 4;
+      const mid = (H + top) / 2;
+      const amp = (H - top) / 2 - 4;
       ctx.fillStyle = '#6f86b3';
       for (let px = 0; px < W; px++) {
         const ta = (px + scrollLeft) / pxPerSec;
@@ -109,8 +143,8 @@ export function Waveform({ peaks, audio }: Props) {
       const downbeatAlpha = showOffbeats ? 0.5 : clampNum((beatPx * 4) / 90, 0.08, 0.32);
       // As downbeats marks only (when off-beats hidden), keep them as short top ticks rather than
       // full-height lines so they read as a grid, not bars across the waveform.
-      const downbeatTop = showOffbeats ? RULER_H : RULER_H + 4;
-      const downbeatBottom = showOffbeats ? H : RULER_H + 12;
+      const downbeatTop = showOffbeats ? top : top + 4;
+      const downbeatBottom = showOffbeats ? H : top + 12;
       ctx.lineWidth = 1;
       for (let i = 0; i < annotation.beats.length; i++) {
         const beat = annotation.beats[i]!;
@@ -119,24 +153,24 @@ export function Waveform({ peaks, audio }: Props) {
         const selected = i === selectedBeat;
         if (!downbeat && !showOffbeats && !selected) continue;
         const x = Math.round(beat.time * pxPerSec - scrollLeft) + 0.5;
-        let top: number;
+        let y0: number;
         let bottom = H;
         if (selected) {
           ctx.strokeStyle = '#ffd24a';
           ctx.lineWidth = 2;
-          top = RULER_H;
+          y0 = top;
         } else if (downbeat) {
           ctx.strokeStyle = `rgba(206,214,230,${downbeatAlpha})`;
           ctx.lineWidth = 1;
-          top = downbeatTop;
+          y0 = downbeatTop;
           bottom = downbeatBottom;
         } else {
           ctx.strokeStyle = 'rgba(124,136,158,0.3)';
           ctx.lineWidth = 1;
-          top = H - 30;
+          y0 = H - 30;
         }
         ctx.beginPath();
-        ctx.moveTo(x, top);
+        ctx.moveTo(x, y0);
         ctx.lineTo(x, bottom);
         ctx.stroke();
       }
@@ -176,9 +210,11 @@ export function Waveform({ peaks, audio }: Props) {
   const view = useEditor((s) => s.view);
   const selectedSegment = useEditor((s) => s.selectedSegment);
   const selectedBeat = useEditor((s) => s.selectedBeat);
+  const prediction = useEditor((s) => s.prediction);
+  const showEval = useEditor((s) => s.showEval);
   useEffect(() => {
     draw();
-  }, [draw, annotation, view, selectedSegment, selectedBeat]);
+  }, [draw, annotation, view, selectedSegment, selectedBeat, prediction, showEval]);
 
   // Animation loop while playing: advance playhead, auto-scroll to keep it on screen.
   useEffect(() => {
@@ -260,7 +296,8 @@ export function Waveform({ peaks, audio }: Props) {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     const ed = useEditor.getState();
-    if (y < RULER_H) {
+    // Clicks in the ruler or the read-only eval lane just seek — only ground truth is editable.
+    if (y < contentTop()) {
       audio.seek(xToTime(x));
       return;
     }

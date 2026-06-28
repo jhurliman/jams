@@ -7,7 +7,13 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 
 import type { Annotation } from '../shared/types.ts';
-import { listTracks, loadAnnotation, saveAnnotation, trackMeta } from './annotations.ts';
+import {
+  listTracks,
+  loadAnnotation,
+  loadPrediction,
+  saveAnnotation,
+  trackMeta,
+} from './annotations.ts';
 import { audioPath } from './paths.ts';
 
 const app = new Hono();
@@ -23,6 +29,11 @@ app.get('/api/tracks/:id', (c) => {
 app.get('/api/tracks/:id/annotation', (c) => {
   const ann = loadAnnotation(c.req.param('id'));
   return ann ? c.json(ann) : c.notFound();
+});
+
+app.get('/api/tracks/:id/prediction', (c) => {
+  const pred = loadPrediction(c.req.param('id'));
+  return pred ? c.json(pred) : c.body(null, 204);
 });
 
 app.put('/api/tracks/:id/annotation', async (c) => {

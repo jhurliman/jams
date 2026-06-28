@@ -11,8 +11,22 @@ const fmt = (t: number): string => {
 };
 
 export function Transport({ audio }: { audio: AudioControls }) {
-  const { meta, dirty, saving, save, undo, redo, past, future, zoomAround, view, setView } =
-    useEditor();
+  const {
+    meta,
+    dirty,
+    saving,
+    save,
+    undo,
+    redo,
+    past,
+    future,
+    zoomAround,
+    view,
+    setView,
+    showEval,
+    toggleEval,
+    prediction,
+  } = useEditor();
   const [now, setNow] = useState(0);
 
   useEffect(() => {
@@ -46,6 +60,14 @@ export function Transport({ audio }: { audio: AudioControls }) {
 
       <div className="spacer" />
 
+      <button
+        className={`btn ${showEval && prediction ? 'toggled' : ''}`}
+        onClick={toggleEval}
+        disabled={!prediction}
+        title={prediction ? 'Toggle the read-only model prediction (eval) lane' : 'No eval for this track'}
+      >
+        {showEval && prediction ? '◉ Eval' : '○ Eval'}
+      </button>
       <button className="btn" onClick={() => zoomAround(1 / 1.4, view.viewportWidth / 2)} title="Zoom out">
         −
       </button>

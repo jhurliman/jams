@@ -48,6 +48,8 @@ export function App() {
         ed.zoomAround(1.4, ed.view.viewportWidth / 2);
       } else if (e.key === '-') {
         ed.zoomAround(1 / 1.4, ed.view.viewportWidth / 2);
+      } else if (e.key.toLowerCase() === 'e') {
+        ed.toggleEval();
       }
     };
     window.addEventListener('keydown', onKey);

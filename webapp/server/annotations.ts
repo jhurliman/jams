@@ -9,7 +9,15 @@ import {
   type SectionLabel,
   type TrackListItem,
 } from '../shared/types.ts';
-import { ANNOTATIONS_DIR, beatCsvPath, editedPath, hasAudio, SEGMENTS_JSON } from './paths.ts';
+import {
+  ANNOTATIONS_DIR,
+  beatCsvPath,
+  editedPath,
+  hasAudio,
+  hasPrediction,
+  predictionPath,
+  SEGMENTS_JSON,
+} from './paths.ts';
 
 interface RawSection {
   name: string;
@@ -61,7 +69,14 @@ export function trackMeta(id: string) {
     bpm: Math.round(t.average_bpm),
     durationSec: t.duration,
     edited: existsSync(editedPath(id)),
+    hasPrediction: hasPrediction(id),
   };
+}
+
+/** Read-only model prediction (eval layer), if one exists for this track. */
+export function loadPrediction(id: string): Annotation | null {
+  if (!hasPrediction(id)) return null;
+  return JSON.parse(readFileSync(predictionPath(id), 'utf8')) as Annotation;
 }
 
 /** Beats from the source beat CSV (`time,downbeat,section`; `downbeat`=bar position, 1=downbeat). */

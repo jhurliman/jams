@@ -13,6 +13,12 @@ export const api = {
   getAnnotation: (id: string): Promise<Annotation> =>
     fetch(`/api/tracks/${id}/annotation`).then(json<Annotation>),
 
+  getPrediction: async (id: string): Promise<Annotation | null> => {
+    const res = await fetch(`/api/tracks/${id}/prediction`);
+    if (res.status === 204) return null;
+    return json<Annotation>(res);
+  },
+
   saveAnnotation: (id: string, ann: Annotation): Promise<{ ok: boolean }> =>
     fetch(`/api/tracks/${id}/annotation`, {
       method: 'PUT',

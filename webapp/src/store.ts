@@ -13,6 +13,9 @@ interface EditorState {
   trackId: string | null;
   meta: TrackMeta | null;
   annotation: Annotation | null;
+  /** Read-only model prediction (eval layer). */
+  prediction: Annotation | null;
+  showEval: boolean;
   loading: boolean;
   dirty: boolean;
   saving: boolean;
@@ -24,6 +27,7 @@ interface EditorState {
 
   loadTrack: (id: string) => Promise<void>;
   save: () => Promise<void>;
+  toggleEval: () => void;
   setView: (patch: Partial<ViewState>) => void;
   zoomAround: (factor: number, anchorClientX: number) => void;
   selectSegment: (i: number | null) => void;
@@ -61,6 +65,8 @@ export const useEditor = create<EditorState>((set, get) => {
     trackId: null,
     meta: null,
     annotation: null,
+    prediction: null,
+    showEval: true,
     loading: false,
     dirty: false,
     saving: false,
@@ -71,12 +77,23 @@ export const useEditor = create<EditorState>((set, get) => {
     future: [],
 
     loadTrack: async (id) => {
-      set({ loading: true, trackId: id, selectedSegment: null, selectedBeat: null });
-      const [meta, annotation] = await Promise.all([api.getTrack(id), api.getAnnotation(id)]);
+      set({
+        loading: true,
+        trackId: id,
+        selectedSegment: null,
+        selectedBeat: null,
+        prediction: null,
+      });
+      const [meta, annotation, prediction] = await Promise.all([
+        api.getTrack(id),
+        api.getAnnotation(id),
+        api.getPrediction(id),
+      ]);
       const pxPerSec = clamp(get().view.viewportWidth / Math.max(meta.durationSec, 1), 4, 400);
       set({
         meta,
         annotation,
+        prediction,
         loading: false,
         dirty: false,
         past: [],
@@ -84,6 +101,8 @@ export const useEditor = create<EditorState>((set, get) => {
         view: { ...get().view, pxPerSec, scrollLeft: 0 },
       });
     },
+
+    toggleEval: () => set({ showEval: !get().showEval }),
 
     save: async () => {
       const { trackId, annotation } = get();
