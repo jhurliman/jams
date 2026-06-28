@@ -315,18 +315,28 @@ export function Waveform({ peaks, audio }: Props) {
     else ed.addBeat(xToTime(x));
   };
 
-  const onWheel = (e: React.WheelEvent) => {
-    const ed = useEditor.getState();
-    if (e.ctrlKey || e.metaKey) {
-      const rect = canvasRef.current!.getBoundingClientRect();
-      ed.zoomAround(e.deltaY < 0 ? 1.12 : 1 / 1.12, e.clientX - rect.left);
-    } else {
-      const { view: v, meta } = ed;
-      const max = meta ? Math.max(0, meta.durationSec * v.pxPerSec - v.viewportWidth) : 0;
-      const delta = (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY) * 1.2;
-      ed.setView({ scrollLeft: Math.min(max, Math.max(0, v.scrollLeft + delta)) });
-    }
-  };
+  // Wheel/pinch must use a NON-passive native listener: React attaches `wheel` passively, so a
+  // synthetic onWheel can't preventDefault() — the browser would then also pinch-zoom the page.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const ed = useEditor.getState();
+      if (e.ctrlKey || e.metaKey) {
+        // ctrlKey wheel = trackpad pinch (or ctrl+scroll). Scale continuously by magnitude.
+        const rect = canvas.getBoundingClientRect();
+        ed.zoomAround(Math.exp(-e.deltaY * 0.006), e.clientX - rect.left);
+      } else {
+        const { view: v, meta } = ed;
+        const max = meta ? Math.max(0, meta.durationSec * v.pxPerSec - v.viewportWidth) : 0;
+        const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+        ed.setView({ scrollLeft: clampNum(v.scrollLeft + delta, 0, max) });
+      }
+    };
+    canvas.addEventListener('wheel', onWheel, { passive: false });
+    return () => canvas.removeEventListener('wheel', onWheel);
+  }, []);
 
   return (
     <div ref={containerRef} className="waveform">
@@ -337,7 +347,6 @@ export function Waveform({ peaks, audio }: Props) {
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onDoubleClick={onDoubleClick}
-        onWheel={onWheel}
       />
     </div>
   );
