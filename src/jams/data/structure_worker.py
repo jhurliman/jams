@@ -128,6 +128,13 @@ _RAVEFORM_LABELS = [
 # ``None`` => fall back to the model's configured ``threshold_section`` (0.1 for EDM).
 _BOUNDARY_THRESHOLD: float | None = 0.2
 
+# Positional label prior (from Raveform ground truth across 1423 tracks: "intro"/"altintro" never
+# start past ~27% of a track, "outro"/"altoutro" never before the back half). Before taking the
+# function-label argmax we mask positionally-impossible classes, so the model falls back to its best
+# *valid* label instead of e.g. an "intro" five minutes in. Thresholds carry a small safety margin.
+_INTRO_MAX_FRAC = 0.12
+_OUTRO_MIN_FRAC = 0.5
+
 
 def _postprocess_functional(logits, cfg):
     """Drop-in for allin1's ``postprocess_functional_structure`` with a tunable boundary
@@ -168,11 +175,23 @@ def _postprocess_functional(logits, cfg):
     indices = np.flatnonzero(boundary)
     indices = indices[indices > 0]
     prob_segment_function = np.split(prob_functions, indices, axis=1)
-    pred_labels = [p.mean(axis=1).argmax().item() for p in prob_segment_function]
 
     labels = _fnl.HARMONIX_LABELS  # swapped to the EDM vocab by _set_label_vocab when needed
-    return [Segment(start=s, end=e, label=labels[lab])
-            for (s, e), lab in zip(pred_boundaries, pred_labels, strict=False)]
+    early = {labels.index(n) for n in ("intro", "altintro") if n in labels}
+    late = {labels.index(n) for n in ("outro", "altoutro") if n in labels}
+
+    segments = []
+    for (s, e), probs in zip(pred_boundaries, prob_segment_function, strict=False):
+        mean = probs.mean(axis=1).copy()
+        frac = s / duration if duration else 0.0
+        if frac > _INTRO_MAX_FRAC:
+            for i in early:
+                mean[i] = -1.0
+        if frac < _OUTRO_MIN_FRAC:
+            for i in late:
+                mean[i] = -1.0
+        segments.append(Segment(start=s, end=e, label=labels[int(mean.argmax())]))
+    return segments
 
 
 def _remap_v2_to_v1(state_dict: dict) -> dict:
