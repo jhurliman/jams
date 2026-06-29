@@ -144,6 +144,14 @@ body {
   color: var(--dim);
   white-space: nowrap;
 }
+.chip.id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  cursor: pointer;
+  color: var(--text);
+}
+.chip.id:hover {
+  border-color: var(--accent, #46cad8);
+}
 .waveform {
   flex: 1;
   min-height: 0;
