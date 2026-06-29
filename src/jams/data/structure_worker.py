@@ -135,6 +135,42 @@ _BOUNDARY_THRESHOLD: float | None = 0.2
 _INTRO_MAX_FRAC = 0.12
 _OUTRO_MIN_FRAC = 0.5
 
+# Boundary-label correction (from the same 1423-track GT): a track's first segment is an
+# intro-family label 99.9% of the time (intro 86.7% / altintro 13.2%; only 1 track opens on
+# anything else) and its last non-marker segment is outro/altoutro/drop/cooldown ~99.9%. So a
+# SHORT opening/closing segment carrying a different label (e.g. a "breakdown"/"buildup" opening)
+# is almost certainly a label error, and snapping it to intro/outro recovers the match. The
+# length guard is essential: long mislabelled boundary segments usually have a wrong *boundary*
+# too, so relabelling them wholesale overcorrects (validated — without the guard the worst case
+# was -0.38). At frac<0.30 AND <45 s the correction is zero-regression across all Raveform preds.
+# 'start' (never in GT) is skipped; 'end' (a real trailing GT marker) is preserved.
+_HEAD_LABELS = ("intro", "altintro")
+_TAIL_OK_LABELS = ("outro", "altoutro", "drop", "cooldown")
+_BOUNDARY_MAX_FRAC = 0.30
+_BOUNDARY_MAX_SEC = 45.0
+
+
+def _fix_boundary_labels(segs: list[tuple], duration: float) -> list[tuple]:
+    """Snap a short, clearly-mislabelled first/last segment to intro/outro (see notes above)."""
+    if not segs:
+        return segs
+    dur = duration or max((s[1] for s in segs), default=0.0)
+    if dur <= 0:
+        return segs
+    out = [list(s) for s in segs]
+    lim = min(_BOUNDARY_MAX_FRAC * dur, _BOUNDARY_MAX_SEC)
+    h = 0
+    while h < len(out) and out[h][2] == "start":  # skip leading marker (never in GT)
+        h += 1
+    if h < len(out) and out[h][2] not in _HEAD_LABELS and (out[h][1] - out[h][0]) < lim:
+        out[h][2] = "intro"
+    t = len(out) - 1
+    while t >= 0 and out[t][2] == "end":  # preserve trailing marker (real GT label)
+        t -= 1
+    if t > h and out[t][2] not in _TAIL_OK_LABELS and (out[t][1] - out[t][0]) < lim:
+        out[t][2] = "outro"
+    return [tuple(s) for s in out]
+
 
 def _postprocess_functional(logits, cfg):
     """Drop-in for allin1's ``postprocess_functional_structure`` with a tunable boundary
@@ -426,6 +462,10 @@ def analyze(audio: str, target_bpm: float | None, model: str) -> dict:
         if new_bpm != bpm:
             beats, downbeats, bpm = new_beats, new_downbeats, new_bpm
             method += f"+octave{bpm:g}"
+
+    # Snap short, positionally-impossible opening/closing labels (runs on the FINAL stitched
+    # segments, so it's correct for both the single and chunked paths).
+    raw_segs = _fix_boundary_labels(raw_segs, duration)
 
     segments = [
         {
