@@ -122,11 +122,35 @@ _RAVEFORM_LABELS = [
 # Boundary peak-strength threshold for functional segmentation. Upstream (both the mps port
 # AND mir-aidj's original) hard-codes ``> 0.0``, which keeps every peak above the local mean
 # and 2-3x over-segments (~22 segments vs ~11 true on Raveform) — boundary HR@0.5 collapses
-# to ~0.56. 0.2 is the sweet spot from a 90-track genre-balanced sweep: HR@0.5 (trim) peaks at
-# 0.741 (vs 0.720 at the model's configured 0.1) and the segment count (~11.7) best matches the
-# ground truth (~10.8); per-genre tuning adds only ~0.006 so a single global value is used.
-# ``None`` => fall back to the model's configured ``threshold_section`` (0.1 for EDM).
+# to ~0.56. 0.2 is the sweet spot from a 90-track genre-balanced sweep on the boundary HR@0.5
+# metric (HR peaks at 0.741; segment count ~11.7 best matches the ~10.8 ground truth) — but a
+# fixed 0.2 leaves clearly *under-segmented* tracks stranded (e.g. a 7-min track stuck at 4
+# segments), which tanks label-accuracy. ``None`` => the model's configured ``threshold_section``.
 _BOUNDARY_THRESHOLD: float | None = 0.2
+
+# Adaptive boundary threshold: start at the strict 0.2 (preserving the HR-tuned value for tracks
+# that are already well segmented) and step DOWN the ladder only when a track is under-segmented,
+# until the boundary count reaches a length-based target (~1 per 40 s) or the floor. From a
+# 100-track capture-and-sweep (worst-60 + control-40), this lifts mean label-accuracy +3.7pt
+# overall / +5.5pt on the worst tracks while moving the control set only +0.9pt (it lowers the
+# threshold on just ~30% of well-segmented tracks). Set ``_BOUNDARY_ADAPTIVE=False`` to force the
+# fixed ``_BOUNDARY_THRESHOLD`` (e.g. to reproduce the HR-tuned numbers).
+_BOUNDARY_ADAPTIVE = True
+_BOUNDARY_LADDER = (0.20, 0.15, 0.12, 0.10, 0.08, 0.06)
+_BOUNDARY_TARGET_SEC = 40.0
+
+
+def _select_boundary_threshold(candidates, duration: float) -> float:
+    """Pick the strictest ladder threshold whose boundary count meets the length-based target."""
+    import numpy as np
+
+    target = max(3.0, duration / _BOUNDARY_TARGET_SEC)
+    thr = _BOUNDARY_LADDER[0]
+    for thr in _BOUNDARY_LADDER:
+        # +1: the implicit track-start boundary at t=0 isn't a candidate peak.
+        if int(np.count_nonzero(candidates > thr)) + 1 >= target:
+            break
+    return thr
 
 # Positional label prior (from Raveform ground truth across 1423 tracks: "intro"/"altintro" never
 # start past ~27% of a track, "outro"/"altoutro" never before the back half). Before taking the
@@ -192,12 +216,15 @@ def _postprocess_functional(logits, cfg):
     prob_functions = raw_prob_functions.cpu().numpy()
 
     candidates = peak_picking(prob_sections, window_past=12 * cfg.fps, window_future=12 * cfg.fps)
-    thr = _BOUNDARY_THRESHOLD
-    if thr is None:
+    duration = len(prob_sections) * cfg.hop_size / cfg.sample_rate
+    if _BOUNDARY_ADAPTIVE:
+        thr = _select_boundary_threshold(candidates, duration)
+    elif _BOUNDARY_THRESHOLD is not None:
+        thr = _BOUNDARY_THRESHOLD
+    else:
         thr = float(getattr(cfg, "threshold_section", 0.1) or 0.1)
     boundary = candidates > thr
 
-    duration = len(prob_sections) * cfg.hop_size / cfg.sample_rate
     times = event_frames_to_time(boundary, cfg)
     if len(times) == 0:
         times = np.array([0.0, duration], dtype=float)
