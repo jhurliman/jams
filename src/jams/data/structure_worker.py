@@ -173,9 +173,17 @@ _TAIL_OK_LABELS = ("outro", "altoutro", "drop", "cooldown")
 _BOUNDARY_MAX_FRAC = 0.30
 _BOUNDARY_MAX_SEC = 45.0
 
+# A LONG opening labelled "breakdown" is a different error: GT never opens on breakdown, and when
+# the model calls the opening "breakdown" it's a mislabelled "altintro" ~75% of the time (an
+# atmospheric no-drums intro and a mid-track breakdown are acoustically alike). Unlike the short
+# case above we can't snap it to plain "intro" — these are long, energy-light sections, so altintro
+# is the right family. Validated on the 12 affected Raveform preds: 9 improve (+15..+44pt), 3
+# regress (-9..-15pt, all under-segmented openings the adaptive threshold tends to split first).
+_BREAKDOWN_OPENING_MIN_SEC = 45.0
+
 
 def _fix_boundary_labels(segs: list[tuple], duration: float) -> list[tuple]:
-    """Snap a short, clearly-mislabelled first/last segment to intro/outro (see notes above)."""
+    """Snap a clearly-mislabelled first/last segment to its intro/outro family (see notes above)."""
     if not segs:
         return segs
     dur = duration or max((s[1] for s in segs), default=0.0)
@@ -186,8 +194,12 @@ def _fix_boundary_labels(segs: list[tuple], duration: float) -> list[tuple]:
     h = 0
     while h < len(out) and out[h][2] == "start":  # skip leading marker (never in GT)
         h += 1
-    if h < len(out) and out[h][2] not in _HEAD_LABELS and (out[h][1] - out[h][0]) < lim:
-        out[h][2] = "intro"
+    if h < len(out):
+        head_len = out[h][1] - out[h][0]
+        if out[h][2] == "breakdown" and head_len >= _BREAKDOWN_OPENING_MIN_SEC:
+            out[h][2] = "altintro"   # long breakdown opening -> mislabelled altintro
+        elif out[h][2] not in _HEAD_LABELS and head_len < lim:
+            out[h][2] = "intro"      # short non-intro opening -> mislabelled intro
     t = len(out) - 1
     while t >= 0 and out[t][2] == "end":  # preserve trailing marker (real GT label)
         t -= 1
