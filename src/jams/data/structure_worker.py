@@ -134,8 +134,10 @@ _BOUNDARY_THRESHOLD: float | None = 0.2
 # 100-track capture-and-sweep (worst-60 + control-40), this lifts mean label-accuracy +3.7pt
 # overall / +5.5pt on the worst tracks while moving the control set only +0.9pt (it lowers the
 # threshold on just ~30% of well-segmented tracks). Set ``_BOUNDARY_ADAPTIVE=False`` to force the
-# fixed ``_BOUNDARY_THRESHOLD`` (e.g. to reproduce the HR-tuned numbers).
-_BOUNDARY_ADAPTIVE = True
+# fixed ``_BOUNDARY_THRESHOLD`` (e.g. to reproduce the HR-tuned numbers). Overridable per-run via
+# ``JAMS_BOUNDARY_ADAPTIVE=0`` so the eval harness can A/B adaptive vs fixed without a code edit.
+_BOUNDARY_ADAPTIVE = os.environ.get("JAMS_BOUNDARY_ADAPTIVE", "1").lower() \
+    not in ("0", "false", "no")
 _BOUNDARY_LADDER = (0.20, 0.15, 0.12, 0.10, 0.08, 0.06)
 _BOUNDARY_TARGET_SEC = 40.0
 
