@@ -11,8 +11,11 @@ SOTA-on-GiantSteps methods benchmarked in the companion eval harness.
 | Structure | **All-In-One EDM ensemble on-device** (Apple-Silicon/MPS) | Raveform held-out CV reproduces SOTA (see `eval/`) |
 | Stems → MIDI | **Demucs** 4-stem split + per-stem transcription (basic-pitch; ADTOF drums → General MIDI) | Slakh test: oracle bass 0.79 / drums 0.64; e2e SDR 11.6 dB drums (see `eval/`) |
 
-Both key and tempo fall back to librosa automatically if Essentia isn't installed. Key
-mode (major/minor) is refined by a small chroma classifier — see *Key mode* below.
+`essentia-tensorflow` is a **hard requirement** (wheels for macOS arm64 and Linux x86_64 on
+CPython 3.14) — there are deliberately **no silent fallbacks**: a broken install raises a
+clear error instead of quietly degrading accuracy (the old librosa fallback cost ~19 pt
+MIREX on key and ~13 pt Acc1 on tempo). Key mode (major/minor) is refined by a small
+chroma classifier — see *Key mode* below.
 
 ## Requirements
 
@@ -23,8 +26,9 @@ mode (major/minor) is refined by a small chroma classifier — see *Key mode* be
 - `uv` (https://docs.astral.sh/uv). First `uv sync` pulls `essentia-tensorflow` (~95 MB,
   native) and TensorFlow — give it a minute.
 - The TempoCNN model is bundled (`src/jams/data/models/deepsquare-k16-3.pb`); no download.
-- For the librosa *fallback* path to decode mp3s you need `ffmpeg` on PATH (Essentia decodes
-  mp3 natively, so this only matters if Essentia is unavailable).
+- `ffmpeg` on PATH is needed to run key **mode refinement on mp3 inputs** (its chroma pass
+  uses librosa/audioread decoding to byte-match the training features; Essentia decodes mp3
+  natively everywhere else).
 
 ## Quickstart
 

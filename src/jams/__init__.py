@@ -1,11 +1,11 @@
 """jams — on-demand music-information-retrieval for DJ / electronic music.
 
-Per-track analysis:
-  - key    : Essentia ``KeyExtractor`` with the EDM-tuned ``edma`` profile
-             (librosa Krumhansl-Schmuckler fallback)
+Per-track analysis (essentia-tensorflow is a hard requirement — no silent fallbacks):
+  - key    : Essentia ``KeyExtractor`` with the EDM-tuned ``edma`` profile + learned
+             major/minor refinement
   - tempo  : pretrained TempoCNN + genre-aware octave resolution
-             (RhythmExtractor2013 / librosa fallback)
-  - structure (optional) : All-In-One via Replicate (beats / downbeats / segments)
+  - structure (optional) : All-In-One on-device (beats / downbeats / segments)
+  - stems (optional)     : Demucs 4-stem split + per-stem MIDI transcription
 """
 
 from jams.analysis.key import detect_key
