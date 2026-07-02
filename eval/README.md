@@ -189,9 +189,13 @@ its pinned `tensorflow==2.9.1` has no arm64 wheel.)
 onset-F **0.645** — lower than ADTOF's ~0.85 on real music because E-GMD's Roland TD-17
 timbres are out of the model's crowdsourced-real-music training domain.
 
-**htdemucs_ft A/B** (same 50 e2e tracks): ft buys +2.5 pt bass note-F (0.607 vs 0.582) and
-+0.4–0.6 dB SI-SDR on every stem, drums unchanged — at ~4× separation time. `htdemucs`
+**Separation-model A/B.** `htdemucs_ft` is a consistent quality win at ~4× separation
+time: +2.5 pt bass note-F on the Slakh test 50 (0.607 vs 0.582, +0.4–0.6 dB SI-SDR all
+stems) and +6 pt bass / +2 pt other on babyslakh (bass SDR 3.0 → 4.0 dB). `htdemucs`
 stays the default; set `JAMS_STEMS_MODEL=htdemucs_ft` when quality beats latency.
+**Do not use `htdemucs_6s`** with the current 4-stem contract: it splits guitar/piano
+into stems the pipeline drops, cratering `other` (note-F 0.421 → 0.222, SDR −1.2 dB);
+supporting it would require mapping its extra stems back into `other` first.
 
 Dev subset (babyslakh, 20 tracks, 16 kHz — useful offline, but its bandwidth caps drums:
 no hat/cymbal energy above 8 kHz): oracle bass 0.799 / other 0.468 / drums 0.455.
