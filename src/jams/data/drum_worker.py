@@ -45,6 +45,39 @@ import tempfile
 from pathlib import Path
 
 
+def _velocities_from_audio(wav: str, notes: list[dict]) -> list[dict]:
+    """Replace the model's fixed velocity with dynamics measured from the stem signal.
+
+    ADTOF predicts hits but not dynamics, so every note arrives at velocity 100 — flat,
+    machine-gun MIDI. Each onset's loudness is measured directly (RMS over a 30 ms window
+    starting at the hit) and mapped onto MIDI 30..127 relative to the loudest hit of the
+    same class in the track. Per-class normalisation keeps quiet instruments (e.g. hats
+    under a loud kick) expressive.
+    """
+    import librosa
+    import numpy as np
+
+    y, sr = librosa.load(wav, sr=None, mono=True)
+    if not len(y) or not notes:
+        return notes
+    win = max(1, int(0.03 * sr))
+    peak_of_note: list[float] = []
+    peaks_by_class: dict[int, list[float]] = {}
+    for n in notes:
+        i = int(n["onset"] * sr)
+        seg = y[i: i + win]
+        peak = float(np.sqrt(np.mean(seg**2))) if seg.size else 0.0
+        peak_of_note.append(peak)
+        peaks_by_class.setdefault(n["pitch"], []).append(peak)
+    ref = {p: (max(v) or 1e-9) for p, v in peaks_by_class.items()}
+    out = []
+    for n, peak in zip(notes, peak_of_note, strict=True):
+        # sqrt compresses the range so ghost notes stay audible (perceptual-ish mapping)
+        vel = 30 + int(round(97 * (peak / ref[n["pitch"]]) ** 0.5))
+        out.append({**n, "velocity": max(1, min(127, vel))})
+    return out
+
+
 def transcribe_drums(wav: str) -> list[dict]:
     """Transcribe a drum stem to notes via the ADTOF Frame_RNN model (torch)."""
     import pretty_midi
@@ -62,7 +95,7 @@ def transcribe_drums(wav: str) -> list[dict]:
         for inst in pm.instruments for n in inst.notes
     ]
     notes.sort(key=lambda x: x["onset"])
-    return notes
+    return _velocities_from_audio(wav, notes)
 
 
 def _serve() -> None:
