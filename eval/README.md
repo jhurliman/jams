@@ -176,6 +176,24 @@ drum transcription runs on Apple Silicon, Linux, and CI identically. It emits th
 vocabulary above with fixed velocity. (An earlier Magenta/OaF E-GMD integration was dropped:
 its pinned `tensorflow==2.9.1` has no arm64 wheel.)
 
+### Headline results — babyslakh (20 tracks, 16 kHz)
+
+| Metric | oracle (GT stems) | e2e (Demucs → transcribe) |
+|--------|------------------:|--------------------------:|
+| bass note-F | **0.799** | 0.555 |
+| other note-F | 0.445 | 0.421 |
+| drums onset-F (5-class) | 0.455 | 0.338 |
+| SI-SDR (drums / other / bass) | — | **10.2** / 8.9 / 3.0 dB |
+
+Caveats that bound these numbers, not the pipeline: babyslakh audio is **16 kHz**, so
+hat/cymbal energy (>8 kHz) simply isn't in the signal — the drum worker scores a **perfect
+1.0 macro-F** on ADTOF-pytorch's own 44.1 kHz reference clip, and drum accuracy on
+full-bandwidth audio tracks matches the model's published ~0.85 F. Slakh is also synthetic
+(sample-rendered MIDI); the `other` bucket mixes many polyphonic instruments, which is the
+hardest case for basic-pitch. Full-bandwidth Slakh2100-redux numbers need the 104 GB pull
+(Linux box); note the redux tarball's entries are not grouped per track, so a byte-truncated
+streaming download yields almost no complete tracks — don't bother.
+
 ## Files
 
 | File | Purpose |
