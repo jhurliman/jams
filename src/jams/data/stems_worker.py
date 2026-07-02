@@ -1,6 +1,6 @@
 #!/usr/bin/env -S uv run --script
 # /// script
-# requires-python = ">=3.10,<3.13"
+# requires-python = ">=3.10,<3.12"
 # dependencies = [
 #   "demucs>=4.0",
 #   "basic-pitch[onnx]>=0.4",
@@ -14,6 +14,8 @@
 Self-contained uv script: ``uv run --script stems_worker.py ...`` resolves and caches its own
 environment. It runs in a *separate* interpreter from jams (jams is pinned to Python 3.14;
 demucs/basic-pitch have no 3.14 wheels). jams invokes it as a subprocess and never imports it.
+Python is capped <3.12 because basic-pitch hard-depends on tensorflow on Linux, whose 2.15
+wheels stop at cp311 (inference still runs via ONNX; TF is just an install-time dependency).
 
 Scope: **separation + PITCHED transcription only.** Drums are transcribed by the sibling
 ``drum_worker.py`` (isolated because its Magenta/TF1 stack can't co-resolve with demucs +

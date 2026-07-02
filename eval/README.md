@@ -176,17 +176,28 @@ drum transcription runs on Apple Silicon, Linux, and CI identically. It emits th
 vocabulary above with fixed velocity. (An earlier Magenta/OaF E-GMD integration was dropped:
 its pinned `tensorflow==2.9.1` has no arm64 wheel.)
 
-### Headline results — babyslakh (20 tracks, 16 kHz)
+### Headline results — Slakh2100-redux **test split** (151 tracks, 44.1 kHz)
 
 | Metric | oracle (GT stems) | e2e (Demucs → transcribe) |
 |--------|------------------:|--------------------------:|
-| bass note-F | **0.799** | 0.555 |
-| other note-F | 0.468 | 0.421 |
-| drums onset-F (5-class) | 0.455 | 0.338 |
-| SI-SDR (drums / other / bass) | — | **10.2** / 8.9 / 3.0 dB |
+| bass note-F | **0.789** | 0.596 |
+| other note-F | 0.490 | 0.459 |
+| drums onset-F (5-class) | **0.638** | 0.585 |
+| SI-SDR (drums / other / bass) | — | **11.6** / 10.1 / 4.6 dB |
+
+0 failures either mode. **E-GMD** (500 test tracks, isolated e-kit recordings): drums
+onset-F **0.645** — lower than ADTOF's ~0.85 on real music because E-GMD's Roland TD-17
+timbres are out of the model's crowdsourced-real-music training domain.
+
+**htdemucs_ft A/B** (same 50 e2e tracks): ft buys +2.5 pt bass note-F (0.607 vs 0.582) and
++0.4–0.6 dB SI-SDR on every stem, drums unchanged — at ~4× separation time. `htdemucs`
+stays the default; set `JAMS_STEMS_MODEL=htdemucs_ft` when quality beats latency.
+
+Dev subset (babyslakh, 20 tracks, 16 kHz — useful offline, but its bandwidth caps drums:
+no hat/cymbal energy above 8 kHz): oracle bass 0.799 / other 0.468 / drums 0.455.
 
 (`other` reflects the tuned basic-pitch thresholds — a sweep found (onset 0.6, frame 0.25)
-beats the default (0.5, 0.3) by +2.3 pt on this set; adopted for the `other` stem only.)
+beats the default (0.5, 0.3) by +2.3 pt; adopted for the `other` stem only.)
 
 **Quantize ablation.** Snapping onsets to the ground-truth beat grid (16ths) *costs*
 accuracy on every stem — bass −2.5 pt, drums −1.7, other −0.3 — because GT timing is the
@@ -194,14 +205,11 @@ reference and any snap displaces correct onsets. Quantization remains the produc
 default (grid-locked, DAW-editable MIDI is the point for DJ/EDM workflows) but is a
 stylistic transform; the eval always scores raw timing.
 
-Caveats that bound these numbers, not the pipeline: babyslakh audio is **16 kHz**, so
-hat/cymbal energy (>8 kHz) simply isn't in the signal — the drum worker scores a **perfect
-1.0 macro-F** on ADTOF-pytorch's own 44.1 kHz reference clip, and drum accuracy on
-full-bandwidth audio tracks matches the model's published ~0.85 F. Slakh is also synthetic
-(sample-rendered MIDI); the `other` bucket mixes many polyphonic instruments, which is the
-hardest case for basic-pitch. Full-bandwidth Slakh2100-redux numbers need the 104 GB pull
-(Linux box); note the redux tarball's entries are not grouped per track, so a byte-truncated
-streaming download yields almost no complete tracks — don't bother.
+Context for the numbers: Slakh is synthetic (sample-rendered MIDI) and its `other` bucket
+mixes many polyphonic instruments — the hardest case for basic-pitch. The drum worker
+scores a perfect 1.0 macro-F on ADTOF-pytorch's own 44.1 kHz reference clip. (Operational
+note: the redux tarball's entries are not grouped per track, so a byte-truncated streaming
+download yields almost no complete tracks — pull the whole 104 GB.)
 
 ## Files
 

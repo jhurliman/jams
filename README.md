@@ -9,7 +9,7 @@ SOTA-on-GiantSteps methods benchmarked in the companion eval harness.
 | Key | Essentia `edma` tonic + a learned major/minor refinement | MIREX **0.801** / exact 0.743 |
 | Tempo | Pretrained **TempoCNN** + genre-aware octave resolution | Acc1 **0.965** (corrected labels) |
 | Structure | **All-In-One EDM ensemble on-device** (Apple-Silicon/MPS) | Raveform held-out CV reproduces SOTA (see `eval/`) |
-| Stems → MIDI | **Demucs** 4-stem split + per-stem transcription (basic-pitch; ADTOF drums → General MIDI) | Slakh oracle: bass 0.80 / other 0.47 note-F; SDR 10.2 dB drums (see `eval/`) |
+| Stems → MIDI | **Demucs** 4-stem split + per-stem transcription (basic-pitch; ADTOF drums → General MIDI) | Slakh test: oracle bass 0.79 / drums 0.64; e2e SDR 11.6 dB drums (see `eval/`) |
 
 Both key and tempo fall back to librosa automatically if Essentia isn't installed. Key
 mode (major/minor) is refined by a small chroma classifier — see *Key mode* below.
