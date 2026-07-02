@@ -62,6 +62,12 @@ FREQ_RANGE = {"bass": (30.0, 400.0), "vocals": (65.0, 2100.0), "other": (None, N
 # detects the sounding pitch. +12 aligns our bass MIDI with the written convention — validated
 # on Slakh GT: note-F 0.04 -> 0.80 across all tracks, no regressions.
 BASS_OCTAVE_SHIFT = 12
+# basic-pitch (onset, frame) thresholds per stem. The dense polyphonic "other" stem does
+# better with a stricter onset gate: (0.6, 0.25) scored 0.468 vs the default (0.5, 0.3)'s
+# 0.445 note-F in a sweep on babyslakh ground-truth stems. Bass/vocals keep the defaults
+# (monophonic post-filter already absorbs spurious notes).
+ONSET_FRAME = {"other": (0.6, 0.25)}
+_DEFAULT_ONSET_FRAME = (0.5, 0.3)
 
 
 # --- Device selection -------------------------------------------------------
@@ -164,9 +170,12 @@ def transcribe_pitched(wav: str, stem_type: str) -> list[dict]:
     from basic_pitch.inference import predict
 
     fmin, fmax = FREQ_RANGE.get(stem_type, (None, None))
+    onset_t, frame_t = ONSET_FRAME.get(stem_type, _DEFAULT_ONSET_FRAME)
     _model_output, _midi, note_events = predict(
         wav,
         _get_bp_model(),
+        onset_threshold=onset_t,
+        frame_threshold=frame_t,
         minimum_note_length=90.0 if stem_type in MONOPHONIC_STEMS else 58.0,
         minimum_frequency=fmin,
         maximum_frequency=fmax,

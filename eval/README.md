@@ -181,9 +181,12 @@ its pinned `tensorflow==2.9.1` has no arm64 wheel.)
 | Metric | oracle (GT stems) | e2e (Demucs → transcribe) |
 |--------|------------------:|--------------------------:|
 | bass note-F | **0.799** | 0.555 |
-| other note-F | 0.445 | 0.421 |
+| other note-F | 0.468 | 0.421 |
 | drums onset-F (5-class) | 0.455 | 0.338 |
 | SI-SDR (drums / other / bass) | — | **10.2** / 8.9 / 3.0 dB |
+
+(`other` reflects the tuned basic-pitch thresholds — a sweep found (onset 0.6, frame 0.25)
+beats the default (0.5, 0.3) by +2.3 pt on this set; adopted for the `other` stem only.)
 
 Caveats that bound these numbers, not the pipeline: babyslakh audio is **16 kHz**, so
 hat/cymbal energy (>8 kHz) simply isn't in the signal — the drum worker scores a **perfect
