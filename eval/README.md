@@ -137,6 +137,84 @@ longer beat tracking (0.978, near-ceiling) but:
 See `TRAINING.md` for the D&B-oversampling + tempo-augmentation training plan that targets the
 genuine remainders.
 
+## Stems → MIDI transcription (multi-dataset)
+
+Scores the stems pipeline (`jams.analysis.stems.analyze_stems`) with `mir_eval`. Two modes
+**decouple transcription from separation** so we can measure quality before separation is
+polished:
+
+- `--mode oracle` — transcribe the dataset's **ground-truth stems** (separation skipped).
+  Isolates the transcribers (basic-pitch / OaF-drums). The headline number.
+- `--mode e2e` — separate the mix with Demucs, then transcribe; also scores separation SI-SDR.
+
+| Dataset | Domain | What it scores | Ground truth | Acquire |
+|---------|--------|----------------|--------------|---------|
+| **Slakh2100** | synth multitrack | note-F (bass/other) + drum onset-F + SI-SDR | stems **and** aligned per-stem MIDI (CC-BY-4.0, mirdata) | `acquire_slakh.py --data-home <babyslakh\|slakh2100_flac_redux>` |
+| **E-GMD** | isolated drums | per-GM-instrument drum onset-F | audio↔MIDI (Roland TD-17, GM-native) | `acquire_egmd.py --data-home <extracted e-gmd>` |
+| **MedleyDB** | real multitrack | melodic note-F (f0→notes) | gated audio + pitch annotations (mirdata) | `acquire_medleydb.py --data-home <medleydb_pitch>` |
+
+Metrics: pitched stems use `transcription.precision_recall_f1_overlap` (onset+pitch F, offsets
+ignored); drums use per-class `onset.f_measure` (50 ms) macro-averaged in the standard
+**5-class ADT vocabulary** (kick/snare/hats/toms/cymbals — `--drum-classes gm10` scores the
+full GM set instead; both sides canonicalised via `jams.analysis.gm`); e2e adds SI-SDR per
+stem. `--fresh` discards a stale `--out` checkpoint after pipeline changes.
+
+```sh
+uv run --extra eval eval/acquire_slakh.py --data-home /data/babyslakh_16k --subset babyslakh
+uv run --extra eval eval/evaluate_transcription.py --manifest eval/data/slakh/manifest.jsonl --mode oracle
+```
+
+**Dataset notes.** Slakh full is 100 GB+ — start with `babyslakh` (`--subset babyslakh`) or the
+`2100-redux` set; the acquire script never triggers the giant download (point `--data-home` at
+a local copy). E-GMD's ~100 GB audio is served only as one zip → download+extract it, then use
+`--data-home` (individual-file HTTP fetch 404s). MedleyDB audio is gated → obtain it manually,
+place under `--data-home`; the script drops-all-and-exits with instructions otherwise.
+
+**Drum model.** `drum_worker.py` uses **ADTOF-pytorch** (torch port of the ADTOF Frame_RNN,
+parity-validated against the original: F 88.5 vs 88.7 on MDBDrums++) — torch/librosa only, so
+drum transcription runs on Apple Silicon, Linux, and CI identically. It emits the 5-class
+vocabulary above with fixed velocity. (An earlier Magenta/OaF E-GMD integration was dropped:
+its pinned `tensorflow==2.9.1` has no arm64 wheel.)
+
+### Headline results — Slakh2100-redux **test split** (151 tracks, 44.1 kHz)
+
+| Metric | oracle (GT stems) | e2e (Demucs → transcribe) |
+|--------|------------------:|--------------------------:|
+| bass note-F | **0.789** | 0.596 |
+| other note-F | 0.490 | 0.459 |
+| drums onset-F (5-class) | **0.638** | 0.585 |
+| SI-SDR (drums / other / bass) | — | **11.6** / 10.1 / 4.6 dB |
+
+0 failures either mode. **E-GMD** (500 test tracks, isolated e-kit recordings): drums
+onset-F **0.645** — lower than ADTOF's ~0.85 on real music because E-GMD's Roland TD-17
+timbres are out of the model's crowdsourced-real-music training domain.
+
+**Separation-model A/B.** `htdemucs_ft` is a consistent quality win at ~4× separation
+time: +2.5 pt bass note-F on the Slakh test 50 (0.607 vs 0.582, +0.4–0.6 dB SI-SDR all
+stems) and +6 pt bass / +2 pt other on babyslakh (bass SDR 3.0 → 4.0 dB). `htdemucs`
+stays the default; set `JAMS_STEMS_MODEL=htdemucs_ft` when quality beats latency.
+**Do not use `htdemucs_6s`** with the current 4-stem contract: it splits guitar/piano
+into stems the pipeline drops, cratering `other` (note-F 0.421 → 0.222, SDR −1.2 dB);
+supporting it would require mapping its extra stems back into `other` first.
+
+Dev subset (babyslakh, 20 tracks, 16 kHz — useful offline, but its bandwidth caps drums:
+no hat/cymbal energy above 8 kHz): oracle bass 0.799 / other 0.468 / drums 0.455.
+
+(`other` reflects the tuned basic-pitch thresholds — a sweep found (onset 0.6, frame 0.25)
+beats the default (0.5, 0.3) by +2.3 pt; adopted for the `other` stem only.)
+
+**Quantize ablation.** Snapping onsets to the ground-truth beat grid (16ths) *costs*
+accuracy on every stem — bass −2.5 pt, drums −1.7, other −0.3 — because GT timing is the
+reference and any snap displaces correct onsets. Quantization remains the production
+default (grid-locked, DAW-editable MIDI is the point for DJ/EDM workflows) but is a
+stylistic transform; the eval always scores raw timing.
+
+Context for the numbers: Slakh is synthetic (sample-rendered MIDI) and its `other` bucket
+mixes many polyphonic instruments — the hardest case for basic-pitch. The drum worker
+scores a perfect 1.0 macro-F on ADTOF-pytorch's own 44.1 kHz reference clip. (Operational
+note: the redux tarball's entries are not grouped per track, so a byte-truncated streaming
+download yields almost no complete tracks — pull the whole 104 GB.)
+
 ## Files
 
 | File | Purpose |
@@ -146,6 +224,10 @@ genuine remainders.
 | `acquire_harmonix.py` | Download Harmonix annotations + YouTube audio → `data/harmonix/manifest.jsonl` |
 | `align_harmonix.py` | Fit per-track YouTube↔annotation affine warp + confidence → `alignment.jsonl` |
 | `evaluate_structure.py` | Multi-dataset structure scoring (`mir_eval`); `--target {none,jams,genre,ref}` |
+| `acquire_slakh.py` | Slakh2100 (stems + per-stem MIDI) → `data/slakh/manifest.jsonl` |
+| `acquire_egmd.py` | E-GMD drums (audio↔MIDI) → `data/egmd/manifest.jsonl` |
+| `acquire_medleydb.py` | MedleyDB (real melodic, gated audio) → `data/medleydb/manifest.jsonl` |
+| `evaluate_transcription.py` | Stems→MIDI scoring (`mir_eval`); `--mode {oracle,e2e}` |
 | `prepare_raveform_training.py` | Raveform → Harmonix-shaped training set (for `TRAINING.md`) |
 | `TRAINING.md` | Ready-to-run D&B fine-tune recipe (v1 trainer, oversampling + tempo aug) |
 | `evaluate.py` | Score production `jams.detect_key` / `detect_tempo` |

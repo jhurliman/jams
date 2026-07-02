@@ -221,6 +221,9 @@ def main() -> None:
     ap.add_argument("--keep-case3", action="store_true",
                     help="keep aligner-flagged case3 tracks (different edit); default drops them")
     ap.add_argument("--limit", type=int, default=None)
+    ap.add_argument("--model", default=None,
+                    help="override the per-row model for every track (e.g. all-all) — avoids "
+                         "per-fold model reloads; note all-all is in-sample, not honest CV")
     ap.add_argument("--out", type=Path, default=None)
     args = ap.parse_args()
 
@@ -263,7 +266,8 @@ def main() -> None:
                 ref_beats, ref_down, ref_int, ref_lab = load_refs(r)
                 target = resolve_target(
                     args.target, r["audio_path"], r.get("bpm_ref"), r.get("genre"))
-                structure = analyze_structure(r["audio_path"], target_bpm=target, model=r["model"])
+                model = args.model or r["model"]
+                structure = analyze_structure(r["audio_path"], target_bpm=target, model=model)
                 if al:
                     structure = warp_structure(structure, al["a"], al["b"])
                 s = score_track(ref_beats, ref_down, ref_int, ref_lab, structure)
@@ -271,7 +275,7 @@ def main() -> None:
                 failed += 1
                 print(f"   [{i}/{len(rows)}] {tid}: FAILED ({exc}); skipping", file=sys.stderr)
                 continue
-            s.update(track_id=tid, model=r["model"])
+            s.update(track_id=tid, model=model)
             per_track.append(s)
             if ckpt_fh is not None:
                 ckpt_fh.write(json.dumps(s) + "\n")

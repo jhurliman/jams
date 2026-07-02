@@ -28,6 +28,14 @@ export function Transport({ audio }: { audio: AudioControls }) {
     prediction,
   } = useEditor();
   const [now, setNow] = useState(0);
+  const [copied, setCopied] = useState(false);
+
+  const copyId = () => {
+    if (!meta) return;
+    void navigator.clipboard.writeText(meta.id);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1200);
+  };
 
   useEffect(() => {
     const id = setInterval(() => setNow(audio.audioRef.current?.currentTime ?? 0), 80);
@@ -53,6 +61,13 @@ export function Transport({ audio }: { audio: AudioControls }) {
       {meta && (
         <span className="trackinfo">
           <strong>{meta.title}</strong>
+          <button
+            className="chip id"
+            onClick={copyId}
+            title="Click to copy track ID"
+          >
+            {copied ? '✓ copied' : meta.id}
+          </button>
           <span className="chip">{meta.genre}</span>
           <span className="chip">{meta.bpm} BPM</span>
         </span>

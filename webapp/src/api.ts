@@ -1,4 +1,4 @@
-import type { Annotation, TrackListItem, TrackMeta } from '../shared/types.ts';
+import type { Annotation, StemsResult, TrackListItem, TrackMeta } from '../shared/types.ts';
 
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
@@ -18,6 +18,14 @@ export const api = {
     if (res.status === 204) return null;
     return json<Annotation>(res);
   },
+
+  getStems: async (id: string): Promise<StemsResult | null> => {
+    const res = await fetch(`/api/tracks/${id}/stems`);
+    if (res.status === 204) return null;
+    return json<StemsResult>(res);
+  },
+
+  midiUrl: (id: string, stem: string): string => `/api/tracks/${id}/midi/${stem}`,
 
   saveAnnotation: (id: string, ann: Annotation): Promise<{ ok: boolean }> =>
     fetch(`/api/tracks/${id}/annotation`, {

@@ -40,12 +40,43 @@ class StructureResult(BaseModel):
     method: str = Field(default="allin1-mps-local", examples=["allin1-mps-local:harmonix-all"])
 
 
+class StemNote(BaseModel):
+    onset: float = Field(description="Note-on time (seconds)")
+    offset: float = Field(description="Note-off time (seconds)")
+    pitch: int = Field(ge=0, le=127, description="MIDI pitch; GM percussion note for drums")
+    velocity: int = Field(ge=1, le=127)
+
+
+class StemTranscription(BaseModel):
+    stem_type: str = Field(examples=["drums", "bass", "other", "vocals"])
+    gm_program: int = Field(ge=0, le=127, description="General MIDI program (0-indexed)")
+    is_drums: bool = Field(description="True => GM percussion on channel 10")
+    notes: list[StemNote] = Field(default_factory=list)
+    method: str = Field(examples=["basic-pitch", "adtof"])
+
+
+class StemAudio(BaseModel):
+    stem_type: str
+    audio_path: str = Field(description="Server-side path to the separated stem wav")
+
+
+class StemsResult(BaseModel):
+    stems: list[StemAudio] = Field(default_factory=list)
+    transcriptions: list[StemTranscription] = Field(default_factory=list)
+    midi_paths: dict[str, str] = Field(
+        default_factory=dict, description="Per-stem + 'combined' MIDI file paths"
+    )
+    method: str = Field(examples=["demucs-htdemucs+basic-pitch+adtof"])
+    duration_sec: float | None = None
+
+
 class AnalyzeResponse(BaseModel):
     filename: str | None = None
     duration_sec: float | None = None
     key: KeyResult | None = None
     tempo: TempoResult | None = None
     structure: StructureResult | None = None
+    stems: StemsResult | None = None
 
 
 class AnalyzePathRequest(BaseModel):
@@ -55,6 +86,7 @@ class AnalyzePathRequest(BaseModel):
     key: bool = True
     tempo: bool = True
     structure: bool = False
+    stems: bool = False
     genre: str | None = Field(
         default=None, examples=["Drum & Bass"], description="Genre hint for tempo octave resolution"
     )

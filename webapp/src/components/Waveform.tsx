@@ -123,9 +123,6 @@ export function Waveform({ peaks, audio }: Props) {
           ctx.moveTo(x + 0.5, top);
           ctx.lineTo(x + 0.5, H);
           ctx.stroke();
-          ctx.fillStyle = color;
-          ctx.font = '600 12px ui-sans-serif, system-ui, sans-serif';
-          ctx.fillText(seg.label, Math.max(x, 0) + 6, top + 14);
         });
       }
 
@@ -167,6 +164,26 @@ export function Waveform({ peaks, audio }: Props) {
           ctx.lineTo(x, bottom);
           ctx.stroke();
         }
+      }
+
+      // ground-truth segment labels — drawn on top of the waveform with a dark backdrop chip so
+      // they stay legible over the (light) waveform and coloured band tint.
+      if (annotation) {
+        ctx.font = '600 12px ui-sans-serif, system-ui, sans-serif';
+        ctx.textBaseline = 'middle';
+        for (const seg of annotation.segments) {
+          const x = seg.start * pxPerSec - scrollLeft;
+          const w = (seg.end - seg.start) * pxPerSec;
+          if (x + w < 0 || x > W) continue;
+          const lx = Math.max(x, 0) + 6;
+          const ly = top + 9;
+          const tw = ctx.measureText(seg.label).width;
+          ctx.fillStyle = 'rgba(8,10,15,0.78)';
+          ctx.fillRect(lx - 4, ly - 9, tw + 8, 18);
+          ctx.fillStyle = labelColor(seg.label);
+          ctx.fillText(seg.label, lx, ly + 1);
+        }
+        ctx.textBaseline = 'alphabetic';
       }
 
       // ruler

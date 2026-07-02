@@ -38,7 +38,11 @@ import argparse
 import bisect
 import contextlib
 import json
+import os
+import statistics
+import subprocess
 import sys
+import tempfile
 
 
 def _beat_index(timestamp: float, beats: list[float]) -> int:
@@ -118,11 +122,92 @@ _RAVEFORM_LABELS = [
 # Boundary peak-strength threshold for functional segmentation. Upstream (both the mps port
 # AND mir-aidj's original) hard-codes ``> 0.0``, which keeps every peak above the local mean
 # and 2-3x over-segments (~22 segments vs ~11 true on Raveform) — boundary HR@0.5 collapses
-# to ~0.56. 0.2 is the sweet spot from a 90-track genre-balanced sweep: HR@0.5 (trim) peaks at
-# 0.741 (vs 0.720 at the model's configured 0.1) and the segment count (~11.7) best matches the
-# ground truth (~10.8); per-genre tuning adds only ~0.006 so a single global value is used.
-# ``None`` => fall back to the model's configured ``threshold_section`` (0.1 for EDM).
+# to ~0.56. 0.2 is the sweet spot from a 90-track genre-balanced sweep on the boundary HR@0.5
+# metric (HR peaks at 0.741; segment count ~11.7 best matches the ~10.8 ground truth) — but a
+# fixed 0.2 leaves clearly *under-segmented* tracks stranded (e.g. a 7-min track stuck at 4
+# segments), which tanks label-accuracy. ``None`` => the model's configured ``threshold_section``.
 _BOUNDARY_THRESHOLD: float | None = 0.2
+
+# Adaptive boundary threshold: start at the strict 0.2 (preserving the HR-tuned value for tracks
+# that are already well segmented) and step DOWN the ladder only when a track is under-segmented,
+# until the boundary count reaches a length-based target (~1 per 40 s) or the floor. From a
+# 100-track capture-and-sweep (worst-60 + control-40), this lifts mean label-accuracy +3.7pt
+# overall / +5.5pt on the worst tracks while moving the control set only +0.9pt (it lowers the
+# threshold on just ~30% of well-segmented tracks). Set ``_BOUNDARY_ADAPTIVE=False`` to force the
+# fixed ``_BOUNDARY_THRESHOLD`` (e.g. to reproduce the HR-tuned numbers). Overridable per-run via
+# ``JAMS_BOUNDARY_ADAPTIVE=0`` so the eval harness can A/B adaptive vs fixed without a code edit.
+_BOUNDARY_ADAPTIVE = os.environ.get("JAMS_BOUNDARY_ADAPTIVE", "1").lower() \
+    not in ("0", "false", "no")
+_BOUNDARY_LADDER = (0.20, 0.15, 0.12, 0.10, 0.08, 0.06)
+_BOUNDARY_TARGET_SEC = 40.0
+
+
+def _select_boundary_threshold(candidates, duration: float) -> float:
+    """Pick the strictest ladder threshold whose boundary count meets the length-based target."""
+    import numpy as np
+
+    target = max(3.0, duration / _BOUNDARY_TARGET_SEC)
+    thr = _BOUNDARY_LADDER[0]
+    for thr in _BOUNDARY_LADDER:
+        # +1: the implicit track-start boundary at t=0 isn't a candidate peak.
+        if int(np.count_nonzero(candidates > thr)) + 1 >= target:
+            break
+    return thr
+
+# Positional label prior (from Raveform ground truth across 1423 tracks: "intro"/"altintro" never
+# start past ~27% of a track, "outro"/"altoutro" never before the back half). Before taking the
+# function-label argmax we mask positionally-impossible classes, so the model falls back to its best
+# *valid* label instead of e.g. an "intro" five minutes in. Thresholds carry a small safety margin.
+_INTRO_MAX_FRAC = 0.12
+_OUTRO_MIN_FRAC = 0.5
+
+# Boundary-label correction (from the same 1423-track GT): a track's first segment is an
+# intro-family label 99.9% of the time (intro 86.7% / altintro 13.2%; only 1 track opens on
+# anything else) and its last non-marker segment is outro/altoutro/drop/cooldown ~99.9%. So a
+# SHORT opening/closing segment carrying a different label (e.g. a "breakdown"/"buildup" opening)
+# is almost certainly a label error, and snapping it to intro/outro recovers the match. The
+# length guard is essential: long mislabelled boundary segments usually have a wrong *boundary*
+# too, so relabelling them wholesale overcorrects (validated — without the guard the worst case
+# was -0.38). At frac<0.30 AND <45 s the correction is zero-regression across all Raveform preds.
+# 'start' (never in GT) is skipped; 'end' (a real trailing GT marker) is preserved.
+_HEAD_LABELS = ("intro", "altintro")
+_TAIL_OK_LABELS = ("outro", "altoutro", "drop", "cooldown")
+_BOUNDARY_MAX_FRAC = 0.30
+_BOUNDARY_MAX_SEC = 45.0
+
+# A LONG opening labelled "breakdown" is a different error: GT never opens on breakdown, and when
+# the model calls the opening "breakdown" it's a mislabelled "altintro" ~75% of the time (an
+# atmospheric no-drums intro and a mid-track breakdown are acoustically alike). Unlike the short
+# case above we can't snap it to plain "intro" — these are long, energy-light sections, so altintro
+# is the right family. Validated on the 12 affected Raveform preds: 9 improve (+15..+44pt), 3
+# regress (-9..-15pt, all under-segmented openings the adaptive threshold tends to split first).
+_BREAKDOWN_OPENING_MIN_SEC = 45.0
+
+
+def _fix_boundary_labels(segs: list[tuple], duration: float) -> list[tuple]:
+    """Snap a clearly-mislabelled first/last segment to its intro/outro family (see notes above)."""
+    if not segs:
+        return segs
+    dur = duration or max((s[1] for s in segs), default=0.0)
+    if dur <= 0:
+        return segs
+    out = [list(s) for s in segs]
+    lim = min(_BOUNDARY_MAX_FRAC * dur, _BOUNDARY_MAX_SEC)
+    h = 0
+    while h < len(out) and out[h][2] == "start":  # skip leading marker (never in GT)
+        h += 1
+    if h < len(out):
+        head_len = out[h][1] - out[h][0]
+        if out[h][2] == "breakdown" and head_len >= _BREAKDOWN_OPENING_MIN_SEC:
+            out[h][2] = "altintro"   # long breakdown opening -> mislabelled altintro
+        elif out[h][2] not in _HEAD_LABELS and head_len < lim:
+            out[h][2] = "intro"      # short non-intro opening -> mislabelled intro
+    t = len(out) - 1
+    while t >= 0 and out[t][2] == "end":  # preserve trailing marker (real GT label)
+        t -= 1
+    if t > h and out[t][2] not in _TAIL_OK_LABELS and (out[t][1] - out[t][0]) < lim:
+        out[t][2] = "outro"
+    return [tuple(s) for s in out]
 
 
 def _postprocess_functional(logits, cfg):
@@ -145,12 +230,15 @@ def _postprocess_functional(logits, cfg):
     prob_functions = raw_prob_functions.cpu().numpy()
 
     candidates = peak_picking(prob_sections, window_past=12 * cfg.fps, window_future=12 * cfg.fps)
-    thr = _BOUNDARY_THRESHOLD
-    if thr is None:
+    duration = len(prob_sections) * cfg.hop_size / cfg.sample_rate
+    if _BOUNDARY_ADAPTIVE:
+        thr = _select_boundary_threshold(candidates, duration)
+    elif _BOUNDARY_THRESHOLD is not None:
+        thr = _BOUNDARY_THRESHOLD
+    else:
         thr = float(getattr(cfg, "threshold_section", 0.1) or 0.1)
     boundary = candidates > thr
 
-    duration = len(prob_sections) * cfg.hop_size / cfg.sample_rate
     times = event_frames_to_time(boundary, cfg)
     if len(times) == 0:
         times = np.array([0.0, duration], dtype=float)
@@ -164,11 +252,23 @@ def _postprocess_functional(logits, cfg):
     indices = np.flatnonzero(boundary)
     indices = indices[indices > 0]
     prob_segment_function = np.split(prob_functions, indices, axis=1)
-    pred_labels = [p.mean(axis=1).argmax().item() for p in prob_segment_function]
 
     labels = _fnl.HARMONIX_LABELS  # swapped to the EDM vocab by _set_label_vocab when needed
-    return [Segment(start=s, end=e, label=labels[lab])
-            for (s, e), lab in zip(pred_boundaries, pred_labels, strict=False)]
+    early = {labels.index(n) for n in ("intro", "altintro") if n in labels}
+    late = {labels.index(n) for n in ("outro", "altoutro") if n in labels}
+
+    segments = []
+    for (s, e), probs in zip(pred_boundaries, prob_segment_function, strict=False):
+        mean = probs.mean(axis=1).copy()
+        frac = s / duration if duration else 0.0
+        if frac > _INTRO_MAX_FRAC:
+            for i in early:
+                mean[i] = -1.0
+        if frac < _OUTRO_MIN_FRAC:
+            for i in late:
+                mean[i] = -1.0
+        segments.append(Segment(start=s, end=e, label=labels[int(mean.argmax())]))
+    return segments
 
 
 def _remap_v2_to_v1(state_dict: dict) -> dict:
@@ -277,22 +377,123 @@ def _set_label_vocab(model: str) -> None:
     fnl.HARMONIX_LABELS = _RAVEFORM_LABELS if is_edm else allin1.config.HARMONIX_LABELS
 
 
-def analyze(audio: str, target_bpm: float | None, model: str) -> dict:
+# All-In-One's DiNAT inference breaks past ~2**16 frames (655 s at 100 fps): it emits beats for
+# only the first ~40 s and collapses the rest into one segment. Process longer tracks in
+# overlapping windows (each safely under the cap) and stitch. Threshold is well below the cap.
+_LEN_CAP_SEC = 600.0
+_CHUNK_SEC = 480.0
+_CHUNK_OVERLAP_SEC = 30.0
+
+
+def _audio_duration(audio: str) -> float:
+    out = subprocess.run(  # noqa: S603,S607
+        ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+         "-of", "default=nw=1:nk=1", audio],
+        capture_output=True, text=True, check=True)
+    return float(out.stdout.strip())
+
+
+def _slice_audio(audio: str, start: float, length: float) -> str:
+    """Write a `length`-second slice of `audio` from `start` to a temp WAV; return its path."""
+    fd, tmp = tempfile.mkstemp(suffix=".wav")
+    os.close(fd)
+    subprocess.run(  # noqa: S603,S607
+        ["ffmpeg", "-y", "-v", "error", "-ss", f"{start:.3f}", "-t", f"{length:.3f}",
+         "-i", audio, "-ac", "2", "-ar", "44100", tmp],
+        check=True)
+    return tmp
+
+
+def _run_single(
+    audio: str, model: str,
+) -> tuple[list[float], list[float], list[tuple], float | None]:
+    """Run All-In-One on a single (short-enough) audio path -> beats, downbeats, segments, bpm."""
     import allin1
 
+    with contextlib.redirect_stdout(sys.stderr):  # keep our stdout protocol clean
+        r = allin1.analyze(
+            paths=audio, model=model, include_activations=False, keep_byproducts=False)
+    beats = [float(b) for b in r.beats]
+    downbeats = [float(d) for d in r.downbeats]
+    segments = [(float(s.start), float(s.end), s.label) for s in r.segments]
+    bpm = float(r.bpm) if r.bpm is not None else None
+    return beats, downbeats, segments, bpm
+
+
+def _run_chunked(audio: str, model: str, duration: float):
+    """Analyse a long track in overlapping windows and stitch the results.
+
+    Each window stays under the model's frame cap. Outputs are assigned to whichever window
+    *owns* each timestamp — the seam sits at the middle of each overlap — so beats/downbeats
+    dedupe cleanly and segments are clipped to their window, then same-label runs merge across
+    the seam.
+    """
+    step = _CHUNK_SEC - _CHUNK_OVERLAP_SEC
+    starts: list[float] = []
+    s = 0.0
+    while s < duration:
+        starts.append(s)
+        s += step
+
+    chunks = []  # (start, end, beats, downbeats, segments)
+    for cs in starts:
+        length = min(_CHUNK_SEC, duration - cs)
+        if length < 1.0:
+            continue
+        tmp = _slice_audio(audio, cs, length)
+        try:
+            b, db, segs, _ = _run_single(tmp, model)
+        finally:
+            os.remove(tmp)
+        chunks.append((cs, cs + length, b, db, segs))
+
+    bounds = [0.0]
+    for i in range(len(chunks) - 1):
+        bounds.append((chunks[i + 1][0] + chunks[i][1]) / 2.0)  # middle of the overlap
+    bounds.append(duration)
+
+    beats: list[float] = []
+    downbeats: list[float] = []
+    raw_segs: list[tuple] = []
+    for i, (cs, _ce, b, db, segs) in enumerate(chunks):
+        lo, hi = bounds[i], bounds[i + 1]
+        beats += [cs + t for t in b if lo <= cs + t < hi]
+        downbeats += [cs + t for t in db if lo <= cs + t < hi]
+        for st, en, lab in segs:
+            a, z = max(cs + st, lo), min(cs + en, hi)
+            if z - a > 0.05:
+                raw_segs.append((a, z, lab))
+    beats.sort()
+    downbeats.sort()
+    raw_segs.sort(key=lambda x: x[0])
+
+    merged: list[tuple] = []
+    for st, en, lab in raw_segs:
+        if merged and merged[-1][2] == lab and st - merged[-1][1] < 1.0:
+            merged[-1] = (merged[-1][0], en, lab)
+        else:
+            merged.append((st, en, lab))
+
+    diffs = [b - a for a, b in zip(beats, beats[1:], strict=False) if b > a]
+    bpm = round(60.0 / statistics.median(diffs), 2) if diffs else None
+    return beats, downbeats, merged, bpm
+
+
+def analyze(audio: str, target_bpm: float | None, model: str) -> dict:
     _register_extra_models()
     _set_label_vocab(model)
 
-    # All-In-One prints progress to stdout; keep our stdout protocol clean.
-    with contextlib.redirect_stdout(sys.stderr):
-        result = allin1.analyze(
-            paths=audio, model=model, include_activations=False, keep_byproducts=False,
-        )
+    try:
+        duration = _audio_duration(audio)
+    except Exception:  # noqa: BLE001 - ffprobe unavailable -> just run the model directly
+        duration = 0.0
 
-    beats = [float(b) for b in result.beats]
-    downbeats = [float(d) for d in result.downbeats]
-    bpm = float(result.bpm) if result.bpm is not None else None
-    method = f"allin1-mps-local:{model}"
+    if duration > _LEN_CAP_SEC:
+        beats, downbeats, raw_segs, bpm = _run_chunked(audio, model, duration)
+        method = f"allin1-mps-local:{model}+chunked"
+    else:
+        beats, downbeats, raw_segs, bpm = _run_single(audio, model)
+        method = f"allin1-mps-local:{model}"
 
     # Keep the native beats (high quality); only octave-correct when target_bpm says the
     # native tempo is a clean half/double. Octave-correct tracks pass through untouched.
@@ -303,13 +504,17 @@ def analyze(audio: str, target_bpm: float | None, model: str) -> dict:
             beats, downbeats, bpm = new_beats, new_downbeats, new_bpm
             method += f"+octave{bpm:g}"
 
+    # Snap short, positionally-impossible opening/closing labels (runs on the FINAL stitched
+    # segments, so it's correct for both the single and chunked paths).
+    raw_segs = _fix_boundary_labels(raw_segs, duration)
+
     segments = [
         {
-            "start": float(s.start), "end": float(s.end), "label": s.label,
-            "start_beat": _beat_index(float(s.start), beats),
-            "end_beat": _beat_index(float(s.end), beats),
+            "start": st, "end": en, "label": lab,
+            "start_beat": _beat_index(st, beats),
+            "end_beat": _beat_index(en, beats),
         }
-        for s in result.segments
+        for st, en, lab in raw_segs
     ]
     return {
         "bpm": bpm, "beats": beats, "downbeats": downbeats,

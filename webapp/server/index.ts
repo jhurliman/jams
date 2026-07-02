@@ -11,6 +11,7 @@ import {
   listTracks,
   loadAnnotation,
   loadPrediction,
+  loadStems,
   saveAnnotation,
   trackMeta,
 } from './annotations.ts';
@@ -34,6 +35,26 @@ app.get('/api/tracks/:id/annotation', (c) => {
 app.get('/api/tracks/:id/prediction', (c) => {
   const pred = loadPrediction(c.req.param('id'));
   return pred ? c.json(pred) : c.body(null, 204);
+});
+
+app.get('/api/tracks/:id/stems', (c) => {
+  const stems = loadStems(c.req.param('id'));
+  return stems ? c.json(stems) : c.body(null, 204);
+});
+
+/** Stream a per-stem (or 'combined') MIDI file resolved from the stems result's `midiPaths`. */
+app.get('/api/tracks/:id/midi/:stem', (c) => {
+  const stems = loadStems(c.req.param('id'));
+  const path = stems?.midiPaths[c.req.param('stem')];
+  if (!path || !existsSync(path)) return c.notFound();
+  const stream = createReadStream(path);
+  return new Response(Readable.toWeb(stream) as NodeWebReadableStream as ReadableStream, {
+    headers: {
+      'Content-Type': 'audio/midi',
+      'Content-Length': String(statSync(path).size),
+      'Content-Disposition': `attachment; filename="${c.req.param('id')}-${c.req.param('stem')}.mid"`,
+    },
+  });
 });
 
 app.put('/api/tracks/:id/annotation', async (c) => {
