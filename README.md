@@ -6,7 +6,7 @@ SOTA-on-GiantSteps methods benchmarked in the companion eval harness.
 
 | Analysis | Method | Accuracy (GiantSteps) |
 |----------|--------|-----------------------|
-| Key | Essentia `edma` tonic + a learned major/minor refinement | MIREX **0.801** / exact 0.743 |
+| Key | Essentia `edma` + **S-KEY fusion** (learned mode + rerank heads) | MIREX **0.812** / exact **0.757** (honest protocol) |
 | Tempo | Pretrained **TempoCNN** + genre-aware octave resolution | Acc1 **0.965** (corrected labels) |
 | Structure | **All-In-One EDM ensemble on-device** (Apple-Silicon/MPS) | Raveform held-out CV reproduces SOTA (see `eval/`) |
 | Stems → MIDI | **Demucs** 4-stem split + per-stem transcription (basic-pitch; ADTOF drums → General MIDI) | Slakh test: oracle bass 0.79 / drums 0.64; e2e SDR 11.6 dB drums (see `eval/`) |
@@ -71,16 +71,31 @@ jungle resolve to **full tempo (~174)**, not half-time. `bpm_alt` always returns
 other octave so a client can flip it. With no hint, the raw value is returned unchanged
 (nothing is silently folded).
 
-## Key mode (major vs minor)
+## Key detection (edma + S-KEY fusion)
 
-`edma` nails the *tonic* but, like all template methods, over-calls **major** on minor
-tracks — the diagnostic note is the **third** (minor 3rd vs major 3rd above the tonic),
-which a full-template correlation dilutes. We keep edma's tonic and refine the *mode*
-with a small logistic classifier over chroma cues (the third, 6th, 7th, and a
-bass-register third), overriding edma only when confident. 5-fold CV: MIREX
-**0.759→0.801**, exact **0.688→0.743**, with major-key recall preserved. The model ships
-at `src/jams/data/mode_model.json`; retrain with `eval/train_mode_model.py`. Pass
-`detect_key(path, refine_mode=False)` to skip it (saves a ~1-2 s chroma pass).
+`edma` nails the *tonic* but over-calls **major** on minor tracks. The default pipeline
+fuses it with Deezer's **S-KEY** (self-supervised, MIT, trained on 1M songs with zero
+key labels — run as a uv worker, `src/jams/data/skey_worker.py`): a learned *mode head*
+refines major/minor from chroma cues + the S-KEY posterior, and a *rerank head* decides
+per-track whether to keep the refined edma key or S-KEY's key outright. Their errors
+decorrelate: edma is exact-hit-strong, S-KEY near-miss-strong.
+
+**Honest protocol** (the literature standard): all learned heads train only on
+**GiantSteps-MTG-Keys** and are evaluated once on **GiantSteps Key**. An earlier mode
+model was inadvertently trained on the test set itself; it remains only behind
+`JAMS_KEY_FUSION=0` (legacy) and its numbers must not be compared to published results.
+
+| system | MIREX weighted | exact |
+|--------|---------------:|------:|
+| edma raw | 0.759 | 0.688 |
+| edma + honest mode retrain | 0.810 | 0.753 |
+| S-KEY standalone | 0.817 | 0.748 |
+| **production fusion** | **0.812** | **0.757** |
+
+Honest published SOTA on GiantSteps Key is ~0.76 weighted (Korzeniowski 74.6,
+InceptionKeyNet 75.7, KeyMyna 75.9) — every row above clears it. Fusion models ship at
+`src/jams/data/key_fusion.json`. Pass `detect_key(path, refine_mode=False)` to skip
+refinement entirely (plain edma, saves the chroma pass + worker round-trip).
 
 ## Song structure (on-device)
 

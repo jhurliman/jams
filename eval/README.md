@@ -33,6 +33,35 @@ Methods: key = Essentia `edma`; tempo = pretrained TempoCNN `deepsquare` + genre
 octave resolution. Chosen by `benchmark_*`; both beat librosa, RhythmExtractor2013,
 Percival, and madmom (see git history / the comparison scripts).
 
+## Key: honest protocol + S-KEY fusion
+
+**Contamination disclosure.** The original mode-refinement model (`mode_model.json`,
+`train_mode_model.py`) was 5-fold cross-validated *and refit* on GiantSteps Key — the
+test set. Its 0.801 weighted was a fair CV generalization estimate but is not comparable
+to published numbers (which train elsewhere and test once on GiantSteps Key). Fixed by
+adopting the literature protocol: train on **GiantSteps-MTG-Keys** (`acquire_gsmtg.py`,
+1,157 high-confidence single-key Beatport previews), evaluate **once** on GiantSteps Key.
+
+The production pipeline now fuses edma with **S-KEY** (Kong et al., ICASSP 2025;
+`deezer/skey`, MIT, checkpoint in-package, provably uncontaminated — self-supervised on
+Deezer's catalog): a mode head (chroma cues + edma confidence + S-KEY posterior features)
+and a rerank head (keep refined edma vs switch to S-KEY). Thresholds and model selection
+by 5-fold CV on GS-MTG only; the exported heads ship at `src/jams/data/key_fusion.json`.
+
+GiantSteps Key (567 tracks, single evaluation):
+
+| system | MIREX weighted | exact |
+|--------|---------------:|------:|
+| edma raw | 0.7589 | 0.6878 |
+| legacy mode model (contaminated — reference only) | 0.801 | 0.743 |
+| honest mode retrain (GS-MTG) | 0.8095 | 0.7531 |
+| S-KEY standalone | 0.8168 | 0.7478 |
+| **production fusion (mode + rerank)** | **0.8123** | **0.7566** |
+
+Honest published SOTA: Korzeniowski & Widmer 2018 (madmom CNN) 74.6 weighted,
+InceptionKeyNet 75.68, KeyMyna 75.91. The pair's oracle ceiling is 0.868 — remaining
+fusion headroom. (Experiment scripts to be added to `eval/` in a follow-up.)
+
 ## Label corrections
 
 The GiantSteps **Key** tempo labels are *wrong* for half-time genres (D&B labeled ~87 when

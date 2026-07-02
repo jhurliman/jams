@@ -1,17 +1,29 @@
 """Musical-key detection.
 
-Tonic: Essentia ``KeyExtractor`` with the EDM-tuned ``edma`` profile (SOTA on
-GiantSteps Key). Mode (major/minor): edma's call, refined by a small logistic
-classifier trained on chroma cues — the *third* (minor 3rd vs major 3rd above the
-tonic) plus the 6th/7th and a bass-register third. Template correlation dilutes the
-diagnostic third among the shared scale tones; the classifier targets it directly and
-only overrides edma when confident, lifting MIREX 0.759->0.801 (5-fold CV) while
-keeping major-key recall.
+Default pipeline (**fusion**, honest-protocol): Essentia ``KeyExtractor`` (EDM-tuned
+``edma`` profile) provides the tonic and a first mode estimate; Deezer's **S-KEY**
+(self-supervised, MIT, run in a uv worker — ``data/skey_worker.py``) provides an
+independent 24-class key posterior. Two small logistic heads fuse them:
+
+  1. *mode head* — refines major/minor from chroma cues (the diagnostic third, 6th/7th,
+     bass-register third) + edma confidence + S-KEY posterior features anchored at edma's
+     tonic. Overrides edma's mode only when confident.
+  2. *rerank head* — decides per-track whether to keep the refined edma key or switch to
+     S-KEY's key outright (their errors decorrelate: edma is exact-hit-strong, S-KEY is
+     near-miss-strong).
+
+Both heads were trained **only on GiantSteps-MTG-Keys** (the training split) and evaluated
+once on GiantSteps Key: weighted MIREX **0.812** / exact **0.757** — above the honest
+published SOTA (~0.76 weighted) and above every single component. The method string for
+this pipeline is ``essentia-edma+skey-fusion`` (the whole decision is fusion-informed,
+whichever branch wins). An earlier mode model was trained on the test set itself; it
+remains only behind ``JAMS_KEY_FUSION=0`` as the legacy path (``essentia-edma+modeclf``)
+and its numbers must not be quoted against the literature.
 
 essentia-tensorflow is a **hard requirement** (wheels for macOS arm64 + Linux x86_64,
-CPython 3.14). There is deliberately no fallback detector: earlier versions silently
-degraded to librosa Krumhansl-Schmuckler (MIREX 0.801 -> ~0.61) on any import/runtime
-error, making accuracy depend on installation accidents. A broken install now raises.
+CPython 3.14), and with fusion enabled the S-KEY worker is too. There is deliberately no
+fallback detector and no silent degradation: any failure raises (accuracy must not depend
+on installation accidents).
 """
 
 from __future__ import annotations
@@ -19,10 +31,12 @@ from __future__ import annotations
 import json
 import logging
 import math
+import threading
 from functools import lru_cache
 from pathlib import Path
 
 from jams.analysis.audio import load_mono, validate_audio_path
+from jams.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +46,16 @@ FLAT_TO_SHARP = {
     "Cb": "B", "Fb": "E", "E#": "F", "B#": "C",
 }
 _MODE_MODEL_PATH = Path(__file__).resolve().parent.parent / "data" / "mode_model.json"
+_KEY_FUSION_PATH = Path(__file__).resolve().parent.parent / "data" / "key_fusion.json"
+_SKEY_WORKER_PATH = Path(__file__).resolve().parent.parent / "data" / "skey_worker.py"
+
+# S-KEY's 24-class posterior ordering (majors 0-11, minors 12-23) — must match the
+# key_map in deezer/skey and the ordering baked into key_fusion.json at export time.
+_SKEY_ORDER = (
+    [(n, "major") for n in ("A", "A#", "B", "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#")]
+    + [(n, "minor") for n in ("B", "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#")]
+)
+_SKEY_IDX = {k: i for i, k in enumerate(_SKEY_ORDER)}
 
 
 def _normalize(tonic: str, scale: str) -> tuple[str, str]:
@@ -99,6 +123,98 @@ def _refine_mode(path: str, tonic_idx: int, edma_mode: str) -> str:
     return edma_mode
 
 
+@lru_cache(maxsize=1)
+def _key_fusion_model() -> dict:
+    # Bundled with the package; absence is a broken install, not a soft condition.
+    try:
+        return json.loads(_KEY_FUSION_PATH.read_text())
+    except Exception as exc:
+        raise RuntimeError(
+            f"Bundled key-fusion model missing/corrupt at {_KEY_FUSION_PATH} — broken "
+            "install? Set JAMS_KEY_FUSION=0 only to intentionally use the legacy path."
+        ) from exc
+
+
+_skey_singleton = None
+_skey_singleton_lock = threading.Lock()
+
+
+def _skey_worker():
+    """Resident S-KEY uv worker (same subprocess pattern as the stems workers)."""
+    global _skey_singleton
+    if _skey_singleton is None:
+        with _skey_singleton_lock:
+            if _skey_singleton is None:
+                from jams.analysis.stems import _Worker
+
+                _skey_singleton = _Worker(_SKEY_WORKER_PATH, "skey")
+    return _skey_singleton
+
+
+def _parse_skey_key(key: str) -> tuple[str, str]:
+    """Normalize an S-KEY key string ("Bb minor", "D Major") to (tonic, mode)."""
+    parts = key.split()
+    if len(parts) != 2:
+        raise ValueError(f"Unparseable S-KEY key: {key!r}")
+    return _normalize(parts[0], parts[1])
+
+
+def _skey_feats(posterior: list[float], tonic_idx: int, edma_mode: str) -> list[float]:
+    """S-KEY posterior features anchored at edma's tonic.
+
+    Order is load-bearing — it must match the training extraction in the eval scripts:
+    [P(tonic,minor), P(tonic,major), diff, P(relative-minor), P(relative-major),
+     P(fifth-up, edma mode), P(fourth-up, edma mode), max, entropy].
+    """
+    def p(t: int, m: str) -> float:
+        return float(posterior[_SKEY_IDX[(NOTES[t % 12], m)]])
+
+    ent = -sum(x * math.log(x + 1e-12) for x in posterior)
+    return [
+        p(tonic_idx, "minor"), p(tonic_idx, "major"),
+        p(tonic_idx, "minor") - p(tonic_idx, "major"),
+        p((tonic_idx + 9) % 12, "minor"), p((tonic_idx + 3) % 12, "major"),
+        p(tonic_idx + 7, edma_mode), p(tonic_idx + 5, edma_mode),
+        float(max(posterior)), float(ent),
+    ]
+
+
+def _logistic(model: dict, x: list[float]) -> float:
+    z = model["intercept"]
+    for xi, mean, scale, coef in zip(x, model["mean"], model["scale"], model["coef"],
+                                     strict=True):
+        z += coef * ((xi - mean) / scale)
+    return 1.0 / (1.0 + math.exp(-z))
+
+
+def _fuse(path: str, tonic: str, edma_mode: str, conf: float) -> tuple[str, str]:
+    """Run the fusion heads; return (final tonic, final mode)."""
+    fusion = _key_fusion_model()
+    tonic_idx = NOTES.index(tonic)
+    cues = _mode_features(path, tonic_idx)
+    skey = _skey_worker().analyze({"audio": path})
+    sfeat = _skey_feats(skey["posterior"], tonic_idx, edma_mode)
+
+    # Head 1: mode refinement (keeps edma's tonic).
+    p_minor = _logistic(fusion["mode"], cues + [conf] + sfeat)
+    thr = fusion["mode"]["threshold"]
+    mode = edma_mode
+    if p_minor >= thr:
+        mode = "minor"
+    elif p_minor <= 1.0 - thr:
+        mode = "major"
+
+    # Head 2: keep the refined edma key, or switch to S-KEY's key outright.
+    sk_tonic, sk_mode = _parse_skey_key(skey["skey_key"])
+    agree_full = 1.0 if (sk_tonic, sk_mode) == (tonic, mode) else 0.0
+    agree_tonic = 1.0 if sk_tonic == tonic else 0.0
+    x2 = cues + [conf, p_minor, abs(p_minor - 0.5)] + sfeat + [agree_full, agree_tonic]
+    p_switch = _logistic(fusion["rerank"], x2)
+    if p_switch >= fusion["rerank"]["threshold"]:
+        return sk_tonic, sk_mode
+    return tonic, mode
+
+
 def _detect_essentia(path: str, refine_mode: bool) -> dict:
     try:
         import essentia
@@ -117,10 +233,16 @@ def _detect_essentia(path: str, refine_mode: bool) -> dict:
     tonic, mode = _normalize(tonic, scale)
     method = "essentia-edma"
     if refine_mode:
-        refined = _refine_mode(path, NOTES.index(tonic), mode)
-        if refined != mode:
-            mode = refined
-            method = "essentia-edma+modeclf"
+        if get_settings().key_fusion:
+            tonic, mode = _fuse(path, tonic, mode, float(strength))
+            method = "essentia-edma+skey-fusion"
+        else:
+            # Legacy path (JAMS_KEY_FUSION=0): mode_model.json was trained on GiantSteps
+            # Key itself — usable, but its accuracy must not be quoted vs the literature.
+            refined = _refine_mode(path, NOTES.index(tonic), mode)
+            if refined != mode:
+                mode = refined
+                method = "essentia-edma+modeclf"
     return {
         "key": f"{tonic} {mode}",
         "tonic": tonic,
@@ -133,9 +255,10 @@ def _detect_essentia(path: str, refine_mode: bool) -> dict:
 def detect_key(path: str, *, refine_mode: bool = True) -> dict:
     """Detect the musical key. Returns key, tonic, mode, confidence, method.
 
-    ``refine_mode`` runs the learned major/minor refinement (adds a librosa chroma
-    pass, ~1-2 s); set False to skip it for speed. Failures raise — there is no
-    silent fallback detector (see module docstring).
+    ``refine_mode`` runs the learned refinement — by default the S-KEY fusion (adds a
+    librosa chroma pass + a worker round-trip, a few seconds); set False to skip both
+    for speed (plain edma). Failures raise — there is no silent fallback detector or
+    silent fusion downgrade (see module docstring).
     """
     validate_audio_path(path)
     return _detect_essentia(path, refine_mode)

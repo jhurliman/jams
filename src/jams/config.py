@@ -19,6 +19,14 @@ class Settings(BaseSettings):
     # Reject uploads larger than this (MB).
     max_upload_mb: int = 100
 
+    # --- Key detection ------------------------------------------------------
+    # Fuse edma with Deezer's S-KEY model (uv worker, src/jams/data/skey_worker.py) —
+    # the honest-protocol default (GiantSteps Key weighted 0.812 / exact 0.757, heads
+    # trained only on GiantSteps-MTG). Disabling falls back to the LEGACY mode-refinement
+    # model, which was trained on GiantSteps Key itself (contaminated — don't quote its
+    # numbers against the literature).
+    key_fusion: bool = True
+
     # --- Song structure (All-In-One) ---------------------------------------
     # "local": run All-In-One on-device. The worker is a self-contained uv script
     # (all-in-one-mps), so it can't share jams' Python 3.14 env (no torch wheel) —
