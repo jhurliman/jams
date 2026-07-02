@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-import type { Annotation, SectionLabel, Segment, TrackMeta } from '../shared/types.ts';
+import type { Annotation, SectionLabel, Segment, StemsResult, TrackMeta } from '../shared/types.ts';
 import { api } from './api.ts';
 
 interface ViewState {
@@ -15,6 +15,8 @@ interface EditorState {
   annotation: Annotation | null;
   /** Read-only model prediction (eval layer). */
   prediction: Annotation | null;
+  /** Read-only per-stem MIDI transcriptions; null when none exist for the track. */
+  stems: StemsResult | null;
   showEval: boolean;
   loading: boolean;
   /** Bumped on every annotation change; lets the canvas invalidate its cached render. */
@@ -69,6 +71,7 @@ export const useEditor = create<EditorState>((set, get) => {
     meta: null,
     annotation: null,
     prediction: null,
+    stems: null,
     showEval: true,
     loading: false,
     rev: 0,
@@ -87,17 +90,26 @@ export const useEditor = create<EditorState>((set, get) => {
         selectedSegment: null,
         selectedBeat: null,
         prediction: null,
+        stems: null,
       });
-      const [meta, annotation, prediction] = await Promise.all([
+      const [meta, annotation, prediction, stems] = await Promise.all([
         api.getTrack(id),
         api.getAnnotation(id),
         api.getPrediction(id),
+        api.getStems(id),
       ]);
-      const pxPerSec = clamp(get().view.viewportWidth / Math.max(meta.durationSec, 1), 4, 400);
+      // Ignore a stale response: if another track was selected while these fetches were in
+      // flight, don't clobber its state (which would also make save() write to the wrong track).
+      if (get().trackId !== id) return;
+      // Load showing the whole track (fit). The fit level is also the zoom-out floor (see
+      // zoomAround) so long tracks aren't stuck at a too-high minimum px/s.
+      const fit = get().view.viewportWidth / Math.max(meta.durationSec, 1);
+      const pxPerSec = Math.min(fit, 600);
       set({
         meta,
         annotation,
         prediction,
+        stems,
         loading: false,
         dirty: false,
         past: [],
@@ -126,8 +138,12 @@ export const useEditor = create<EditorState>((set, get) => {
     zoomAround: (factor, anchorClientX) => {
       const { view, meta } = get();
       if (!meta) return;
+      // Floor = fit (whole track in view); no point zooming out further. Fixes long tracks where
+      // fit is below the old hard floor of 4 px/s (which made zoom-out impossible and zoom-in jump),
+      // and short tracks where the floor should be above 4 (so you can't zoom out into blank space).
+      const minPx = view.viewportWidth / Math.max(meta.durationSec, 1);
       const anchorTime = (view.scrollLeft + anchorClientX) / view.pxPerSec;
-      const pxPerSec = clamp(view.pxPerSec * factor, 4, 600);
+      const pxPerSec = clamp(view.pxPerSec * factor, minPx, 600);
       const maxScroll = Math.max(0, meta.durationSec * pxPerSec - view.viewportWidth);
       const scrollLeft = clamp(anchorTime * pxPerSec - anchorClientX, 0, maxScroll);
       set({ view: { ...view, pxPerSec, scrollLeft } });

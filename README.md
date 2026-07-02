@@ -9,6 +9,7 @@ SOTA-on-GiantSteps methods benchmarked in the companion eval harness.
 | Key | Essentia `edma` tonic + a learned major/minor refinement | MIREX **0.801** / exact 0.743 |
 | Tempo | Pretrained **TempoCNN** + genre-aware octave resolution | Acc1 **0.965** (corrected labels) |
 | Structure | **All-In-One EDM ensemble on-device** (Apple-Silicon/MPS) | Raveform held-out CV reproduces SOTA (see `eval/`) |
+| Stems → MIDI | **Demucs** 4-stem split + per-stem transcription (basic-pitch; ADTOF drums → General MIDI) | Slakh oracle: bass 0.80 / other 0.45 note-F; SDR 10.2 dB drums (see `eval/`) |
 
 Both key and tempo fall back to librosa automatically if Essentia isn't installed. Key
 mode (major/minor) is refined by a small chroma classifier — see *Key mode* below.
@@ -101,6 +102,31 @@ crippled beat-F.)
 
 Prefer the hosted model? Set `JAMS_STRUCTURE_BACKEND=replicate` (+ a Replicate token) to use
 the original `jhurliman/allinone-targetbpm` endpoint instead.
+
+## Stems → MIDI (on-device)
+
+Opt-in per request (`stems=true`): split a track into 4 stems (**drums / bass / other /
+vocals**) with **Demucs `htdemucs`**, then transcribe each to MIDI —
+
+- **bass / vocals** → basic-pitch, monophonic post-filter (GM programs 34 / 85). Bass is
+  shifted +12 to the written-MIDI convention (validated on Slakh: note-F 0.04 → 0.80).
+- **other** → basic-pitch, polyphonic (GM piano)
+- **drums** → **ADTOF Frame_RNN** (torch port of Zehren et al.'s crowdsourced-data CRNN;
+  F 88.5 vs the original's 88.7 on MDBDrums++) → General MIDI percussion on channel 10
+  (36 kick, 38 snare, 42 hats, 47 toms, 49 cymbals), quantized to jams' beat grid
+
+Output is one `.mid` per stem plus a combined Type-1 multitrack `.mid`, and inline note arrays.
+Like structure, the heavy models run in self-contained `uv` workers (no Python 3.14 wheels for
+demucs/basic-pitch/torch), kept resident: `src/jams/data/stems_worker.py` (separation +
+pitched) and `drum_worker.py` (drums, isolated so its git-sourced model dependency never
+touches jams' own env). The orchestrator (`analysis/stems.py` + `analysis/gm.py`) merges them
+and assembles the MIDI.
+
+**Platform:** fully cross-platform — separation auto-selects cuda → mps → cpu, and both
+transcribers are torch/ONNX, so the whole pipeline (drums included) runs on Apple-Silicon
+Macs, Linux, and CI identically. Config: `JAMS_STEMS_MODEL` (`htdemucs`),
+`JAMS_STEMS_QUANTIZE`, `JAMS_STEMS_OUT_DIR`, `JAMS_STEMS_UV`. See `eval/README.md` for the
+transcription benchmark.
 
 ## Endpoints
 

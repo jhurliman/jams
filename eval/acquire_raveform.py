@@ -32,31 +32,47 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 import statistics as st
 import subprocess
 import sys
 import zipfile
 from pathlib import Path
 
-DATA_DIR = Path(__file__).resolve().parent / "data" / "raveform"
+# Defaults next to the script; override with RAVEFORM_DIR to keep the data outside a git worktree
+# (matches the webapp's RAVEFORM_DIR), so it survives `git worktree remove`.
+_DEFAULT_DIR = Path(__file__).resolve().parent / "data" / "raveform"
+DATA_DIR = Path(os.environ.get("RAVEFORM_DIR") or _DEFAULT_DIR)
 ZIP_PATH = DATA_DIR / "raveform.zip"
 ZIP_URL = "https://huggingface.co/datasets/taejunkim/raveform/resolve/main/raveform.zip"
 BEATS_DIR = DATA_DIR / "raveform" / "structures" / "beats"
+SEGMENTS_JSON = DATA_DIR / "raveform" / "structures" / "segments.json"
 
 
 def ensure_annotations() -> Path:
-    """Make sure the structures/beats CSVs are extracted; download the zip if missing."""
-    if BEATS_DIR.exists() and any(BEATS_DIR.glob("*.csv")):
+    """Make sure the beat CSVs and segments.json are extracted; download the zip if missing."""
+    if BEATS_DIR.exists() and any(BEATS_DIR.glob("*.csv")) and SEGMENTS_JSON.exists():
         return BEATS_DIR
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     if not ZIP_PATH.exists():
         print(f"=> Downloading Raveform annotations zip (~479 MB) from {ZIP_URL}", file=sys.stderr)
         subprocess.run(["curl", "-sL", ZIP_URL, "-o", str(ZIP_PATH)], check=True)
-    print("=> Extracting structures/beats/ ...", file=sys.stderr)
+    print("=> Extracting structures/beats/ + segments.json ...", file=sys.stderr)
     with zipfile.ZipFile(ZIP_PATH) as zf:
-        members = [n for n in zf.namelist() if "/structures/beats/" in n and n.endswith(".csv")]
+        members = [
+            n for n in zf.namelist()
+            if (("/structures/beats/" in n and n.endswith(".csv")) or n.endswith("/segments.json"))
+        ]
         zf.extractall(DATA_DIR, members=members)
     return BEATS_DIR
+
+
+def load_segments() -> dict[str, dict]:
+    """segments.json keyed by track id — carries the canonical sections, fold, genre, and BPM
+    that the evaluator needs (held-out CV via `fold`, `--target genre`, canonical segment refs)."""
+    if not SEGMENTS_JSON.exists():
+        return {}
+    return {e["key"]: e for e in json.loads(SEGMENTS_JSON.read_text())}
 
 
 def parse_annotation(csv_path: Path) -> dict:
@@ -117,6 +133,7 @@ def main() -> None:
     args = ap.parse_args()
 
     beats_dir = ensure_annotations()
+    segs = load_segments()
     csvs = sorted(beats_dir.glob("*.csv"))
     if args.limit:
         csvs = csvs[: args.limit]
@@ -131,6 +148,8 @@ def main() -> None:
         track_id = csv_path.name[: -len(".beat.csv")]  # "<idx>.<ytid>"
         ytid = track_id.split(".", 1)[1]
         ann = parse_annotation(csv_path)
+        seg = segs.get(track_id)
+        fold = seg.get("fold") if seg else None
         audio_path = None
         if not args.no_audio:
             audio_path = download_audio(ytid, audio_dir / track_id)
@@ -144,9 +163,15 @@ def main() -> None:
             "format": "raveform",
             "track_id": track_id,
             "ytid": ytid,
-            "model": "harmonix-all",  # out-of-domain test set — no fold/CV needed
-            "bpm_ref": ann["bpm_ref"],
+            # Honest 8-fold CV: score each track with its held-out fold model (see eval/README).
+            "model": f"all-fold{fold}" if fold is not None else "all-all",
+            "fold": fold,
+            "genre": seg.get("genre") if seg else None,
+            "bpm_ref": (seg.get("average_bpm") if seg else None) or ann["bpm_ref"],
             "duration_ref": ann["duration_ref"],
+            # Canonical functional sections (preserve same-label phrase boundaries the beat-CSV
+            # section column merges); the evaluator scores segments against these.
+            "sections": seg.get("sections") if seg else None,
             "beats_csv": str(csv_path),
             "audio_path": str(audio_path) if audio_path else None,
             "audio_exists": audio_path is not None,

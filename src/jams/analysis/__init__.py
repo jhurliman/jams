@@ -19,6 +19,7 @@ def analyze_track(
     key: bool = True,
     tempo: bool = True,
     structure: bool = False,
+    stems: bool = False,
     genre: str | None = None,
     bpm_range: tuple[float, float] | None = None,
 ) -> dict:
@@ -46,4 +47,14 @@ def analyze_track(
         else:
             target = None
         out["structure"] = analyze_structure(path, target_bpm=target)
+    if stems:
+        from jams.analysis.stems import analyze_stems
+        from jams.config import get_settings
+
+        # Reuse the beat grid (structure's, if computed) so transcribed onsets can snap
+        # to musical positions instead of raw model timings.
+        beats = out.get("structure", {}).get("beats") if structure else None
+        out["stems"] = analyze_stems(
+            path, beats=beats, quantize=get_settings().stems_quantize
+        )
     return out

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 
 import { api } from './api.ts';
 import { Inspector } from './components/Inspector.tsx';
+import { StemLanes } from './components/StemLanes.tsx';
 import { TrackList } from './components/TrackList.tsx';
 import { Transport } from './components/Transport.tsx';
 import { Waveform } from './components/Waveform.tsx';
@@ -69,6 +70,7 @@ export function App() {
             {loading && <div className="placeholder">Loading…</div>}
             <Waveform peaks={peaks} audio={audio} />
             {!peaks && !error && <div className="dim hint-line">Decoding waveform…</div>}
+            <StemLanes />
           </>
         )}
       </main>

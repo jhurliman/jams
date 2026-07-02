@@ -37,6 +37,18 @@ class Settings(BaseSettings):
     # REPLICATE_API_TOKEN env var if the JAMS_-prefixed one is unset.
     replicate_api_token: str | None = None
 
+    # --- Stem separation + MIDI transcription ------------------------------
+    # Demucs + basic-pitch + the ADTOF drum model run in self-contained uv workers
+    # (src/jams/data/stems_worker.py), same subprocess pattern as structure.
+    stems_uv: str = "uv"
+    # Demucs model: "htdemucs" (4-stem default) — "htdemucs_ft" for higher quality/slower.
+    stems_model: str = "htdemucs"
+    # Snap transcribed note onsets to jams' resolved beat grid when available.
+    stems_quantize: bool = True
+    # Directory the worker writes stems + MIDI into (served to the webapp). Per-track
+    # subdirs are created under here; a temp dir is used when unset.
+    stems_out_dir: str | None = None
+
     def resolved_replicate_token(self) -> str | None:
         return self.replicate_api_token or os.environ.get("REPLICATE_API_TOKEN")
 

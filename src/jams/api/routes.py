@@ -29,10 +29,11 @@ def _bpm_range(bpm_min: float | None, bpm_max: float | None) -> tuple[float, flo
     return None
 
 
-def _run(path: str, *, key, tempo, structure, genre, bpm_range, filename, fmt: Format):
+def _run(path: str, *, key, tempo, structure, stems, genre, bpm_range, filename, fmt: Format):
     try:
         result = analyze_track(
-            path, key=key, tempo=tempo, structure=structure, genre=genre, bpm_range=bpm_range
+            path, key=key, tempo=tempo, structure=structure, stems=stems,
+            genre=genre, bpm_range=bpm_range,
         )
     except ValueError as exc:  # bad/missing file, unsupported format
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -52,6 +53,7 @@ async def analyze_upload(
     key: bool = Form(True),
     tempo: bool = Form(True),
     structure: bool = Form(False),
+    stems: bool = Form(False),
     genre: str | None = Form(None),
     bpm_min: float | None = Form(None),
     bpm_max: float | None = Form(None),
@@ -72,7 +74,7 @@ async def analyze_upload(
         tmp.write(data)
         tmp.close()
         return await run_in_threadpool(
-            _run, tmp.name, key=key, tempo=tempo, structure=structure,
+            _run, tmp.name, key=key, tempo=tempo, structure=structure, stems=stems,
             genre=genre, bpm_range=_bpm_range(bpm_min, bpm_max),
             filename=file.filename, fmt=format,
         )
@@ -86,7 +88,28 @@ async def analyze_path(
     format: Format = Query("native", description="'native' (default) or 'jams' (JAMS spec)"),
 ):
     return await run_in_threadpool(
-        _run, req.path, key=req.key, tempo=req.tempo, structure=req.structure,
+        _run, req.path, key=req.key, tempo=req.tempo, structure=req.structure, stems=req.stems,
         genre=req.genre, bpm_range=_bpm_range(req.bpm_min, req.bpm_max),
         filename=os.path.basename(req.path), fmt=format,
     )
+
+
+@router.get("/stems/file", summary="Fetch a generated stem wav or MIDI file")
+async def stems_file(path: str = Query(..., description="Path from a StemsResult")):
+    """Serve a worker-generated stem/MIDI file.
+
+    Guarded: only files under the configured stems output dir (or the default temp
+    ``jams_stems`` dir) are served, so this can't read arbitrary server paths.
+    """
+    from fastapi.responses import FileResponse
+
+    settings = get_settings()
+    roots = [os.path.realpath(os.path.join(tempfile.gettempdir(), "jams_stems"))]
+    if settings.stems_out_dir:
+        roots.append(os.path.realpath(settings.stems_out_dir))
+    real = os.path.realpath(path)
+    if not any(real.startswith(root + os.sep) for root in roots):
+        raise HTTPException(status_code=403, detail="Path outside the stems output dir")
+    if not os.path.isfile(real):
+        raise HTTPException(status_code=404, detail="No such file")
+    return FileResponse(real)

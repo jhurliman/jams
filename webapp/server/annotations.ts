@@ -7,6 +7,9 @@ import {
   type Segment,
   SECTION_LABELS,
   type SectionLabel,
+  type StemNote,
+  type StemsResult,
+  type StemTranscription,
   type TrackListItem,
 } from '../shared/types.ts';
 import {
@@ -15,8 +18,10 @@ import {
   editedPath,
   hasAudio,
   hasPrediction,
+  hasStems,
   predictionPath,
   SEGMENTS_JSON,
+  stemsPath,
 } from './paths.ts';
 
 interface RawSection {
@@ -56,7 +61,35 @@ export function listTracks(): TrackListItem[] {
       genre: t.genre,
       bpm: Math.round(t.average_bpm),
       edited: existsSync(editedPath(t.key)),
+      score: scoreTrack(t),
     }));
+}
+
+const scoreCache = new Map<string, number | null>();
+
+/** Eval accuracy for a track: the fraction of the timeline where the model's predicted label
+ *  matches the canonical ground-truth label. null when there's no prediction. Lower = larger
+ *  error, so the UI can sort worst-first. */
+function scoreTrack(t: RawTrack): number | null {
+  if (scoreCache.has(t.key)) return scoreCache.get(t.key)!;
+  let score: number | null = null;
+  if (hasPrediction(t.key) && t.duration > 0) {
+    const pred = loadPrediction(t.key);
+    if (pred) {
+      let correct = 0;
+      for (const g of t.sections) {
+        for (const p of pred.segments) {
+          if (p.label === g.name) {
+            const ov = Math.min(g.end, p.end) - Math.max(g.start, p.start);
+            if (ov > 0) correct += ov;
+          }
+        }
+      }
+      score = Math.min(1, correct / t.duration);
+    }
+  }
+  scoreCache.set(t.key, score);
+  return score;
 }
 
 export function trackMeta(id: string) {
@@ -77,6 +110,55 @@ export function trackMeta(id: string) {
 export function loadPrediction(id: string): Annotation | null {
   if (!hasPrediction(id)) return null;
   return JSON.parse(readFileSync(predictionPath(id), 'utf8')) as Annotation;
+}
+
+/** Shape of the on-disk (Python-dumped) StemsResult: snake_case. */
+interface RawStemNote {
+  onset: number;
+  offset: number;
+  pitch: number;
+  velocity: number;
+}
+interface RawStemTranscription {
+  stem_type: string;
+  gm_program: number;
+  is_drums: boolean;
+  notes: RawStemNote[];
+  method: string;
+}
+interface RawStemAudio {
+  stem_type: string;
+  audio_path: string;
+}
+interface RawStemsResult {
+  stems: RawStemAudio[];
+  transcriptions: RawStemTranscription[];
+  midi_paths: Record<string, string>;
+  method: string;
+  duration_sec: number | null;
+}
+
+/** Read-only per-stem MIDI transcription result, if one exists. Maps snake_case -> camelCase so
+ *  the client stays on the app's camelCase convention (like trackMeta vs the python model). */
+export function loadStems(id: string): StemsResult | null {
+  if (!hasStems(id)) return null;
+  const raw = JSON.parse(readFileSync(stemsPath(id), 'utf8')) as RawStemsResult;
+  const notes = (ns: RawStemNote[]): StemNote[] =>
+    ns.map((n) => ({ onset: n.onset, offset: n.offset, pitch: n.pitch, velocity: n.velocity }));
+  const transcriptions: StemTranscription[] = raw.transcriptions.map((t) => ({
+    stemType: t.stem_type,
+    gmProgram: t.gm_program,
+    isDrums: t.is_drums,
+    notes: notes(t.notes),
+    method: t.method,
+  }));
+  return {
+    stems: raw.stems.map((s) => ({ stemType: s.stem_type, audioPath: s.audio_path })),
+    transcriptions,
+    midiPaths: raw.midi_paths,
+    method: raw.method,
+    durationSec: raw.duration_sec,
+  };
 }
 
 /** Beats from the source beat CSV (`time,downbeat,section`; `downbeat`=bar position, 1=downbeat). */
