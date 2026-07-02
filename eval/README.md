@@ -188,6 +188,12 @@ its pinned `tensorflow==2.9.1` has no arm64 wheel.)
 (`other` reflects the tuned basic-pitch thresholds — a sweep found (onset 0.6, frame 0.25)
 beats the default (0.5, 0.3) by +2.3 pt on this set; adopted for the `other` stem only.)
 
+**Quantize ablation.** Snapping onsets to the ground-truth beat grid (16ths) *costs*
+accuracy on every stem — bass −2.5 pt, drums −1.7, other −0.3 — because GT timing is the
+reference and any snap displaces correct onsets. Quantization remains the production
+default (grid-locked, DAW-editable MIDI is the point for DJ/EDM workflows) but is a
+stylistic transform; the eval always scores raw timing.
+
 Caveats that bound these numbers, not the pipeline: babyslakh audio is **16 kHz**, so
 hat/cymbal energy (>8 kHz) simply isn't in the signal — the drum worker scores a **perfect
 1.0 macro-F** on ADTOF-pytorch's own 44.1 kHz reference clip, and drum accuracy on

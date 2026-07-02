@@ -116,6 +116,9 @@ vocals**) with **Demucs `htdemucs`**, then transcribe each to MIDI —
   (36 kick, 38 snare, 42 hats, 47 toms, 49 cymbals), quantized to jams' beat grid
 
 Output is one `.mid` per stem plus a combined Type-1 multitrack `.mid`, and inline note arrays.
+Beat-grid quantization (`JAMS_STEMS_QUANTIZE`, default on) is a *stylistic* choice for
+DAW-ready MIDI, not an accuracy feature — a ground-truth-beats ablation measured it at
+−0.3 to −2.5 pt note-F versus raw model timing, so the eval harness scores unquantized.
 Like structure, the heavy models run in self-contained `uv` workers (no Python 3.14 wheels for
 demucs/basic-pitch/torch), kept resident: `src/jams/data/stems_worker.py` (separation +
 pitched) and `drum_worker.py` (drums, isolated so its git-sourced model dependency never
