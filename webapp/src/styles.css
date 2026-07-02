@@ -157,6 +157,55 @@ body {
   min-height: 0;
   padding: 8px 0;
 }
+/* --- stem piano-roll lanes --- */
+.stemlanes {
+  border-top: 1px solid var(--border);
+  max-height: 40%;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+.stemlanes-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+.stemlane {
+  border-top: 1px solid var(--border);
+}
+.stemlane-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 12px;
+  font-size: 12px;
+}
+.stem-name {
+  font-weight: 600;
+  text-transform: capitalize;
+}
+.stem-count {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.midi-dl {
+  margin-left: auto;
+  color: var(--dim);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 6px;
+  font-size: 11px;
+  text-decoration: none;
+}
+.midi-dl:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.stemlanes-head .midi-dl {
+  margin-left: 0;
+}
+
 .placeholder,
 .hint-line,
 .error {

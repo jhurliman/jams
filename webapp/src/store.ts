@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-import type { Annotation, SectionLabel, Segment, TrackMeta } from '../shared/types.ts';
+import type { Annotation, SectionLabel, Segment, StemsResult, TrackMeta } from '../shared/types.ts';
 import { api } from './api.ts';
 
 interface ViewState {
@@ -15,6 +15,8 @@ interface EditorState {
   annotation: Annotation | null;
   /** Read-only model prediction (eval layer). */
   prediction: Annotation | null;
+  /** Read-only per-stem MIDI transcriptions; null when none exist for the track. */
+  stems: StemsResult | null;
   showEval: boolean;
   loading: boolean;
   /** Bumped on every annotation change; lets the canvas invalidate its cached render. */
@@ -69,6 +71,7 @@ export const useEditor = create<EditorState>((set, get) => {
     meta: null,
     annotation: null,
     prediction: null,
+    stems: null,
     showEval: true,
     loading: false,
     rev: 0,
@@ -87,11 +90,13 @@ export const useEditor = create<EditorState>((set, get) => {
         selectedSegment: null,
         selectedBeat: null,
         prediction: null,
+        stems: null,
       });
-      const [meta, annotation, prediction] = await Promise.all([
+      const [meta, annotation, prediction, stems] = await Promise.all([
         api.getTrack(id),
         api.getAnnotation(id),
         api.getPrediction(id),
+        api.getStems(id),
       ]);
       // Ignore a stale response: if another track was selected while these fetches were in
       // flight, don't clobber its state (which would also make save() write to the wrong track).
@@ -104,6 +109,7 @@ export const useEditor = create<EditorState>((set, get) => {
         meta,
         annotation,
         prediction,
+        stems,
         loading: false,
         dirty: false,
         past: [],

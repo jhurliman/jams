@@ -50,6 +50,33 @@ export interface TrackMeta {
   hasPrediction: boolean;
 }
 
+/** One transcribed note from a stem's MIDI. Times in seconds. */
+export interface StemNote {
+  onset: number;
+  offset: number;
+  pitch: number;
+  velocity: number;
+}
+
+/** Per-stem MIDI transcription. `stemType` is one of 'drums' | 'bass' | 'other' | 'vocals'. */
+export interface StemTranscription {
+  stemType: string;
+  gmProgram: number;
+  isDrums: boolean;
+  notes: StemNote[];
+  method: string;
+}
+
+/** Read-only per-stem stem-separation + MIDI transcription result for a track. */
+export interface StemsResult {
+  stems: { stemType: string; audioPath: string }[];
+  transcriptions: StemTranscription[];
+  /** Per-stem + 'combined' MIDI file paths (server-side). */
+  midiPaths: Record<string, string>;
+  method: string;
+  durationSec: number | null;
+}
+
 export interface TrackListItem {
   id: string;
   title: string;
