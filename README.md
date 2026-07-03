@@ -218,6 +218,31 @@ uv run --extra eval eval/analyze_errors.py    # where the errors are, by genre/m
 See `eval/README.md` for the method shoot-outs, the wrong-label story, and the curated
 `tempo_corrections.csv`.
 
+### Experiment tracking (MLflow)
+
+**MLflow is the experiment system of record** (paper/EXPERIMENTS.md is the narrative twin).
+The server runs on the aleph0 GPU box in Docker (container `mlflow`, storage
+`/mnt/d/jams/mlflow/`, sqlite backend). Reach the UI through the tailnet:
+
+```sh
+ssh -N -L 127.0.0.1:5566:localhost:5000 -p 2222 jhurliman@aleph0.mole-acoustic.ts.net &
+open http://localhost:5566        # local port 5566 — macOS AirPlay squats on 5000
+```
+
+(`aleph0.local` works as the host when on the same LAN.) Three pieces feed it:
+
+- **Direct logging** — the structure trainer (`~/all-in-one` on aleph0) logs every run to
+  experiment `raveform-structure` via lightning's `MLFlowLogger` (`MLFLOW_TRACKING_URI`,
+  default `http://localhost:5000` on the box; startup **raises** if the server is down —
+  no silent fallback).
+- **wandb-offline sync** — `~/wandb2mlflow.py` (daemon on aleph0) mirrors the full metric
+  history of pre-patch wandb-offline runs, plus GPU util/mem and the training log as an
+  artifact, every 5 min. Restart: `nohup ~/mlflow_venv/bin/python ~/wandb2mlflow.py >
+  ~/wandb2mlflow.log 2>&1 &`. Server restart: `docker start mlflow`.
+- **Ledger backfill** — `uv run --extra eval eval/mlflow_backfill.py` loads every
+  paper/EXPERIMENTS.md entry (key / transcription / separation) as a tagged MLflow run;
+  idempotent by `ledger_id` tag.
+
 ## Layout
 
 ```
