@@ -49,8 +49,10 @@ class Settings(BaseSettings):
     # Demucs + basic-pitch + the ADTOF drum model run in self-contained uv workers
     # (src/jams/data/stems_worker.py), same subprocess pattern as structure.
     stems_uv: str = "uv"
-    # Demucs model: "htdemucs" (4-stem default) — "htdemucs_ft" for higher quality/slower.
-    stems_model: str = "htdemucs"
+    # Separation model. "scnet_xl_ihf" (default) = vendored SCNet XL IHF, the Slakh-test
+    # A/B winner (SI-SDR drums 14.3 vs htdemucs 11.6; bass note-F 0.596 -> 0.645).
+    # "htdemucs" / "htdemucs_ft" select Demucs (faster / legacy comparison).
+    stems_model: str = "scnet_xl_ihf"
     # Snap transcribed note onsets to jams' resolved beat grid when available.
     stems_quantize: bool = True
     # Directory the worker writes stems + MIDI into (served to the webapp). Per-track

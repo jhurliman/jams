@@ -125,7 +125,8 @@ the original `jhurliman/allinone-targetbpm` endpoint instead.
 ## Stems → MIDI (on-device)
 
 Opt-in per request (`stems=true`): split a track into 4 stems (**drums / bass / other /
-vocals**) with **Demucs `htdemucs`**, then transcribe each to MIDI —
+vocals**) with **SCNet XL IHF** (vendored, MIT; A/B-selected on Slakh — see table), then
+transcribe each to MIDI —
 
 - **bass / vocals** → basic-pitch, monophonic post-filter (GM programs 34 / 85). Bass is
   shifted +12 to the written-MIDI convention (validated on Slakh: note-F 0.04 → 0.80).
@@ -144,11 +145,22 @@ pitched) and `drum_worker.py` (drums, isolated so its git-sourced model dependen
 touches jams' own env). The orchestrator (`analysis/stems.py` + `analysis/gm.py`) merges them
 and assembles the MIDI.
 
+**Separation backend** (`JAMS_STEMS_MODEL`, default `scnet_xl_ihf`) — A/B on the Slakh
+test split (151 tracks, through-separation scoring):
+
+| backend | SI-SDR drums/other/bass (dB) | bass note-F | other note-F | drums onset-F |
+|---|---|---:|---:|---:|
+| **SCNet XL IHF** (default) | **14.3 / 11.8 / 6.0** | **0.645** | **0.473** | 0.574 |
+| htdemucs | 11.6 / 10.1 / 4.6 | 0.596 | 0.459 | 0.585 |
+| BS Roformer 4-stem | 13.1 / 8.6 / 5.7 | 0.628 | 0.468 | **0.596** |
+
+`htdemucs` / `htdemucs_ft` remain selectable. Drums transcription slightly prefers the
+Demucs-family stems — a per-stem hybrid (SCNet pitched + htdemucs drums) is future work.
+
 **Platform:** fully cross-platform — separation auto-selects cuda → mps → cpu, and both
 transcribers are torch/ONNX, so the whole pipeline (drums included) runs on Apple-Silicon
-Macs, Linux, and CI identically. Config: `JAMS_STEMS_MODEL` (`htdemucs`),
-`JAMS_STEMS_QUANTIZE`, `JAMS_STEMS_OUT_DIR`, `JAMS_STEMS_UV`. See `eval/README.md` for the
-transcription benchmark.
+Macs, Linux, and CI identically. Config: `JAMS_STEMS_MODEL`, `JAMS_STEMS_QUANTIZE`,
+`JAMS_STEMS_OUT_DIR`, `JAMS_STEMS_UV`. See `eval/README.md` for the transcription benchmark.
 
 ## Endpoints
 

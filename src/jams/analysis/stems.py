@@ -109,7 +109,12 @@ def analyze_stems(
     gm.write_combined_midi(transcriptions, str(combined))
     midi_paths["combined"] = str(combined)
 
-    sep_method = f"demucs-{model}" if stems is None else "oracle-stems"
+    if stems is not None:
+        sep_method = "oracle-stems"
+    elif model.lower().startswith("scnet"):
+        sep_method = model  # vendored SCNet backend, e.g. "scnet_xl_ihf"
+    else:
+        sep_method = f"demucs-{model}"
     method = "+".join([sep_method, "basic-pitch", *(["adtof"] if drums_done else [])])
     return {
         "stems": sres["stems"],

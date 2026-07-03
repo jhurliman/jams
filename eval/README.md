@@ -218,10 +218,22 @@ its pinned `tensorflow==2.9.1` has no arm64 wheel.)
 onset-F **0.645** — lower than ADTOF's ~0.85 on real music because E-GMD's Roland TD-17
 timbres are out of the model's crowdsourced-real-music training domain.
 
-**Separation-model A/B.** `htdemucs_ft` is a consistent quality win at ~4× separation
-time: +2.5 pt bass note-F on the Slakh test 50 (0.607 vs 0.582, +0.4–0.6 dB SI-SDR all
-stems) and +6 pt bass / +2 pt other on babyslakh (bass SDR 3.0 → 4.0 dB). `htdemucs`
-stays the default; set `JAMS_STEMS_MODEL=htdemucs_ft` when quality beats latency.
+**Separation-model A/B (Slakh test split, 151 tracks).** Candidates from the MSST zoo
+scored through the full pipeline (SI-SDR vs GT stems + note-F of transcription run on the
+separated stems, same oracle-mode protocol for all):
+
+| backend | SI-SDR drums/other/bass (dB) | bass note-F | other note-F | drums onset-F |
+|---|---|---:|---:|---:|
+| **SCNet XL IHF** (now default) | **14.3 / 11.8 / 6.0** | **0.645** | **0.473** | 0.574 |
+| htdemucs | 11.6 / 10.1 / 4.6 | 0.596 | 0.459 | 0.585 |
+| htdemucs_ft (50-track subset) | +0.4–0.6 vs htdemucs | 0.607 | 0.455 | 0.605 |
+| BS Roformer 4-stem (47 usable) | 13.1 / 8.6 / 5.7 | 0.628 | 0.468 | **0.596** |
+
+SCNet XL IHF wins SDR and pitched note-F decisively and ships as the default
+(`JAMS_STEMS_MODEL=scnet_xl_ihf`, vendored MIT code + ZFTurbo checkpoint,
+download-on-first-use). Notably drums *transcription* mildly prefers Demucs/BS-Roformer
+stems despite SCNet's higher drum SDR — ADTOF is sensitive to transient character, not
+just separation quality; a per-stem hybrid is future work.
 **Do not use `htdemucs_6s`** with the current 4-stem contract: it splits guitar/piano
 into stems the pipeline drops, cratering `other` (note-F 0.421 → 0.222, SDR −1.2 dB);
 supporting it would require mapping its extra stems back into `other` first.

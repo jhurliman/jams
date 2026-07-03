@@ -94,7 +94,7 @@ def test_analyze_stems_merges_pitched_and_drums(monkeypatch, tmp_path, cmajor_wa
     assert types == ["drums", "bass"]  # sorted drums-first
     drums = out["transcriptions"][0]
     assert drums["is_drums"] and drums["notes"][0]["pitch"] == gm.GM_KICK  # 35 -> canon 36
-    assert out["method"] == "demucs-htdemucs+basic-pitch+adtof"
+    assert out["method"] == "scnet_xl_ihf+basic-pitch+adtof"  # SCNet is the default separator
     # MIDI files written for each stem + combined
     assert (tmp_path / "drums.mid").exists() and (tmp_path / "combined.mid").exists()
     assert set(out["midi_paths"]) == {"drums", "bass", "combined"}
@@ -165,3 +165,20 @@ def test_monophonic_filter_drops_overlaps_keeping_loudest():
     ]
     out = m._monophonic_filter(notes)
     assert [n["pitch"] for n in out] == [45, 50]
+
+
+def test_scnet_model_name_routing():
+    m = _load_worker()
+    assert m._is_scnet("scnet_xl_ihf")
+    assert m._is_scnet("SCNet-large")
+    assert not m._is_scnet("htdemucs")
+    assert not m._is_scnet("htdemucs_ft")
+
+
+def test_separation_method_string(monkeypatch, tmp_path, cmajor_wav):
+    monkeypatch.setattr(S, "get_settings", lambda: Settings(stems_model="htdemucs"))
+    stems_w = _FakeWorker(_STEMS_RESULT)
+    monkeypatch.setattr(S, "_stems_worker", lambda: stems_w)
+    monkeypatch.setattr(S, "_drum_worker", lambda: _FakeWorker(_DRUM_RESULT))
+    out = S.analyze_stems(cmajor_wav, out_dir=str(tmp_path), quantize=False)
+    assert out["method"].startswith("demucs-htdemucs")  # explicit htdemucs opt-out works
