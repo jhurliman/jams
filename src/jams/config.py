@@ -53,6 +53,10 @@ class Settings(BaseSettings):
     # A/B winner (SI-SDR drums 14.3 vs htdemucs 11.6; bass note-F 0.596 -> 0.645).
     # "htdemucs" / "htdemucs_ft" select Demucs (faster / legacy comparison).
     stems_model: str = "scnet_xl_ihf"
+    # Pitched-stem transcriber. "yourmt3" (default) = YourMT3+ via mt3-infer — Slakh-test
+    # oracle note-F bass 0.849 / other 0.849 vs basic-pitch 0.789 / 0.490. Needs git-lfs on
+    # first run (checkpoint clone). "basic-pitch" = lighter/faster, no git-lfs.
+    stems_transcriber: Literal["yourmt3", "basic-pitch"] = "yourmt3"
     # Snap transcribed note onsets to jams' resolved beat grid when available.
     stems_quantize: bool = True
     # Directory the worker writes stems + MIDI into (served to the webapp). Per-track

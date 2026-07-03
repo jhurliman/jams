@@ -82,7 +82,8 @@ class _FakeWorker:
 
 
 def test_analyze_stems_merges_pitched_and_drums(monkeypatch, tmp_path, cmajor_wav):
-    monkeypatch.setattr(S, "get_settings", lambda: Settings())
+    monkeypatch.setattr(S, "get_settings",
+                        lambda: Settings(stems_transcriber="basic-pitch"))
     stems_w = _FakeWorker(_STEMS_RESULT)
     drum_w = _FakeWorker(_DRUM_RESULT)
     monkeypatch.setattr(S, "_stems_worker", lambda: stems_w)
@@ -94,7 +95,11 @@ def test_analyze_stems_merges_pitched_and_drums(monkeypatch, tmp_path, cmajor_wa
     assert types == ["drums", "bass"]  # sorted drums-first
     drums = out["transcriptions"][0]
     assert drums["is_drums"] and drums["notes"][0]["pitch"] == gm.GM_KICK  # 35 -> canon 36
+    bass = out["transcriptions"][1]
+    assert bass["notes"][0]["pitch"] == 52  # 40 + BASS_OCTAVE_SHIFT applied by orchestrator
     assert out["method"] == "scnet_xl_ihf+basic-pitch+adtof"  # SCNet is the default separator
+    # basic-pitch selected -> stems_worker asked to transcribe
+    assert stems_w.reqs[0]["transcribe"] is True
     # MIDI files written for each stem + combined
     assert (tmp_path / "drums.mid").exists() and (tmp_path / "combined.mid").exists()
     assert set(out["midi_paths"]) == {"drums", "bass", "combined"}
@@ -103,8 +108,34 @@ def test_analyze_stems_merges_pitched_and_drums(monkeypatch, tmp_path, cmajor_wa
     assert drum_w.reqs[0]["drums_wav"] == "/t/drums.wav"
 
 
+def test_analyze_stems_yourmt3_routing(monkeypatch, tmp_path, cmajor_wav):
+    """Default transcriber: pitched stems come from the yourmt3 worker, mono-filtered."""
+    monkeypatch.setattr(S, "get_settings", lambda: Settings())  # yourmt3 default
+    sep_only = {"stems": _STEMS_RESULT["stems"], "transcriptions": [], "duration_sec": 12.3}
+    stems_w = _FakeWorker(sep_only)
+    drum_w = _FakeWorker(_DRUM_RESULT)
+    ymt3 = _FakeWorker({"notes": [
+        {"onset": 0.0, "offset": 1.0, "pitch": 40, "velocity": 80},
+        {"onset": 0.5, "offset": 1.5, "pitch": 45, "velocity": 100},  # overlap, louder
+    ]})
+    monkeypatch.setattr(S, "_stems_worker", lambda: stems_w)
+    monkeypatch.setattr(S, "_drum_worker", lambda: drum_w)
+    monkeypatch.setattr(S, "_yourmt3_worker", lambda: ymt3)
+
+    out = S.analyze_stems(cmajor_wav, out_dir=str(tmp_path), quantize=False)
+
+    assert stems_w.reqs[0]["transcribe"] is False  # basic-pitch skipped
+    assert [r["audio"] for r in ymt3.reqs] == ["/t/bass.wav"]  # only pitched stems present
+    bass = next(t for t in out["transcriptions"] if t["stem_type"] == "bass")
+    assert bass["method"] == "yourmt3"
+    # mono-filter kept the louder overlapping note; orchestrator applied +12
+    assert [n["pitch"] for n in bass["notes"]] == [45 + 12]
+    assert out["method"] == "scnet_xl_ihf+yourmt3+adtof"
+
+
 def test_analyze_stems_oracle_mode(monkeypatch, tmp_path):
-    monkeypatch.setattr(S, "get_settings", lambda: Settings())
+    monkeypatch.setattr(S, "get_settings",
+                        lambda: Settings(stems_transcriber="basic-pitch"))
     # oracle: only a bass stem provided -> no drums worker call, no drums transcription
     stems_res = {"stems": [{"stem_type": "bass", "audio_path": "/gt/bass.wav"}],
                  "transcriptions": _STEMS_RESULT["transcriptions"], "duration_sec": 5.0}
@@ -176,9 +207,25 @@ def test_scnet_model_name_routing():
 
 
 def test_separation_method_string(monkeypatch, tmp_path, cmajor_wav):
-    monkeypatch.setattr(S, "get_settings", lambda: Settings(stems_model="htdemucs"))
+    monkeypatch.setattr(S, "get_settings",
+                        lambda: Settings(stems_model="htdemucs", stems_transcriber="basic-pitch"))
     stems_w = _FakeWorker(_STEMS_RESULT)
     monkeypatch.setattr(S, "_stems_worker", lambda: stems_w)
     monkeypatch.setattr(S, "_drum_worker", lambda: _FakeWorker(_DRUM_RESULT))
     out = S.analyze_stems(cmajor_wav, out_dir=str(tmp_path), quantize=False)
     assert out["method"].startswith("demucs-htdemucs")  # explicit htdemucs opt-out works
+
+
+def test_shift_bass_notes_caps_at_127():
+    out = gm.shift_bass_notes([{"onset": 0, "offset": 1, "pitch": 40, "velocity": 90},
+                               {"onset": 1, "offset": 2, "pitch": 120, "velocity": 90}])
+    assert [n["pitch"] for n in out] == [52, 127]
+
+
+def test_gm_monophonic_filter_keeps_loudest_overlap():
+    notes = [
+        {"onset": 0.0, "offset": 1.0, "pitch": 40, "velocity": 80},
+        {"onset": 0.5, "offset": 1.5, "pitch": 45, "velocity": 100},
+        {"onset": 2.0, "offset": 3.0, "pitch": 50, "velocity": 60},
+    ]
+    assert [n["pitch"] for n in gm.monophonic_filter(notes)] == [45, 50]

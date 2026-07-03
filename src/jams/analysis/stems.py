@@ -9,8 +9,9 @@ resident, served over JSON-lines pipes — the same pattern as the structure bac
 Two workers, so the pipeline pieces stay independently replaceable and the drum model's
 licensing stays subprocess-isolated (see ``drum_worker.py``):
 
-  * ``data/stems_worker.py`` — Demucs separation + basic-pitch pitched transcription.
-  * ``data/drum_worker.py``  — ADTOF (torch) drum transcription. Cross-platform, incl. arm64.
+  * ``data/stems_worker.py``   — separation (SCNet / Demucs) + basic-pitch transcription.
+  * ``data/yourmt3_worker.py`` — YourMT3+ pitched transcription (default transcriber).
+  * ``data/drum_worker.py``    — ADTOF (torch) drum transcription. Cross-platform, incl. arm64.
 
 This module coordinates them and owns the cheap parts (GM canonicalisation, beat-grid
 quantization, MIDI assembly — see ``jams.analysis.gm``), which run in jams' own env.
@@ -34,6 +35,9 @@ logger = logging.getLogger(__name__)
 _DATA = Path(__file__).resolve().parent.parent / "data"
 _STEMS_WORKER = _DATA / "stems_worker.py"
 _DRUM_WORKER = _DATA / "drum_worker.py"
+_YOURMT3_WORKER = _DATA / "yourmt3_worker.py"
+
+_PITCHED_STEMS = ("bass", "other", "vocals")
 
 _STEM_SORT = {"drums": 0, "bass": 1, "other": 2, "vocals": 3}
 
@@ -68,8 +72,11 @@ def analyze_stems(
     work_dir = Path(out_dir or _default_out_dir(path, stems, settings))
     work_dir.mkdir(parents=True, exist_ok=True)
 
-    # 1. Separation + pitched transcription (stems_worker).
-    sreq: dict = {"out_dir": str(work_dir), "model": model}
+    transcriber = settings.stems_transcriber
+
+    # 1. Separation (stems_worker); basic-pitch transcription rides along only when selected.
+    sreq: dict = {"out_dir": str(work_dir), "model": model,
+                  "transcribe": transcriber == "basic-pitch"}
     if stems is not None:
         sreq["stems"] = stems
     else:
@@ -77,6 +84,31 @@ def analyze_stems(
     sres = _stems_worker().analyze(sreq)
     stem_paths = {s["stem_type"]: s["audio_path"] for s in sres["stems"]}
     transcriptions: list[dict] = list(sres["transcriptions"])
+
+    # 1b. YourMT3+ pitched transcription (default): each pitched stem through the resident
+    # worker; the shared monophonic filter keeps bass/vocals single-voiced.
+    if transcriber == "yourmt3":
+        for stem_type in _PITCHED_STEMS:
+            wav = stem_paths.get(stem_type)
+            if not wav:
+                continue
+            notes = _yourmt3_worker().analyze({"audio": wav})["notes"]
+            if stem_type in gm.MONOPHONIC_STEMS:
+                notes = gm.monophonic_filter(notes)
+            transcriptions.append(
+                {
+                    "stem_type": stem_type,
+                    "gm_program": gm.GM_PROGRAM.get(stem_type, 0),
+                    "is_drums": False,
+                    "notes": notes,
+                    "method": "yourmt3",
+                }
+            )
+
+    # Written-pitch bass convention, applied exactly once whatever the transcriber.
+    for t in transcriptions:
+        if t["stem_type"] == "bass":
+            t["notes"] = gm.shift_bass_notes(t["notes"])
 
     # 2. Drum transcription (drum_worker), if a drums stem exists and drums are requested.
     drums_wav = stem_paths.get("drums")
@@ -115,7 +147,7 @@ def analyze_stems(
         sep_method = model  # vendored SCNet backend, e.g. "scnet_xl_ihf"
     else:
         sep_method = f"demucs-{model}"
-    method = "+".join([sep_method, "basic-pitch", *(["adtof"] if drums_done else [])])
+    method = "+".join([sep_method, transcriber, *(["adtof"] if drums_done else [])])
     return {
         "stems": sres["stems"],
         "transcriptions": transcriptions,
@@ -192,6 +224,7 @@ class _Worker:
 
 _stems_singleton: _Worker | None = None
 _drum_singleton: _Worker | None = None
+_yourmt3_singleton: _Worker | None = None
 _singleton_lock = threading.Lock()
 
 
@@ -211,3 +244,12 @@ def _drum_worker() -> _Worker:
             if _drum_singleton is None:
                 _drum_singleton = _Worker(_DRUM_WORKER, "drums")
     return _drum_singleton
+
+
+def _yourmt3_worker() -> _Worker:
+    global _yourmt3_singleton
+    if _yourmt3_singleton is None:
+        with _singleton_lock:
+            if _yourmt3_singleton is None:
+                _yourmt3_singleton = _Worker(_YOURMT3_WORKER, "yourmt3")
+    return _yourmt3_singleton

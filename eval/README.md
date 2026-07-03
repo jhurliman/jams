@@ -218,6 +218,19 @@ its pinned `tensorflow==2.9.1` has no arm64 wheel.)
 onset-F **0.645** — lower than ADTOF's ~0.85 on real music because E-GMD's Roland TD-17
 timbres are out of the model's crowdsourced-real-music training domain.
 
+**Transcriber A/B (Slakh test, 151 tracks, ground-truth stems).** YourMT3+ (YPTF.MoE+Multi
+via `mt3-infer`) vs basic-pitch, identical scoring (onset+pitch F, 50 ms / 50 cents, offsets
+ignored; bass at written pitch):
+
+| oracle note-F | basic-pitch | **YourMT3+** |
+|---|---:|---:|
+| bass | 0.789 | **0.849** |
+| other | 0.490 | **0.849** |
+
+YourMT3+ is the production default (`JAMS_STEMS_TRANSCRIBER`); it also transcribes vocals
+(first single-track MedleyDB smoke: basic-pitch 0.582 — the 61-track vocals benchmark runs
+once full dataset access lands). Licensing: mt3-infer MIT, checkpoint Apache-2.0.
+
 **Separation-model A/B (Slakh test split, 151 tracks).** Candidates from the MSST zoo
 scored through the full pipeline (SI-SDR vs GT stems + note-F of transcription run on the
 separated stems, same oracle-mode protocol for all):

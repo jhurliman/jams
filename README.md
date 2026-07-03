@@ -128,9 +128,13 @@ Opt-in per request (`stems=true`): split a track into 4 stems (**drums / bass / 
 vocals**) with **SCNet XL IHF** (vendored, MIT; A/B-selected on Slakh — see table), then
 transcribe each to MIDI —
 
-- **bass / vocals** → basic-pitch, monophonic post-filter (GM programs 34 / 85). Bass is
-  shifted +12 to the written-MIDI convention (validated on Slakh: note-F 0.04 → 0.80).
-- **other** → basic-pitch, polyphonic (GM piano)
+- **pitched stems (bass / other / vocals)** → **YourMT3+** (default; Chang et al., MLSP
+  2024, via the MIT `mt3-infer` toolkit with Apache-2.0 weights — the GPL upstream repo is
+  not used). Slakh-test oracle note-F: bass **0.849**, other **0.849** vs basic-pitch's
+  0.789 / 0.490. `JAMS_STEMS_TRANSCRIBER=basic-pitch` selects the lighter transcriber.
+  Bass/vocals get a shared monophonic post-filter; bass is shifted +12 to the written-MIDI
+  convention in the orchestrator (validated for both transcribers). **First-run
+  requirement: `git-lfs`** (the YourMT3 checkpoint clones from Hugging Face, ~536 MB).
 - **drums** → **ADTOF Frame_RNN** (torch port of Zehren et al.'s crowdsourced-data CRNN;
   F 88.5 vs the original's 88.7 on MDBDrums++) → General MIDI percussion on channel 10
   (36 kick, 38 snare, 42 hats, 47 toms, 49 cymbals), quantized to jams' beat grid
@@ -159,7 +163,7 @@ Demucs-family stems — a per-stem hybrid (SCNet pitched + htdemucs drums) is fu
 
 **Platform:** fully cross-platform — separation auto-selects cuda → mps → cpu, and both
 transcribers are torch/ONNX, so the whole pipeline (drums included) runs on Apple-Silicon
-Macs, Linux, and CI identically. Config: `JAMS_STEMS_MODEL`, `JAMS_STEMS_QUANTIZE`,
+Macs, Linux, and CI identically. Config: `JAMS_STEMS_MODEL`, `JAMS_STEMS_TRANSCRIBER`, `JAMS_STEMS_QUANTIZE`,
 `JAMS_STEMS_OUT_DIR`, `JAMS_STEMS_UV`. See `eval/README.md` for the transcription benchmark.
 
 ## Endpoints

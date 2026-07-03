@@ -16,6 +16,35 @@ import bisect
 # 0=Acoustic Grand Piano, 85=Lead 6 (voice).
 GM_PROGRAM = {"bass": 33, "other": 0, "vocals": 85}
 
+# Bass is written an octave above where it sounds (MIDI/notation convention); transcribers
+# detect the sounding pitch. +12 aligns bass MIDI with the written convention — validated on
+# Slakh GT for both transcribers (basic-pitch 0.04 -> 0.80, YourMT3+ 0.12 -> 0.85 note-F).
+# Applied HERE in the orchestrator, exactly once, whatever the transcriber.
+BASS_OCTAVE_SHIFT = 12
+
+# Stems rendered as a single line: keep one note at a time after transcription.
+MONOPHONIC_STEMS = frozenset({"bass", "vocals"})
+
+
+def shift_bass_notes(notes: list[dict]) -> list[dict]:
+    """Apply the written-pitch bass convention (+12, capped at 127)."""
+    return [{**n, "pitch": min(127, n["pitch"] + BASS_OCTAVE_SHIFT)} for n in notes]
+
+
+def monophonic_filter(notes: list[dict]) -> list[dict]:
+    """Collapse overlapping notes to a single voice, keeping the loudest at each moment.
+
+    Greedy by velocity: accept notes loudest-first, dropping any that overlap an already-
+    accepted note. Shared across transcribers so bass/vocals stay clean single lines.
+    """
+    accepted: list[dict] = []
+    for n in sorted(notes, key=lambda x: (-x["velocity"], x["onset"])):
+        if any(n["onset"] < a["offset"] and a["onset"] < n["offset"] for a in accepted):
+            continue
+        accepted.append(n)
+    accepted.sort(key=lambda x: x["onset"])
+    return accepted
+
 # --- General MIDI percussion (channel 10) -----------------------------------
 GM_KICK, GM_SNARE = 36, 38
 GM_CLOSED_HAT, GM_PEDAL_HAT, GM_OPEN_HAT = 42, 44, 46

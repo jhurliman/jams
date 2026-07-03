@@ -33,3 +33,4 @@ dist/
 # Eval datasets/artifacts (regenerable via eval/acquire_dataset.py)
 eval/data/
 eval/models/
+.mt3_checkpoints/

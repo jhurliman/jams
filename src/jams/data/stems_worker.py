@@ -65,10 +65,9 @@ PITCHED_STEMS = ("bass", "other", "vocals")
 GM_PROGRAM = {"bass": 33, "other": 0, "vocals": 85}
 MONOPHONIC_STEMS = frozenset({"bass", "vocals"})
 FREQ_RANGE = {"bass": (30.0, 400.0), "vocals": (65.0, 2100.0), "other": (None, None)}
-# Bass is written an octave above where it sounds (MIDI/notation convention); basic-pitch
-# detects the sounding pitch. +12 aligns our bass MIDI with the written convention — validated
-# on Slakh GT: note-F 0.04 -> 0.80 across all tracks, no regressions.
-BASS_OCTAVE_SHIFT = 12
+# NOTE: notes leave this worker at SOUNDING pitch. The written-pitch bass convention (+12)
+# is applied once in the orchestrator (jams.analysis.gm.shift_bass_notes) so it cannot
+# double-apply across transcriber backends.
 # basic-pitch (onset, frame) thresholds per stem. The dense polyphonic "other" stem does
 # better with a stricter onset gate: (0.6, 0.25) scored 0.468 vs the default (0.5, 0.3)'s
 # 0.445 note-F in a sweep on babyslakh ground-truth stems. Bass/vocals keep the defaults
@@ -353,8 +352,6 @@ def transcribe_pitched(wav: str, stem_type: str) -> list[dict]:
     ]
     if stem_type in MONOPHONIC_STEMS:
         notes = _monophonic_filter(notes)
-    if stem_type == "bass":
-        notes = [{**n, "pitch": min(127, n["pitch"] + BASS_OCTAVE_SHIFT)} for n in notes]
     return notes
 
 
@@ -372,7 +369,9 @@ def analyze(req: dict) -> dict:
         stem_paths = separate_stems(req["audio"], out_dir, req.get("model", "htdemucs"))
 
     transcriptions: list[dict] = []
-    for stem_type in PITCHED_STEMS:
+    # The orchestrator can skip basic-pitch when another transcriber handles pitched stems.
+    pitched = PITCHED_STEMS if req.get("transcribe", True) else ()
+    for stem_type in pitched:
         wav = stem_paths.get(stem_type)
         if not wav:
             continue
