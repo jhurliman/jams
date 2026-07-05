@@ -37,6 +37,15 @@ uv sync                       # install (pulls essentia-tensorflow — heavy, na
 uv run jams                   # serve on http://0.0.0.0:8000  (Swagger at /docs)
 ```
 
+Or bring up the whole local stack — the jams API plus the **annotator webapp**
+(waveform editor for beat/structure annotations, see [`webapp/README.md`](webapp/README.md)) —
+with one command:
+
+```sh
+./scripts/dev.sh              # installs all deps, runs jams API (:8000) + annotator
+                              # API (:8787) + frontend (:5173), opens the browser
+```
+
 Analyze an upload:
 
 ```sh
