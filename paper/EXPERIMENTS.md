@@ -71,6 +71,7 @@ from their eval; both documented as limitations.
 |---|---|---|---|---|---|---|---|
 | T1 | Jul 2 | cf28158 | basic-pitch (tuned: other onset 0.6/frame 0.25) + ADTOF drums | 0.7889 | 0.4897 | 0.6383 | results_aws/slakh_test_oracle.json |
 | T2 | Jul 3 | 4d466e2 | **YourMT3+ (YPTF.MoE+Multi via mt3-infer)**, +12 bass convention | **0.8486** | **0.8488** | (drums stay ADTOF) | results_aws/yourmt3_notes.jsonl, yourmt3_scores.json |
+| T2b | Jul 5 | (this) | T2 re-scored per-track against Slakh GT (same scoring fns; aggregates match T2 to 4 dp) → **paired** bootstrap vs T1: bass Δ +0.0597 [+0.0034, +0.1100] (87% of tracks win), other Δ +0.3591 [+0.3471, +0.3713] (**100%** win) — both significant | 0.8486 | 0.8488 | — | results_aws/yourmt3_oracle_per_track.json; STATS.md |
 | T3 | Jul 1 | 6941991 | bass octave finding: basic-pitch bass +12 = written convention | 0.04 → 0.80 (babyslakh, all 19 tracks improved) | — | — | commit msg + eval/README |
 | T4 | Jul 1 | 6941991 | basic-pitch threshold sweep, "other", babyslakh GT stems | — | 0.445 → 0.468 @ (0.6, 0.25) | — | tmp sweep logs |
 | T5 | Jul 1 | 6941991 | quantize ablation (GT beat grid, babyslakh): snapping **costs** accuracy | −2.5 pt | −0.3 pt | −1.7 pt | eval/README |

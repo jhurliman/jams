@@ -30,9 +30,11 @@ n = 567 tracks; MIREX weighted score; bootstrap 10,000 resamples, seed 0; 95% pe
 
 # Statistical analysis — transcription (Slakh2100-redux test)
 
-basic-pitch per-track note-F (onset+pitch, 50 ms/50 c, offsets ignored), bootstrap CIs; YourMT3+ point estimates (aggregate). Paired per-track YourMT3 scores require the Slakh GT MIDI (re-derivable; eval box artifact) — deltas here are vs the basic-pitch CI, and are an order of magnitude larger than the CI width.
+Paired per-track note-F (onset+pitch, 50 ms/50 c, offsets ignored), oracle (ground-truth) stems. YourMT3+ scored against the same Slakh GT with the same scoring functions as basic-pitch; paired bootstrap 10,000 resamples, seed 0.
 
-| stem | basic-pitch [95% CI] | YourMT3+ | Δ |
-|---|---|---|---|
-| bass | 0.7889 [0.7624, 0.8132] (n=143) | 0.8486 | +0.0597 |
-| other | 0.4897 [0.4742, 0.5055] (n=151) | 0.8488 | +0.3591 |
+| stem | basic-pitch [95% CI] | YourMT3+ [95% CI] | Δ paired [95% CI] | YourMT3+ wins |
+|---|---|---|---|---|
+| bass (n=143) | 0.7889 [0.7624, 0.8132] | 0.8486 [0.7939, 0.8983] | +0.0597 [+0.0034, +0.1100] | 87% |
+| other (n=151) | 0.4897 [0.4742, 0.5055] | 0.8488 [0.8369, 0.8607] | +0.3591 [+0.3471, +0.3713] | 100% |
+
+Both deltas are paired per-track (same 151 oracle stems for both systems); a CI excluding zero is a significant difference. Bass scores use the +12 written-pitch convention for both systems (see ledger T-entries).

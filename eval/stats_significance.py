@@ -12,9 +12,10 @@ Key systems on GiantSteps Key (n=567), MIREX weighted score per track:
   fusion            production replay: shipped key_fusion.json heads over banked features
   madmom            CNNKeyRecognitionProcessor            (from madmom_gskey.jsonl, if present)
 
-Transcription (Slakh2100-redux test, n=151): per-track note-F for basic-pitch (banked
-per_track in slakh_test_oracle.json); YourMT3+ point estimates from its aggregate (paired
-per-track requires the Slakh GT MIDI, which lives on the eval box — see STATS.md note).
+Transcription (Slakh2100-redux test, n=151): paired per-track note-F for basic-pitch
+(banked per_track in slakh_test_oracle.json) vs YourMT3+ (yourmt3_oracle_per_track.json,
+re-scored against the Slakh GT MIDI with the same evaluate_transcription.py functions;
+aggregates verified to match the banked spike to 4 decimals).
 
     uv run --extra eval eval/stats_significance.py --out paper/STATS.md
 """
@@ -218,23 +219,35 @@ def main() -> None:
 
     # --- Transcription ------------------------------------------------------
     oracle = json.loads((DATA / "results_aws" / "slakh_test_oracle.json").read_text())
-    ym3 = json.loads((DATA / "results_aws" / "yourmt3_scores.json").read_text())
+    ym3_pt = json.loads(
+        (DATA / "results_aws" / "yourmt3_oracle_per_track.json").read_text())
+    ym3_f = {(r["track_id"], r["stem"]): r["note_f"] for r in ym3_pt["per_track"]}
     lines += ["# Statistical analysis — transcription (Slakh2100-redux test)", "",
-              "basic-pitch per-track note-F (onset+pitch, 50 ms/50 c, offsets ignored), "
-              "bootstrap CIs; YourMT3+ point estimates (aggregate). Paired per-track "
-              "YourMT3 scores require the Slakh GT MIDI (re-derivable; eval box artifact) "
-              "— deltas here are vs the basic-pitch CI, and are an order of magnitude "
-              "larger than the CI width.", "",
-              "| stem | basic-pitch [95% CI] | YourMT3+ | Δ |", "|---|---|---|---|"]
+              "Paired per-track note-F (onset+pitch, 50 ms/50 c, offsets ignored), "
+              "oracle (ground-truth) stems. YourMT3+ scored against the same Slakh GT "
+              "with the same scoring functions as basic-pitch; paired bootstrap 10,000 "
+              "resamples, seed 0.", "",
+              "| stem | basic-pitch [95% CI] | YourMT3+ [95% CI] "
+              "| Δ paired [95% CI] | YourMT3+ wins |", "|---|---|---|---|---|"]
     for stem in ("bass", "other"):
-        vals = np.array([t["stems"][stem]["note_f"] for t in oracle["per_track"]
-                         if stem in t.get("stems", {}) and "note_f" in t["stems"][stem]])
-        m, lo, hi = boot_ci(vals)
-        y = ym3["yourmt3_oracle"].get(stem, {}).get("note_f")
-        y_disp = y if stem != "bass" else 0.8486  # +12 written-pitch convention (see ledger)
-        lines.append(f"| {stem} | {m:.4f} [{lo:.4f}, {hi:.4f}] (n={len(vals)}) "
-                     f"| {y_disp:.4f} | {y_disp - m:+.4f} |")
-    lines.append("")
+        pairs_bt = [(t["stems"][stem]["note_f"], ym3_f[(t["track_id"], stem)])
+                    for t in oracle["per_track"]
+                    if "note_f" in t.get("stems", {}).get(stem, {})
+                    and (t["track_id"], stem) in ym3_f]
+        bp = np.array([p[0] for p in pairs_bt])
+        ym = np.array([p[1] for p in pairs_bt])
+        bm, blo, bhi = boot_ci(bp)
+        ymm, ylo, yhi = boot_ci(ym)
+        d, dlo, dhi = paired_delta_ci(ym, bp)
+        wins = float((ym > bp).mean())
+        lines.append(
+            f"| {stem} (n={len(bp)}) | {bm:.4f} [{blo:.4f}, {bhi:.4f}] "
+            f"| {ymm:.4f} [{ylo:.4f}, {yhi:.4f}] "
+            f"| {d:+.4f} [{dlo:+.4f}, {dhi:+.4f}] | {wins:.0%} |")
+    lines += ["",
+              "Both deltas are paired per-track (same 151 oracle stems for both systems); "
+              "a CI excluding zero is a significant difference. Bass scores use the +12 "
+              "written-pitch convention for both systems (see ledger T-entries).", ""]
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text("\n".join(lines))
