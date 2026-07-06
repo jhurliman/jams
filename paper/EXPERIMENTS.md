@@ -113,6 +113,47 @@ pairwise 0.825; buildup 0.49 / cooldown 0.48 lost to "drop").
 Runs: fold-0 (AWS g6.2xlarge L4), folds 1-2 (RTX 4090), remainder planned (Lambda A100 +
 4090). Single-run-per-fold (no seed variance) — documented limitation.
 
+### ST-v1 (Jul 6) — fold-2 gate: **FAIL** (4 of 5 criteria, decisively)
+
+First fold to converge (fold-2, best epoch 20 of 38, early-stopped). Gate evaluated on the
+production harness (`evaluate_structure.py` scoring path), fold-2 held-out split, n=165
+paired tracks, identical per-track `target_bpm` + adaptive boundary mode in both arms;
+stock arm = `all-fold2` honest-CV ensemble member (which reproduces the full-set baseline
+on this subset: HR 0.757, pairwise 0.846, beat 0.981 — basis is sound).
+
+| criterion | fine-tuned | stock | paired Δ [95% CI] | verdict |
+|---|---|---|---|---|
+| boundary HR@0.5 > 0.755 | 0.611 | 0.757 | −0.146 [−0.164, −0.128] | FAIL |
+| — D&B slice > 0.60 (n=20) | 0.487 | 0.680 | — | FAIL |
+| pairwise-F > 0.825 | 0.664 | 0.846 | −0.183 [−0.206, −0.160] | FAIL |
+| buildup / cooldown recovery | 0.684 / 0.627 | 0.627 / 0.376 | +0.06 / +0.25 | PASS |
+| beat-F ≥ 0.974 (no regression) | 0.931 | 0.981 | −0.050 (sig; downbeat −0.160) | FAIL |
+
+Win rates ~10% across aggregate metrics. Per-class GT-duration coverage shows the
+mechanism: rare-class gains were bought by majority-class collapse (`drop` 0.942→0.384,
+breakdown −0.18, outro −0.36) and the ~110:1 effective class-weight range at
+`loss_weight_function=1.0` degraded the shared trunk — the significant beat/downbeat
+regression is the tell. Artifacts: `gate_ft2/gate_stock` jsonl (aleph0) + scored JSONs;
+checkpoint banked (`s3://jams-mir-eval-usw2/checkpoints/fold2_epoch20.ckpt`).
+
+Criterion note (recorded before v2 results): the v1 "buildup/cooldown recovered from
+~0.49" figure came from a different metric basis (label accuracy on production segment
+output) than the coverage metric used here; the valid form — used above and for v2 — is
+*paired improvement on the production harness, same tracks, same metric*.
+
+### ST-v2 (pre-registered Jul 6, before results) — constrained head fine-tune, fold-2
+
+Targets the ST-v1 mechanism. Changes vs v1: **freeze_trunk=true** (only the function
+head trains — 1,067 of 300,728 params; boundaries/beats/downbeats anchored to the
+pretrained model by construction since boundaries derive from the frozen section head),
+**class_weight_cap=3.0** (weights → clip(√w, 1/3, 3): effective range 110:1 → 6:1),
+**loss_weight_function=0.5** (moot for the trunk given the freeze, retained for scale),
+max_epochs 35, otherwise identical (same fold-2 split, same genre oversampling).
+Gate: same criteria and paired protocol as ST-v1. Expected outcome: boundary/pairwise/
+beat criteria pass trivially (frozen paths); the experiment tests whether label quality
+(buildup/cooldown AND drop/majority classes) improves under a rebalanced linear readout.
+Run: Lambda A100 "jams-v2fold2-a100".
+
 ## Reproducibility notes
 
 - Eval harness: `eval/acquire_*.py` + `eval/evaluate_*.py` + `eval/stats_significance.py`,
