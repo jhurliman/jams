@@ -4,6 +4,8 @@
 # dependencies = [
 #   "demucs>=4.0",
 #   "basic-pitch[onnx]>=0.4",
+#   "torch==2.8.*",
+#   "torchaudio==2.8.*",
 #   "soundfile>=0.12",
 #   "numpy>=1.23,<2",
 #   "librosa>=0.10",
@@ -79,11 +81,36 @@ _DEFAULT_ONSET_FRAME = (0.5, 0.3)
 # --- Device selection -------------------------------------------------------
 
 
+_warned_cpu_fallback = False
+
+
+def _warn_if_cpu_with_gpu(tag: str) -> None:
+    """Loud, once-per-process, NON-fatal warning when an NVIDIA GPU is present but this
+    torch build has no CUDA (wrong wheel/driver pairing). CPU/MPS are legitimate on Macs;
+    on a GPU box this is almost always a broken env resolving the wrong torch build, and
+    silently running ~20x slower is worse than noise on stderr."""
+    global _warned_cpu_fallback
+    if _warned_cpu_fallback:
+        return
+    import shutil
+    from pathlib import Path
+
+    if Path("/proc/driver/nvidia").exists() or shutil.which("nvidia-smi"):
+        _warned_cpu_fallback = True
+        print(
+            f"[{tag}] " + "!" * 70 + f"\n[{tag}] WARNING: NVIDIA GPU present but torch has "
+            f"no CUDA support — check the torch build vs driver pairing. Running on CPU "
+            f"(~20x slower).\n[{tag}] " + "!" * 70,
+            file=sys.stderr, flush=True,
+        )
+
+
 def _select_device() -> str:
     import torch
 
     if torch.cuda.is_available():
         return "cuda"
+    _warn_if_cpu_with_gpu("stems")
     if getattr(torch.backends, "mps", None) is not None and torch.backends.mps.is_available():
         return "mps"
     return "cpu"

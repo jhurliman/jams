@@ -3,6 +3,8 @@
 # requires-python = ">=3.10,<3.13"
 # dependencies = [
 #   "mt3-infer>=0.1.3",
+#   "torch==2.8.*",
+#   "torchaudio==2.8.*",
 #   "pytorch-lightning>=2.2",
 #   "transformers==4.45.1",
 #   "pretty_midi>=0.2.10",
@@ -24,8 +26,11 @@ Env notes (why the pins):
     checkpoint's T5 code imports (``model_parallel_utils``).
   * ``pytorch-lightning`` is required by the checkpoint loader but not declared by
     mt3-infer.
-  * torch is deliberately NOT pinned: mt3-infer resolves its own torch/torchaudio pair
-    (pinning caused an ABI clash: ``undefined symbol: aoti_torch_abi_version``).
+  * torch/torchaudio are pinned **as a matched pair** (2.8.*). Leaving them unpinned let
+    the resolver pick a cu130 torch newer than the box's CUDA driver, which silently fell
+    back to CPU (~20x slower); pinning only one of the pair caused an ABI clash
+    (``undefined symbol: aoti_torch_abi_version``). Bump both together, and only after
+    verifying mt3-infer against the new pair on GPU.
   * **System requirement: git-lfs.** The first run clones the checkpoint from Hugging
     Face via git-lfs (~536 MB). If it is missing, install it (``apt install git-lfs`` /
     ``brew install git-lfs``) and run ``git lfs install`` once.
@@ -53,6 +58,33 @@ import os
 import sys
 import tempfile
 
+_warned_cpu_fallback = False
+
+
+def _warn_if_cpu_with_gpu() -> None:
+    """Loud, once-per-process, NON-fatal warning when an NVIDIA GPU is present but this
+    torch build has no CUDA (wrong wheel/driver pairing) — mt3-infer would then run on
+    CPU ~20x slower with no other signal."""
+    global _warned_cpu_fallback
+    if _warned_cpu_fallback:
+        return
+    import shutil
+    from pathlib import Path
+
+    import torch
+
+    if torch.cuda.is_available():
+        _warned_cpu_fallback = True
+        return
+    if Path("/proc/driver/nvidia").exists() or shutil.which("nvidia-smi"):
+        _warned_cpu_fallback = True
+        print(
+            "[yourmt3] " + "!" * 70 + "\n[yourmt3] WARNING: NVIDIA GPU present but torch "
+            "has no CUDA support — check the torch build vs driver pairing. Running on "
+            "CPU (~20x slower).\n[yourmt3] " + "!" * 70,
+            file=sys.stderr, flush=True,
+        )
+
 
 def transcribe_pitched(wav: str) -> list[dict]:
     """Transcribe one stem with YourMT3+; flat (instrument-agnostic) non-drum notes."""
@@ -60,6 +92,7 @@ def transcribe_pitched(wav: str) -> list[dict]:
     import pretty_midi
     from mt3_infer import transcribe
 
+    _warn_if_cpu_with_gpu()
     y, _ = librosa.load(wav, sr=16000, mono=True)
     try:
         midi = transcribe(y, model="yourmt3", sr=16000)  # mido MidiFile
