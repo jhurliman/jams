@@ -9,7 +9,7 @@ SOTA-on-GiantSteps methods benchmarked in the companion eval harness.
 | Key | Essentia `edma` + **S-KEY fusion** (learned mode + rerank heads) | MIREX **0.812** / exact **0.757** (honest protocol) |
 | Tempo | Pretrained **TempoCNN** + genre-aware octave resolution | Acc1 **0.965** (corrected labels) |
 | Structure | **All-In-One EDM ensemble on-device** (Apple-Silicon/MPS) | Raveform held-out CV reproduces SOTA (see `eval/`) |
-| Stems → MIDI | **Demucs** 4-stem split + per-stem transcription (basic-pitch; ADTOF drums → General MIDI) | Slakh test: oracle bass 0.79 / drums 0.64; e2e SDR 11.6 dB drums (see `eval/`) |
+| Stems → MIDI | **SCNet XL IHF** 4-stem split + per-stem transcription (**YourMT3+**; ADTOF drums → General MIDI) | Slakh test **e2e** (mix→MIDI): other **0.79** / bass 0.66 note-F, 14.3 dB drums SI-SDR (see `eval/`) |
 
 `essentia-tensorflow` is a **hard requirement** (wheels for macOS arm64 and Linux x86_64 on
 CPython 3.14) — there are deliberately **no silent fallbacks**: a broken install raises a
@@ -140,7 +140,9 @@ transcribe each to MIDI —
 - **pitched stems (bass / other / vocals)** → **YourMT3+** (default; Chang et al., MLSP
   2024, via the MIT `mt3-infer` toolkit with Apache-2.0 weights — the GPL upstream repo is
   not used). Slakh-test oracle note-F: bass **0.849**, other **0.849** vs basic-pitch's
-  0.789 / 0.490. `JAMS_STEMS_TRANSCRIBER=basic-pitch` selects the lighter transcriber.
+  0.789 / 0.490; full **mix→MIDI e2e**: other **0.788** / bass 0.661 — the e2e system beats
+  basic-pitch's ground-truth-stem ceiling on polyphonic accompaniment.
+  `JAMS_STEMS_TRANSCRIBER=basic-pitch` selects the lighter transcriber.
   Bass/vocals get a shared monophonic post-filter; bass is shifted +12 to the written-MIDI
   convention in the orchestrator (validated for both transcribers). **First-run
   requirement: `git-lfs`** (the YourMT3 checkpoint clones from Hugging Face, ~536 MB).

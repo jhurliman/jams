@@ -79,6 +79,16 @@ from their eval; both documented as limitations.
 | T7 | Jul 1 | 6941991 | babyslakh (16 kHz) vs full-bandwidth: drums 0.455 → 0.638 — bandwidth artifact (no >8 kHz hat/cymbal energy); ADTOF self-test on its 44.1 kHz reference = 1.0 macro-F | — | — | — | eval/README |
 | T8 | Jul 2 | (webapp) | drum velocity: per-hit 30 ms RMS, per-class normalized (ADTOF emits flat 100) — qualitative; onset scoring unaffected | — | — | — | commit c907a57 |
 | T9 | Jul 3 | (local) | vocals lane smoke (MedleyDB sample, n=1, basic-pitch on GT vocal stem vs MELODY-annotation-derived notes) | vocals 0.5816 | — | — | MedleyDB_sample; full 61-track benchmark pending audio access |
+| T10 | Jul 5 | ~4dd3f9e (box jams-e2eval) | **shipped system, e2e**: mix → SCNet XL IHF → YourMT3+ (pitched) + ADTOF (drums); n=151, 0 failures | 0.6613 | **0.7877** | 0.5741 | results_aws/slakh_test_e2e_scnet_yourmt3.json |
+
+T10 notes: (a) SI-SDR 14.31 / 11.76 / 5.98 dB (drums/other/bass) reproduces S4's
+separation numbers on an independent box — cross-run consistency check passes; drums
+onset-F 0.5741 matches S4 exactly (drums path unchanged by the transcriber swap).
+(b) Oracle→e2e cost for YourMT3+: other −6.1 pt (0.8488→0.7877), bass −18.7 pt
+(0.8486→0.6613) — bass suffers more through separation (low-frequency bleed), yet e2e
+bass still edges basic-pitch's e2e 0.6448 (S4). (c) Headline: **e2e other 0.7877 exceeds
+basic-pitch's _oracle_ 0.4897** — the shipped system transcribes polyphonic accompaniment
+from the raw mix better than the lightweight transcriber managed from ground-truth stems.
 
 ## Separation (Slakh2100-redux test, n=151 mixes)
 

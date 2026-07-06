@@ -34,9 +34,10 @@ permissively licensed, and achieves the best exact accuracy (0.757). On transcri
 show that feeding separated stems to a multi-instrument transformer (YourMT3+) yields
 0.849 note-F on both bass and dense polyphonic accompaniment on the Slakh2100 test split —
 a 36-point improvement over a widely-used lightweight transcriber — and we quantify the
-end-to-end cost of separation (SCNet XL) at each stage, including a case where +2.7 dB
-SI-SDR *reduces* downstream drum-transcription accuracy. [TODO: structure fine-tune
-sentence.] All code, evaluation scripts, per-track artifacts, and statistical analyses are
+end-to-end cost of separation (SCNet XL) at each stage: the full mix→MIDI system reaches
+0.788 note-F on accompaniment — above the lightweight transcriber's *ground-truth-stem*
+ceiling (0.490) — including a case where +2.7 dB SI-SDR *reduces* downstream
+drum-transcription accuracy. [TODO: structure fine-tune sentence.] All code, evaluation scripts, per-track artifacts, and statistical analyses are
 public.
 
 ## 1 Introduction
@@ -91,9 +92,15 @@ paired bootstrap, 95% percentile CIs (paper/STATS.md).
   contaminated 0.801 turned out to be honestly reproducible (0.8095) — leakage masked a
   real result; only the audit could tell. (d) Genre analysis: weakest on Trance/Techno
   (tonal ambiguity), no genre collapse.
-- **5.2 Transcription** (Table 2). Stem-input YourMT3+ ≈ its mixture-input published F;
-  36-pt jump on polyphonic accompaniment vs basic-pitch; bass written-octave convention
-  (+12) as a scoring pitfall (0.04→0.80 under 50-cent tolerance).
+- **5.2 Transcription** (Table 2 — oracle AND full-system e2e, from EXPERIMENTS.md
+  T1/T2/T10). Stem-input YourMT3+ ≈ its mixture-input published F; 36-pt jump on
+  polyphonic accompaniment vs basic-pitch (paired Δ +0.359 [+0.347, +0.371], 100% of
+  tracks); bass written-octave convention (+12) as a scoring pitfall (0.04→0.80 under
+  50-cent tolerance). Full mix→MIDI system (SCNet → YourMT3+/ADTOF): other 0.788 /
+  bass 0.661 / drums onset 0.574 — separation costs YourMT3+ 6.1 pt on other but 18.7 pt
+  on bass (low-frequency bleed); **e2e other (0.788) exceeds basic-pitch's oracle
+  (0.490)**. Cells measured: both transcribers oracle; e2e for the shipped system and for
+  SCNet+basic-pitch (S4); htdemucs+YourMT3 e2e n/a (not run — separator already selected).
 - **5.3 Separation cascade** (Table 3). SCNet XL wins SI-SDR on every stem AND
   through-separation note-F on pitched stems; drums onset-F dips 1 pt (transcriber
   sensitivity to separator transients) — metric divergence SDR vs downstream-task.

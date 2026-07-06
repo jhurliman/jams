@@ -129,6 +129,15 @@ LEDGER = [
       "caveat": "n=1 smoke; 61-track benchmark pending audio access"},
      {"vocals_note_f": 0.5816},
      {"commit": "local", "date": "2026-07-03", "artifacts": "MedleyDB_sample"}),
+    ("T10", T, "shipped-system-e2e", {"dataset": "Slakh2100-redux test", "n": 151,
+     "system": "e2e mix -> SCNet XL IHF -> YourMT3+ (pitched) + ADTOF (drums)",
+     "note": "SI-SDR reproduces S4 on an independent box; drums path unchanged; "
+             "e2e other exceeds basic-pitch oracle (0.4897)"},
+     {"bass_note_f": 0.6613, "other_note_f": 0.7877, "overall_note_f": 0.7262,
+      "drums_onset_f": 0.5741, "sdr_drums": 14.3098, "sdr_other": 11.7645,
+      "sdr_bass": 5.9794, "failed": 0},
+     {"commit": "4dd3f9e", "date": "2026-07-05",
+      "artifacts": "eval/data/results_aws/slakh_test_e2e_scnet_yourmt3.json"}),
 
     ("S1", S, "htdemucs", {**SEP_COMMON, "system": "htdemucs (baseline)"},
      {"sisdr_drums": 11.61, "sisdr_other": 10.13, "sisdr_bass": 4.57,

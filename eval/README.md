@@ -207,12 +207,20 @@ its pinned `tensorflow==2.9.1` has no arm64 wheel.)
 
 ### Headline results — Slakh2100-redux **test split** (151 tracks, 44.1 kHz)
 
-| Metric | oracle (GT stems) | e2e (Demucs → transcribe) |
-|--------|------------------:|--------------------------:|
-| bass note-F | **0.789** | 0.596 |
-| other note-F | 0.490 | 0.459 |
-| drums onset-F (5-class) | **0.638** | 0.585 |
-| SI-SDR (drums / other / bass) | — | **11.6** / 10.1 / 4.6 dB |
+Shipped pipeline (SCNet XL IHF separation, YourMT3+ pitched, ADTOF drums):
+
+| Metric | oracle (GT stems) | **e2e (mix → separate → transcribe)** |
+|--------|------------------:|--------------------------------------:|
+| bass note-F | **0.849** | 0.661 |
+| other note-F | **0.849** | **0.788** |
+| drums onset-F (5-class) | **0.638** | 0.574 |
+| SI-SDR (drums / other / bass) | — | **14.3** / 11.8 / 6.0 dB |
+
+(`results_aws/slakh_test_e2e_scnet_yourmt3.json`; the launch-era htdemucs+basic-pitch
+e2e — bass 0.596 / other 0.459 / drums 0.585, SDR 11.6/10.1/4.6 — survives as row S1 of
+the separation A/B below.) Separation costs YourMT3+ only 6.1 pt on `other`; e2e `other`
+**exceeds basic-pitch's oracle 0.490** — the full system beats the lightweight
+transcriber's ground-truth-stem ceiling on polyphonic accompaniment.
 
 0 failures either mode. **E-GMD** (500 test tracks, isolated e-kit recordings): drums
 onset-F **0.645** — lower than ADTOF's ~0.85 on real music because E-GMD's Roland TD-17
