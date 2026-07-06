@@ -151,6 +151,29 @@ Criterion note (recorded before v2 results): the v1 "buildup/cooldown recovered 
 output) than the coverage metric used here; the valid form — used above and for v2 — is
 *paired improvement on the production harness, same tracks, same metric*.
 
+#### ST-v1, fold-1 (Jul 6) — second held-out datapoint: **FAIL** (5 of 5)
+
+Same recipe, second fold (fold-1, best epoch 35 of ~40 — ~2× longer in the destructive
+regime than fold-2's epoch 20). Same protocol (production harness, n=162 paired, stock =
+`all-fold1` honest-CV member, identical per-track `target_bpm` + adaptive boundary mode).
+
+| criterion | fine-tuned | stock | paired Δ [95% CI] | verdict |
+|---|---|---|---|---|
+| boundary HR@0.5 > 0.755 | 0.573 | 0.779 | −0.206 [−0.229, −0.184] | FAIL |
+| — D&B slice > 0.60 (n=19) | 0.426 | 0.655 | — | FAIL |
+| pairwise-F > 0.825 | 0.683 | 0.841 | −0.158 [−0.182, −0.134] | FAIL |
+| buildup / cooldown recovery | 0.616 / 0.366 | 0.568 / 0.543 | +0.05 / **−0.18** | **FAIL** (cooldown regressed) |
+| beat-F ≥ 0.974 (no regression) | 0.930 | 0.981 | −0.050 [−0.065, −0.038] (downbeat −0.183) | FAIL |
+
+Confirms and sharpens the fold-2 mechanism: the beat-F delta is −0.050 on *both* folds,
+boundary/pairwise degrade at the same scale, and the majority-class collapse replicates
+(drop 0.871→0.664, intro 0.913→0.535, breakdown 0.929→0.596). Fold-2's lone PASS
+(cooldown +0.25) did not replicate — with longer training the rare-class gains erode too,
+consistent with progressive trunk damage rather than a stable rare-class trade. v1 is dead
+on two independent folds; no further v1 folds will be trained. Checkpoint banked
+(`s3://jams-mir-eval-usw2/checkpoints/fold1_epoch35.ckpt`); artifacts `gate_ft1/gate_stock1`
+jsonl (aleph0) + scored JSONs (job tmp).
+
 ### ST-v2 (pre-registered Jul 6, before results) — constrained head fine-tune, fold-2
 
 Targets the ST-v1 mechanism. Changes vs v1: **freeze_trunk=true** (only the function
