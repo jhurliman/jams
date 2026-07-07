@@ -274,3 +274,24 @@ a decode artifact. All ST-v1 verdicts stand as recorded. Fixed-arm artifacts:
 - Known env pins that affect reproduction: essentia-tensorflow cp314 wheels (macOS arm64 +
   Linux x86_64); basic-pitch needs Python <3.12 on Linux (TF dep); YourMT3 needs
   transformers==4.45.1 + git-lfs; madmom needs Python <3.12 + numpy<2.
+
+### ST-v4 (pre-registered 2026-07-07, before results)
+
+Premise correction to the v4 direction: the function head is a single `nn.Linear(96->11)`
+(1,067 params) — ST-v3 already trained 100% of the function-exclusive parameters, so there
+is no larger "function MLP" to unfreeze. ST-v3's class trade (cooldown +0.233 bought partly
+with buildup −0.158) is therefore hypothesized to be a **readout-capacity** limit, not a
+weighting artifact.
+
+**Single change vs ST-v3: capacity.** A zero-init residual MLP (96→64→11, GELU; final layer
+zero-initialized) is added alongside the stock linear readout (`function_head_mlp=64`);
+init-equality unit check passed (all four heads byte-equal to stock at init on random
+input). Class weights, loss weight, freeze, init, epochs identical to v3:
+`fold=2 max_epochs=15 function_class_weights=true class_weight_cap=3.0
+loss_weight_function=0.5 freeze_trunk=true init_from=stock_fold2_init.pth
+function_head_mlp=64`. Trainable: 7,990/306,913 params (function readout only; trunk,
+beat/section heads frozen — boundaries/beats anchored by construction, verified again at
+gate time). Gate: same fold-2 165-track held-out arm vs the banked stock scores; decision
+metrics: buildup AND cooldown paired improvement (95% CI clear of 0) with no significant
+regression on any other class (esp. outro, which v3 dented −0.092). Fold-2 remains the
+disclosed recipe-iteration fold; any shipped claim requires cross-fold confirmation.
