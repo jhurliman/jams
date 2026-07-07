@@ -207,14 +207,63 @@ verdicts stand (they measure the shipped-candidate vs stock, whatever the cause)
 the mechanism narrative should say "aggressively re-weighted from-scratch training",
 not "fine-tune".
 
-### ST-v3 (pre-registered Jul 7, not yet run) — true transfer: stock init + frozen trunk
+### ST-v3 (pre-registered Jul 7; run Jul 7) — true transfer: stock init + frozen trunk — **FAIL (class trade, not a free win)**
 
-The experiment ST-v2 intended: load the stock `all-fold2` state dict into the trainer
-as initialization, then freeze_trunk + class_weight_cap=3.0 + head-only training.
-Boundaries/beats then genuinely anchor to the production model, and the head starts
-from (rather than approximates) the stock decision surface. Requires a small trainer
-change (init-from-checkpoint hook). Gate: identical criteria/protocol/split. Cheap to
-run (head-only, ~2–3 h on aleph0, $0).
+The experiment ST-v2 intended: stock `all-fold2` state dict loaded as init (491/491
+tensors, strict; round-trip validated byte-identical to stock output pre-training after
+fixing a converter defect — see *DBN-threshold audit* below), trunk + beat/section heads
+frozen (1,067/300,728 trainable), class_weight_cap=3.0, loss_weight_function=0.5,
+fold-2, best val at epoch 5 (val/loss 0.290 vs v1's ~0.52 — transfer regime confirmed).
+
+**Validity check passed exactly as designed**: beats, downbeats, and boundaries are
+byte-identical to stock on all 165 held-out tracks (paired Δ = +0.0000, 165/165 ties).
+Pairwise-F +0.0065 [−0.0030, +0.0162] ns. The gate reduces to per-class label coverage:
+
+| class (n tracks) | ST-v3 | stock | paired Δ [95% CI] |
+|---|---:|---:|---|
+| **cooldown** (113) | 0.594 | 0.361 | **+0.233 [+0.157, +0.314] SIG** |
+| **buildup** (115) | 0.486 | 0.644 | **−0.158 [−0.221, −0.097] SIG** |
+| outro (148) | 0.646 | 0.738 | −0.092 [−0.143, −0.043] SIG |
+| intro (160) | 0.743 | 0.696 | +0.047 [+0.006, +0.091] SIG |
+| altintro (22) | 0.886 | 0.803 | +0.083 [+0.000, +0.204] SIG |
+| breakdown (164) | 0.920 | 0.912 | +0.007 [+0.000, +0.016] SIG |
+| drop (165) | 0.954 | 0.951 | +0.003 ns |
+| end (140) | 0.883 | 0.869 | +0.014 ns |
+| altoutro (26) | 0.653 | 0.617 | +0.036 ns |
+
+**Verdict: FAIL per pre-registration** — cooldown's recovery is real and large, and there
+is no majority-class collapse, but buildup (the other target class) regressed
+significantly, as did outro. With everything but a 1,067-param softmax readout frozen,
+re-weighting redistributes coverage among competing classes rather than adding skill:
+cooldown's gain is paid for by its temporal neighbors. The stock ensemble remains the
+shipped system. Plausible next iterations (not pre-registered, not run): unfreeze the
+function head's full MLP (not just the readout), or per-class threshold calibration on
+the stock model's posteriors — the latter needs no training at all.
+
+Artifacts: `fold2_st3.pth` + raw ckpt at `s3://jams-mir-eval-usw2/checkpoints/`;
+arm outputs `s3://jams-mir-eval-usw2/gates/gate_st3.jsonl`, scored
+`eval/data/results_aws/gate_st3_scored.json`; trainer `init_from` hook on aleph0
+`~/all-in-one` (with the on_fit_end crash fix re-applied — a second instance-call
+site at trainer.py:331 caused ST-v3's end-of-fit crash after the ckpt was saved).
+
+### ST-v1 DBN-threshold audit (Jul 7) — **beat-criterion FAIL survives; artifact hypothesis refuted**
+
+ST-v2's invalidation revealed `convert_ckpt.py` dropped the stock checkpoints' tuned DBN
+postprocessor thresholds (`best_threshold_beat=0.23`, `best_threshold_downbeat=0.18` →
+defaults), contaminating the v1 fine-tuned arms' *decode* settings relative to the stock
+arms. Both v1 arms were re-run with the fixed converter (thresholds carried from the
+matching stock member):
+
+| fold | beat-F (contaminated) | beat-F (fixed) | stock | boundary/pairwise |
+|---|---:|---:|---:|---|
+| fold-2 | 0.9307 | 0.9268 | 0.9806 | identical (do not consume thresholds) |
+| fold-1 | 0.9303 | 0.9225 | 0.9807 | identical |
+
+The tuned thresholds move v1 beat-F by <0.01 (slightly *down*) — the −0.05 beat
+regressions were genuine trunk degradation from re-weighted from-scratch training, not
+a decode artifact. All ST-v1 verdicts stand as recorded. Fixed-arm artifacts:
+`s3://jams-mir-eval-usw2/gates/gate_ft{1,2}_fixed.jsonl`, scored copies in
+`eval/data/results_aws/`.
 
 ## Reproducibility notes
 
