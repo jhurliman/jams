@@ -187,6 +187,35 @@ beat criteria pass trivially (frozen paths); the experiment tests whether label 
 (buildup/cooldown AND drop/majority classes) improves under a rebalanced linear readout.
 Run: Lambda A100 "jams-v2fold2-a100".
 
+**Verdict (Jul 7): INVALID — initialization bug; gate not evaluated.** Checkpoint
+validation before the gate run found the trained model's trunk differs from the stock
+`all-fold2` weights in 489/491 tensors — and the trainer contains **no pretrained-weight
+loading at all**: it trains from scratch. `freeze_trunk` therefore froze a *randomly
+initialized* trunk and trained the 1,067-param head on noise features. Corroborating
+evidence: best val/loss 0.815 vs ~0.52 for ST-v1 (unfrozen from-scratch); a 3-track
+spot-check through the production path emits a single degenerate whole-track "drop"
+segment per track (stock: 11–16 segments). The 165-track gate eval was not run — it
+could only re-measure a conclusion already established at the tensor level.
+Artifacts: `checkpoints/fold2_v2_epoch5.ckpt` (S3 + /mnt/d), converted
+`fold2_stv2.pth`; spot-check JSON in the session job dir.
+
+**Correction to ST-v1 framing**: the same finding reframes ST-v1 — those runs were
+**from-scratch training on Raveform**, not fine-tuning of the stock model. The v1
+deficits therefore conflate (a) from-scratch training under a smaller compute/recipe
+budget than the published model and (b) the class-weight imbalance; the paired FAIL
+verdicts stand (they measure the shipped-candidate vs stock, whatever the cause), but
+the mechanism narrative should say "aggressively re-weighted from-scratch training",
+not "fine-tune".
+
+### ST-v3 (pre-registered Jul 7, not yet run) — true transfer: stock init + frozen trunk
+
+The experiment ST-v2 intended: load the stock `all-fold2` state dict into the trainer
+as initialization, then freeze_trunk + class_weight_cap=3.0 + head-only training.
+Boundaries/beats then genuinely anchor to the production model, and the head starts
+from (rather than approximates) the stock decision surface. Requires a small trainer
+change (init-from-checkpoint hook). Gate: identical criteria/protocol/split. Cheap to
+run (head-only, ~2–3 h on aleph0, $0).
+
 ## Reproducibility notes
 
 - Eval harness: `eval/acquire_*.py` + `eval/evaluate_*.py` + `eval/stats_significance.py`,
