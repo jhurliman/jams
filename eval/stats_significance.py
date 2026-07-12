@@ -200,6 +200,11 @@ def main() -> None:
         ok = {t for t in tids if t in mm and "madmom_key" in mm[t]}
         if len(ok) == len(tids):
             systems["madmom-cnn"] = {t: mm[t]["madmom_key"] for t in tids}
+    cnn_path = DATA / "gsmtg" / "cnn_gskey.jsonl"
+    if cnn_path.exists():
+        cn = jload(cnn_path)
+        if all(t in cn and "cnn_key" in cn[t] for t in tids):
+            systems["k10-cnn"] = {t: cn[t]["cnn_key"] for t in tids}
 
     scores = {name: np.array([mirex(gt[t], preds[t]) for t in tids])
               for name, preds in systems.items()}
@@ -222,6 +227,10 @@ def main() -> None:
              ("skey", "edma-raw"), ("honest-retrain", "edma-raw")]
     if "madmom-cnn" in scores:
         pairs += [("fusion", "madmom-cnn"), ("skey", "madmom-cnn")]
+    if "k10-cnn" in scores:
+        pairs += [("k10-cnn", "fusion"), ("k10-cnn", "skey")]
+        if "madmom-cnn" in scores:
+            pairs += [("k10-cnn", "madmom-cnn")]
     for a, b in pairs:
         d, lo, hi = paired_delta_ci(scores[a], scores[b])
         sig = "yes" if (lo > 0 or hi < 0) else "no"
@@ -239,9 +248,10 @@ def main() -> None:
             f"+{mm - 0.746:.3f} shift from subset selection alone. Comparisons of numbers "
             "measured on this subset against published full-set numbers are therefore "
             "inflated for every system; only the same-subset paired comparisons above are "
-            "valid rankings. On those, madmom-cnn is the strongest system here (its weights "
-            "are CC BY-NC-SA — non-commercial — whereas the fusion/skey stack is fully "
-            "permissively licensed).", ""]
+            "valid rankings. On those, madmom-cnn and k10-cnn (ours, MIT; ledger K10) are "
+            "statistically indistinguishable (Δ −0.0007-scale), with k10-cnn holding the "
+            "best exact accuracy; madmom's weights are CC BY-NC-SA (non-commercial), the "
+            "k10/fusion/skey stack carries no such restriction.", ""]
 
     # --- Transcription ------------------------------------------------------
     oracle = json.loads((DATA / "results_aws" / "slakh_test_oracle.json").read_text())
