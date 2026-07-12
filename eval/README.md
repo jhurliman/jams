@@ -31,14 +31,16 @@ is freely downloadable from Zenodo. 567 usable after dropping 33 atonal/ambiguou
 
 | Metric | librosa baseline | **jams (SOTA)** |
 |--------|------------------|-----------------|
-| Key MIREX | 0.614 | **0.801** |
-| Key exact | 0.529 | **0.743** |
+| Key MIREX (honest protocol, n=567) | 0.614 | **0.812** |
+| Key exact | 0.529 | **0.757** |
 | Tempo Acc1 (raw labels) | 0.830 | 0.921 |
 | **Tempo Acc1 (corrected labels + full-tempo)** | 0.830 | **0.965** |
 
-Methods: key = Essentia `edma`; tempo = pretrained TempoCNN `deepsquare` + genre-aware
-octave resolution. Chosen by `benchmark_*`; both beat librosa, RhythmExtractor2013,
-Percival, and madmom (see git history / the comparison scripts).
+Methods: key = Essentia `edma` + S-KEY **fusion** (learned mode + rerank heads, fit on
+GS-MTG only — see `paper/EXPERIMENTS.md` K6 and `paper/STATS.md` for CIs); tempo =
+pretrained TempoCNN `deepsquare` + genre-aware octave resolution. Chosen by
+`benchmark_*`; both beat librosa, RhythmExtractor2013, Percival, and madmom-tempo (see
+git history / the comparison scripts).
 
 ## Key: honest protocol + S-KEY fusion
 

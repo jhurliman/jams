@@ -40,3 +40,12 @@ eval/models/
 
 # Annotator + training data at the repo root (large; user-owned or regenerable)
 /data/
+
+# LaTeX build artifacts (paper/arxiv)
+paper/arxiv/main.aux
+paper/arxiv/main.log
+paper/arxiv/main.out
+paper/arxiv/main.fls
+paper/arxiv/main.fdb_latexmk
+paper/arxiv/main.blg
+paper/arxiv/main.synctex.gz
