@@ -43,10 +43,11 @@ madmom key CNN, published 0.746 weighted) on our $n{=}567$ usable-track subset o
 GiantSteps~Key yields 0.833---a $+0.087$ shift from subset selection alone, more than
 six times the field's total claimed progress since 2018---so comparisons against
 published numbers are uninterpretable and only same-subset paired tests rank systems.
-Under such tests, our fusion of an EDM-tuned template method with a self-supervised
-tonality estimator is not significantly different from the madmom CNN
-($\Delta{=}-0.021$ \ci{-0.044}{+0.003}) while carrying no non-commercial license
-restriction, with the best exact accuracy (0.757). (2)~Feeding ground-truth stems to a
+Under such tests, a small 24-class key CNN that we train on the public Beatport
+corpus---pre-registered, with exactly one test evaluation---is statistically
+indistinguishable from the madmom CNN ($\Delta{=}-0.001$ \ci{-0.019}{+0.018}) while
+carrying no non-commercial license restriction, with the best exact accuracy of any
+system measured (0.780). (2)~Feeding ground-truth stems to a
 multi-instrument transformer (YourMT3+) yields 0.849 note-F on both bass and dense
 polyphonic accompaniment on the Slakh2100 test split, and the full mix$\to$MIDI system
 (SCNet~XL $\to$ YourMT3+) reaches 0.788 note-F on accompaniment---\emph{above the
@@ -90,9 +91,10 @@ We report four contributions:
   GiantSteps~Key system gains $+0.087$ weighted score when re-run on our usable-track
   subset---larger than the total claimed progress across recent published systems---so
   comparisons of subset-measured numbers against published full-set numbers are
-  uninterpretable. Only same-subset paired tests rank systems; under those, we report
-  the strongest key system free of non-commercial license restrictions, with full
-  significance analysis.
+  uninterpretable. Only same-subset paired tests rank systems; under those, a small
+  CNN we train on public data---pre-registered, evaluated once---statistically ties
+  the strongest baseline with the best exact accuracy and no non-commercial license
+  restriction.
   \item \textbf{Stem-input and end-to-end transcription results}
   (\S\ref{sec:transcription}): we quantify the cascade from mix to stems to MIDI at
   each stage on Slakh2100, including a full-system result that exceeds a popular
@@ -283,7 +285,8 @@ system & weighted [95\% CI] & exact & license \\
 \texttt{edma} template (no refinement) & 0.759 \ci{0.728}{0.789} & 0.688 & AGPL (Essentia) \\
 mode retrain & 0.810 \ci{0.780}{0.837} & 0.753 & ours (MIT) \\
 S-KEY~\citep{kong2025skey} & 0.817 \ci{0.789}{0.843} & 0.748 & MIT \\
-\textbf{fusion (shipped)} & \textbf{0.812} \ci{0.783}{0.840} & \textbf{0.757} & MIT \\
+fusion (shipped) & 0.812 \ci{0.783}{0.840} & 0.757 & MIT \\
+\textbf{key CNN (ours; K10)} & \textbf{0.832} \ci{0.804}{0.859} & \textbf{0.780} & MIT \\
 madmom CNN~\citep{korzeniowski2018genre} & 0.833 \ci{0.806}{0.858} & 0.773 & CC BY-NC-SA \\
 \midrule
 oracle ceiling $\max$(refined, S-KEY) & 0.868 & --- & --- \\
@@ -297,7 +300,7 @@ oracle ceiling $\max$(refined, S-KEY) & 0.868 & --- & --- \\
 \caption{Key systems on the same $n{=}567$ subset with 95\% CIs. The orange square/arrow
 shows the \emph{same} madmom CNN's published full-set number (0.746) versus its score on
 our subset (0.833): a $+0.087$ shift from subset selection alone, larger than the spread
-between the four strongest systems.}
+between the five strongest systems.}
 \label{fig:keyforest}
 \end{figure}
 
@@ -312,7 +315,13 @@ track whether to emit the mode-refined template estimate or S-KEY's estimate (de
 thresholds 0.70/0.60, both CV-selected on GS-MTG). All learned coefficients ship as JSON
 files in the repository; ``refined'' in the oracle row denotes the mode-refined template
 output. The madmom CNN baseline was run with its published weights and default
-processor settings.
+processor settings. \emph{Key CNN (K10)} is ours: a 24-class CNN in the Korzeniowski
+\& Widmer family (log-CQT input, ${\sim}0.1$\,M parameters, MIT), trained on the public
+Beatport corpus underlying GS-MTG (1{,}363 usable tracks; zero test-set overlap,
+verified by track id) with $\pm4$-semitone pitch-shift augmentation. The experiment was
+pre-registered in the public ledger with a fixed decision rule; all selection
+(architecture, capacity, and standalone-vs-fusion candidates) used training-corpus CV
+only, and the locked model received exactly one test evaluation.
 
 \textbf{The calibration finding.} GiantSteps~Key ships 604 annotations, of which 600
 have retrievable preview audio in our pull; like prior work, we further drop atonal,
@@ -343,19 +352,27 @@ fusion $-$ retrain & $+0.003$ \ci{-0.011}{+0.017} \\
 fusion $-$ S-KEY & $-0.004$ \ci{-0.025}{+0.017} \\
 fusion $-$ madmom CNN & $-0.021$ \ci{-0.044}{+0.003} \\
 S-KEY $-$ madmom CNN & $-0.016$ \ci{-0.039}{+0.007} \\
+\midrule
+key CNN $-$ fusion & $+0.020$ \ci{-0.002}{+0.043} \\
+key CNN $-$ S-KEY & $+0.015$ \ci{-0.008}{+0.039} \\
+key CNN $-$ madmom CNN & $-0.001$ \ci{-0.019}{+0.018} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \textbf{Rankings under paired tests} (Table~\ref{tab:keypaired}): no pairwise
-difference among the learned systems (retrain, S-KEY, fusion, madmom CNN) reaches
-significance, and all significantly exceed the raw template. The madmom CNN has the
-best point estimate; its advantage over our fusion does not reach significance
-($-0.021$ \ci{-0.044}{+0.003}), though the CI barely includes zero and a larger
-same-subset test could well resolve it in the CNN's favor. Its weights are
-non-commercial, whereas the fusion stack carries no such restriction and has the best
-exact accuracy (0.757). The fusion was selected over its variants by training-split
-cross-validation only (rerank CV 0.732 vs.\ 0.700), not test scores. An
+difference among the learned systems reaches significance, and all significantly exceed
+the raw template. The sharpest comparison is our K10 CNN against the madmom CNN:
+$\Delta = -0.001$ \ci{-0.019}{+0.018}, with 486 of 567 tracks scored identically---a
+statistical dead heat with the strongest published system, from a model trained in two
+hours on public data. Under K10's pre-registered rule this is reported as a failure to
+establish \emph{superiority}; what it establishes instead is parity without the
+non-commercial restriction, plus the best exact accuracy measured (0.780 vs.\ madmom's
+0.773). Against the shipped fusion, the CNN gains $+0.020$ \ci{-0.002}{+0.043} (58
+wins / 38 losses), making it a strictly simpler drop-in candidate for the production
+key detector. Both learned selections were made by training-split cross-validation
+only (the fusion by rerank CV 0.732 vs.\ 0.700; the CNN over wider/fused variants by
+corpus CV), never by test scores. An
 oracle that picks the better of the two fused systems per track reaches 0.868, so
 headroom remains in fusion quality itself.
 
@@ -590,6 +607,11 @@ subset track list and per-track outputs for future same-subset comparisons.
 versus 0.721 in its paper~\citep{kong2025skey}; newer weights and subset differences
 likely both contribute, and we cannot attribute the gap precisely.
 
+\textbf{K10 CNN.} A single training run (no seed variance), selected by
+training-corpus CV and evaluated exactly once; parity with madmom is a
+failure-to-reject, not demonstrated equivalence, though the CI is tight
+(\ci{-0.019}{+0.018}) and 486 of 567 tracks score identically.
+
 \textbf{Synthetic transcription data.} Slakh is sample-rendered; real-mix performance
 will differ. Vocals are unmeasured beyond a single smoke test. ADTOF drums are
 evaluated out-of-domain on E-GMD (0.645); an in-domain EDM drum benchmark does not yet
@@ -609,11 +631,12 @@ on subsets (50 and 47 tracks) for cost reasons and are marked as such.
 \section{Conclusion}
 \label{sec:conclusion}
 
-An open, EDM-focused MIR stack assembled from openly licensed components is
-statistically competitive with the strongest system we measured where comparison is
-valid, and exceeds widely used production defaults by wide margins (a mix$\to$MIDI
-system whose accompaniment transcription beats a popular transcriber's
-ground-truth-stem ceiling). The measurement findings travel beyond this system:
+An open, EDM-focused MIR stack assembled from openly licensed components matches the
+strongest system we measured to within noise---a pre-registered CNN, trained in two
+hours on public data, ties the madmom reference at $\Delta{=}-0.001$---and exceeds
+widely used production defaults by wide margins (a mix$\to$MIDI system whose
+accompaniment transcription beats a popular transcriber's ground-truth-stem
+ceiling). The measurement findings travel beyond this system:
 benchmark-subset selection alone can move key-detection scores by more than six times
 the field's eight years of claimed progress; SI-SDR can rank separators opposite to the
 task they feed; dataset conventions (bass octave, preview bandwidth, half-time tempo

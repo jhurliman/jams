@@ -11,6 +11,7 @@ n = 567 tracks; MIREX weighted score; bootstrap 10,000 resamples, seed 0; 95% pe
 | skey | 0.8168 [0.7887, 0.8434] | 0.7478 |
 | fusion | 0.8123 [0.7831, 0.8402] | 0.7566 |
 | madmom-cnn | 0.8328 [0.8063, 0.8580] | 0.7725 |
+| k10-cnn | 0.8321 [0.8039, 0.8586] | 0.7795 |
 
 ## Paired deltas (bootstrap CI of per-track difference)
 
@@ -23,10 +24,13 @@ n = 567 tracks; MIREX weighted score; bootstrap 10,000 resamples, seed 0; 95% pe
 | honest-retrain − edma-raw | +0.0506 [+0.0300, +0.0716] | yes |
 | fusion − madmom-cnn | -0.0205 [-0.0437, +0.0028] | no |
 | skey − madmom-cnn | -0.0160 [-0.0390, +0.0072] | no |
+| k10-cnn − fusion | +0.0198 [-0.0023, +0.0427] | no |
+| k10-cnn − skey | +0.0153 [-0.0081, +0.0390] | no |
+| k10-cnn − madmom-cnn | -0.0007 [-0.0187, +0.0182] | no |
 
 **Fusion vs published SOTA value:** fusion CI [0.7831, 0.8402] excludes the best honest published number (0.7591).
 
-**Subset-shift calibration (key finding):** madmom's CNN, published at 0.746 on full GiantSteps Key, scores 0.8328 on our n=567 usable-track subset — a +0.087 shift from subset selection alone. Comparisons of numbers measured on this subset against published full-set numbers are therefore inflated for every system; only the same-subset paired comparisons above are valid rankings. On those, madmom-cnn is the strongest system here (its weights are CC BY-NC-SA — non-commercial — whereas the fusion/skey stack is fully permissively licensed).
+**Subset-shift calibration (key finding):** madmom's CNN, published at 0.746 on full GiantSteps Key, scores 0.8328 on our n=567 usable-track subset — a +0.087 shift from subset selection alone. Comparisons of numbers measured on this subset against published full-set numbers are therefore inflated for every system; only the same-subset paired comparisons above are valid rankings. On those, madmom-cnn and k10-cnn (ours, MIT; ledger K10) are statistically indistinguishable (Δ −0.0007-scale), with k10-cnn holding the best exact accuracy; madmom's weights are CC BY-NC-SA (non-commercial), the k10/fusion/skey stack carries no such restriction.
 
 # Statistical analysis — transcription (Slakh2100-redux test)
 
