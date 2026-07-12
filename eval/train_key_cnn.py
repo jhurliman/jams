@@ -159,9 +159,11 @@ class KeyDataset:
             shift = random.randint(-PAD_SEMI, PAD_SEMI)
         else:
             shift = 0
+        # Window starting `shift` semitones HIGHER moves content DOWN the fixed
+        # output axis (pitch lowered by `shift`), so the label transposes by -shift.
         lo = (PAD_SEMI + shift) * self.per_semi
         X = X[lo:lo + self.core_bins]
-        cls = transpose_label(cls, shift)
+        cls = transpose_label(cls, -shift)
         T = X.shape[1]
         if self.train and T > self.crop:
             s = random.randint(0, T - self.crop)
