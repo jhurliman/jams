@@ -20,13 +20,22 @@
 
 ## Sequencing
 
-1. Structure fine-tune completes → gate-check → fold-sweep table into EXPERIMENTS/DRAFT.
-2. madmom baseline row + (when access lands) MedleyDB 61-track vocals benchmark.
-3. Freeze results; regenerate STATS.md; figures.
-4. arXiv preprint + blog post (target: ~1–2 weeks after structure results).
-5. ISMIR 2026 LBD submission when the call opens (condense preprint to 4 pp; demo video of
-   the annotator + piano-roll).
-6. Reassess ISMIR 2027 full paper after LBD feedback.
+1. ~~Structure fine-tune completes → gate-check~~ **DONE (Jul 12)** — negative-results
+   arc v1→v4, all gates FAIL, stock ships; ledgered with per-class CIs.
+2. ~~madmom baseline row~~ **DONE** (K9 + calibration finding). MedleyDB vocals still
+   blocked on access — documented limitation in the draft.
+3. ~~Freeze results; figures~~ **DONE** — `paper/arxiv/make_figures.py` (4 figures).
+4. **arXiv preprint: full draft written (Jul 12)** — `paper/arxiv/main.tex`, 14 pp
+   compiled, number-audited against the ledger, bibliography web-verified,
+   hostile-review pass applied. Remaining before upload: author list/acknowledgments
+   (John), title sign-off, arXiv account/endorsement, then blog post derived from it.
+5. **MIREX 2026** (new): Audio Key Detection / Beat Tracking / Music Structure Analysis
+   tasks; submissions Jul 1–Oct 1, results Oct 15, top performers present at ISMIR LBD.
+   Independent hidden-test-set validation of exactly our calibration finding — key
+   system is the prime candidate; needs 2–4 pp extended abstract + packaging.
+6. ISMIR 2026 LBD submission when the call opens (~Aug; condense preprint to 4 pp; demo
+   video of the annotator + piano-roll).
+7. Reassess ISMIR 2027 full paper after LBD feedback.
 
 ## Open/licensing posture (publication-relevant)
 

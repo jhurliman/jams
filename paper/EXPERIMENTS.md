@@ -314,3 +314,29 @@ training-free per-class threshold calibration fit on train folds, or label-defin
 (buildup/end boundaries are the least consistently annotated classes in Raveform).
 Artifacts: `gate_st4.jsonl` / `gate_st4_scored.json` (results_aws + S3 gates/),
 `fold2_st4.pth` (S3 checkpoints/).
+
+**Per-class paired CIs (2026-07-12 addendum, for the paper).** Track-level bootstrap
+(10k, seed 0, per-track GT-duration coverage — the same basis as ST-v3's table; the
+verdict paragraph above quotes pooled coverage deltas, which differ slightly), both
+variants regenerated with one committed script (`eval/structure_class_cis.py`, run
+against the banked gate arms; v4 pairwise cross-checks gate_compare exactly at
++0.0026 [−0.0083, +0.0134]):
+
+| class (n) | ST-v3 Δ [95% CI] | ST-v4 Δ [95% CI] |
+|---|---|---|
+| cooldown (113) | **+0.233 [+0.157, +0.312] SIG** | +0.076 [−0.000, +0.151] ns |
+| buildup (115) | **−0.158 [−0.219, −0.098] SIG** | **−0.240 [−0.308, −0.175] SIG** |
+| end (140) | +0.014 [+0.000, +0.036] ns | **−0.355 [−0.435, −0.278] SIG** |
+| outro (148) | **−0.092 [−0.143, −0.044] SIG** | **+0.081 [+0.027, +0.135] SIG** |
+| intro (160) | **+0.047 [+0.006, +0.091] SIG** | **+0.078 [+0.031, +0.128] SIG** |
+| altoutro (26) | +0.036 [−0.079, +0.181] ns | **+0.123 [+0.010, +0.256] SIG** |
+| altintro (22) | +0.083 [+0.000, +0.211] ns | +0.083 [+0.000, +0.211] ns |
+| bridge (4) | +0.000 | +0.125 [+0.000, +0.375] ns |
+| breakdown (164) | +0.007 [+0.000, +0.016] marginal | **+0.016 [+0.002, +0.032] SIG** |
+| drop (165) | +0.003 [−0.007, +0.014] ns | −0.004 [−0.018, +0.010] ns |
+
+Two honesty upgrades vs the pooled numbers quoted above: v4's cooldown "+0.059" and
+bridge "+0.200" are **not significant** at the track level (bridge rests on n=4 tracks),
+so v4's ledger-quoted gains overstate it slightly — the FAIL verdict is unchanged and
+strengthened. These CIs are the ones used in `paper/arxiv/` (Table/Fig "structure
+trade").

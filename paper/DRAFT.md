@@ -128,7 +128,15 @@ conclusions; open EDM MIR can match or beat published SOTA with composed open co
 
 ## Assets checklist
 
-- [x] paper/EXPERIMENTS.md (ledger) · [x] paper/STATS.md (CIs) · [ ] structure results
-- [ ] madmom baseline row · [ ] MedleyDB vocals (data access) · [ ] figures: genre bars,
-  key-system CI plot, cascade SDR-vs-noteF scatter, structure confusion matrices
-- [ ] bibtex file · [ ] LBD 4-page cut · [ ] blog post draft
+- [x] paper/EXPERIMENTS.md (ledger) · [x] paper/STATS.md (CIs) · [x] structure results
+  (negative-results arc v1→v4, per-class CI addendum)
+- [x] madmom baseline row · [ ] MedleyDB vocals (data access — documented limitation)
+- [x] figures: genre bars, key-system CI forest, cascade SDR-vs-noteF scatter, structure
+  class-trade chart (`paper/arxiv/make_figures.py`)
+- [x] bibtex file · [ ] LBD 4-page cut (call opens ~Aug) · [ ] blog post draft
+
+## Full draft
+
+**The complete arXiv draft lives in `paper/arxiv/`** (main.tex + references.bib +
+make_figures.py; build with `latexmk -pdf main.tex`). This file remains the skeleton /
+planning record; the tex is the source of truth for prose.
