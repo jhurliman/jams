@@ -127,11 +127,15 @@ def build_model():
             layers.append(nn.MaxPool2d(2))
         return layers
 
+    # Head pools over TIME ONLY: key identity lives in absolute frequency position,
+    # so frequency structure must reach the readout (a full 2-D global pool made the
+    # net transposition-invariant and pinned training at chance — caught in CV).
     return nn.Sequential(
         *block(1, 16, True), *block(16, 32, True), *block(32, 64, True),
         nn.Dropout2d(0.2),
-        nn.Conv2d(64, 24, 1),
-        nn.AdaptiveAvgPool2d(1), nn.Flatten(),
+        nn.AdaptiveAvgPool2d((24, 1)),  # (freq stays 24 after 3 halvings, time -> 1)
+        nn.Flatten(),
+        nn.Linear(64 * 24, 24),
     )
 
 
