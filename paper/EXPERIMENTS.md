@@ -65,6 +65,41 @@ ISMIR 2018: 74.6 weighted · InceptionKeyNet ISMIR 2021: 75.68 · KeyMyna (arXiv
 in-repo checkpoint appears newer/better than the paper's, and our 567-track subset differs
 from their eval; both documented as limitations.
 
+### K10 (pre-registered 2026-07-12, before any training) — own permissive key CNN + one-shot gate vs madmom
+
+**Motivation** (from banked-prediction gap analysis, job tmp `beat_madmom_analysis.py`):
+fusion vs madmom is 47 wins / 67 losses / 453 ties; of the 47 tracks madmom gets exactly
+right where fusion doesn't, 23 are unreachable by any reranker (both fusion candidates
+wrong) — a stronger base model is required, not a cleverer combiner. Oracle ceilings:
+max(refined, S-KEY) = 0.8683; + madmom = 0.8986. Simulated significance bar vs madmom on
+n=567 (CI half-width ≈ 0.023): point lead needs ≈0.834; significant lead needs ≈0.853+.
+
+**Corpus finding (recorded here; verified empirically):** mirdata `beatport_key` (1,486
+tracks, Faraldo's revised v1.0 annotations) contains **all 1,157** GS-MTG usable train
+ids — it is the same corpus, not an independent set — and has **0** id overlap with
+GiantSteps Key. It therefore cannot serve as a second test set; it CAN serve as the
+(slightly larger, relabeled) training corpus. GS-Key remains the sole test set.
+
+**System (single design, complexity deliberately bounded):** a 24-class key CNN in the
+Korzeniowski & Widmer 2018 family — log-CQT input (24 bins/oct), small conv stack +
+global average pooling + 24-way softmax (~0.1–0.3 M params), PyTorch. Trained ONLY on
+`beatport_key` (1,486; usable-label subset documented at train time) with ±4-semitone
+pitch-shift augmentation via CQT bin-roll and label transposition. All model selection
+(architecture depth/width, lr, aug range, epochs/early-stop) by 5-fold CV **within the
+training corpus**; the test set is never touched during development.
+
+**Final-system candidates (CV-selected, simplest-within-noise wins; NO new combiner
+machinery):** (a) CNN standalone; (b) the existing production two-head fusion with the
+CNN in the S-KEY slot; (c) the existing fusion choosing between CNN and S-KEY. The
+selected system gets ONE evaluation on GS-Key (n=567).
+
+**Gate (decision rule fixed now):** primary = paired Δ(final − madmom K9) weighted, 10k
+track-level bootstrap, 95% CI. CI > 0 ⇒ claim significant superiority. CI spans 0 but
+point Δ > 0 ⇒ report point lead, no superiority claim. Point Δ ≤ 0 ⇒ negative result,
+reported. No iteration against the test set in any branch; whatever lands is ledgered.
+
+**Budget:** ≤$150 Lambda (authorized 2026-07-12); training also fits aleph0 4090.
+
 ## Transcription (Slakh2100-redux test, n=151, GT stems = oracle)
 
 | # | date | commit | system | bass note-F | other note-F | drums onset-F | artifacts |
