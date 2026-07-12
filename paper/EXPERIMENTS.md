@@ -295,3 +295,22 @@ gate time). Gate: same fold-2 165-track held-out arm vs the banked stock scores;
 metrics: buildup AND cooldown paired improvement (95% CI clear of 0) with no significant
 regression on any other class (esp. outro, which v3 dented −0.092). Fold-2 remains the
 disclosed recipe-iteration fold; any shipped claim requires cross-fold confirmation.
+
+**Verdict (2026-07-12): FAIL.** Validity held exactly (beats/downbeats/boundaries paired
+Δ +0.0000, 165/165 ties; pairwise +0.0026 ns). The extra capacity re-routed the class
+trade rather than resolving it: bridge +0.200, altoutro +0.123, altintro +0.083,
+intro/outro +0.078 each — paid by **buildup −0.236** (worse than v3's −0.158), **end
+−0.355**, and cooldown's v3 gain shrinking to +0.059. `drop` held (−0.007 ns). D&B slice:
+boundary/beat identical to stock, pairwise +0.008.
+
+**Arc conclusion (v1 → v3 → v4, iteration closed).** Three isolated variants — re-weighted
+full training, weight-capped frozen-trunk readout, +capacity residual MLP — and `buildup`
+never improved under any of them while every gain was funded by an adjacent-class
+regression. The binding constraint is the training signal (1,332-track frame-level
+objective on these labels), not weights or head capacity. Iteration on fold-2 stops here
+(three uses of the fold also approach the limit of honest held-out reuse). **Shipped
+system: the stock EDM ensemble, unchanged.** Cheapest future directions if revisited:
+training-free per-class threshold calibration fit on train folds, or label-definition work
+(buildup/end boundaries are the least consistently annotated classes in Raveform).
+Artifacts: `gate_st4.jsonl` / `gate_st4_scored.json` (results_aws + S3 gates/),
+`fold2_st4.pth` (S3 checkpoints/).
