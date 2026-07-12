@@ -117,7 +117,7 @@ def cmd_features(args) -> None:
 
 
 # ----------------------------------------------------------------------------- model
-def build_model():
+def build_model(width: float = 1.0):
     import torch.nn as nn
 
     def block(cin, cout, pool):
@@ -127,15 +127,16 @@ def build_model():
             layers.append(nn.MaxPool2d(2))
         return layers
 
+    c1, c2, c3 = int(16 * width), int(32 * width), int(64 * width)
     # Head pools over TIME ONLY: key identity lives in absolute frequency position,
     # so frequency structure must reach the readout (a full 2-D global pool made the
     # net transposition-invariant and pinned training at chance — caught in CV).
     return nn.Sequential(
-        *block(1, 16, True), *block(16, 32, True), *block(32, 64, True),
+        *block(1, c1, True), *block(c1, c2, True), *block(c2, c3, True),
         nn.Dropout2d(0.2),
         nn.AdaptiveAvgPool2d((24, 1)),  # (freq stays 24 after 3 halvings, time -> 1)
         nn.Flatten(),
-        nn.Linear(64 * 24, 24),
+        nn.Linear(c3 * 24, 24),
     )
 
 
@@ -216,7 +217,7 @@ def cmd_train(args) -> None:
         dl_tr = DataLoader(KeyDataset(tr, fdir, True), batch_size=args.batch,
                            shuffle=True, num_workers=args.workers,
                            collate_fn=collate_pad, drop_last=True)
-        model = build_model().to(dev)
+        model = build_model(args.width).to(dev)
         opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-4)
         sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, max_epochs)
         best = (0.0, 0)
@@ -245,7 +246,7 @@ def cmd_train(args) -> None:
         return best
 
     results = [run_fold(k, args.epochs) for k in range(5)]
-    cv = {"folds": [{"best_weighted": b[0], "best_epoch": b[1]} for b in results],
+    cv = {"width": args.width, "folds": [{"best_weighted": b[0], "best_epoch": b[1]} for b in results],
           "cv_weighted_mean": float(np.mean([b[0] for b in results])),
           "median_best_epoch": int(np.median([b[1] for b in results]))}
     json.dump(cv, open(args.out / "cv_summary.json", "w"), indent=1)
@@ -255,7 +256,7 @@ def cmd_train(args) -> None:
     tr = [(t, labels[t]["cls"]) for t in tids]
     dl = DataLoader(KeyDataset(tr, fdir, True), batch_size=args.batch, shuffle=True,
                     num_workers=args.workers, collate_fn=collate_pad, drop_last=True)
-    model = build_model().to(dev)
+    model = build_model(args.width).to(dev)
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-4)
     n_ep = cv["median_best_epoch"]
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, n_ep)
@@ -306,7 +307,7 @@ def cmd_infer(args) -> None:
     import torch
 
     dev = "cuda" if torch.cuda.is_available() else "cpu"
-    model = build_model()
+    model = build_model(args.width)
     model.load_state_dict(torch.load(args.model, map_location=dev))
     model.to(dev).eval()
     n_bins = (N_OCT * 12 + 2 * PAD_SEMI) * (BINS_PER_OCT // 12)
@@ -343,8 +344,10 @@ def main() -> None:
             p.add_argument("--batch", type=int, default=32)
             p.add_argument("--lr", type=float, default=1e-3)
             p.add_argument("--workers", type=int, default=8)
+            p.add_argument("--width", type=float, default=1.0)
         if name == "infer":
             p.add_argument("--model", type=Path, required=True)
+            p.add_argument("--width", type=float, default=1.0)
             p.add_argument("--audio-dir", type=Path, required=True)
             p.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
