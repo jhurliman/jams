@@ -100,6 +100,32 @@ reported. No iteration against the test set in any branch; whatever lands is led
 
 **Budget:** ≤$150 Lambda (authorized 2026-07-12); training also fits aleph0 4090.
 
+**Verdict (2026-07-12): gate outcome = no lead (point Δ −0.0007) — reported as-is per
+the decision rule. Substantively: a statistical dead heat with madmom.**
+
+- Selection trace (all train-side): base run CV 0.7164 (1,363 usable of 1,486;
+  labels/audio drops logged). Width-2.0 / longer-budget variant CV 0.7103 — capacity
+  did not help; width-1.0 locked. Candidate CV on the GS-MTG∩OOF basis (n=1,129):
+  (a) CNN standalone **0.7489** · (c) S-KEY-vs-CNN rerank 0.7488 · (b) CNN-slot fusion
+  0.7466 · reference S-KEY fusion 0.7308 → **(a) selected** (simplest-within-noise).
+  CNN OOF probs are out-of-fold wrt CNN training; fold-split reproduction verified
+  (OOF weighted = CV mean to 4 dp).
+- Two implementation bugs were caught by chance-level CV **before any test
+  involvement** and fixed (commits 5eb5230: 2-D global pooling made the net
+  transposition-invariant; 336bdec: augmentation label sign inverted vs bin-roll,
+  verified numerically). Recorded here as selection-process facts, not results.
+- **Test (the single shot, locked model `final.pt` width 1.0):** weighted **0.8321**
+  [0.8039, 0.8586], exact **0.7795** — the best exact accuracy of any system measured
+  on this subset, including madmom (0.7725). Paired CNN−madmom: **Δ −0.0007
+  [−0.0187, +0.0182]** ns (41 W / 40 L / 486 ties). Paired CNN−fusion(K6): +0.0198
+  [−0.0023, +0.0427] ns (58 W / 38 L). No superiority claim; the permissively-licensed
+  frontier moves 0.8123 → 0.8321 and madmom's point edge over our best system shrinks
+  from +0.0205 to +0.0007.
+- Cost: ~\$3 Lambda A10 (~2 h wall, instance terminated). Artifacts:
+  `eval/data/gsmtg/cnn_gskey.jsonl` (+ S3 `k10/`), fold + final checkpoints and OOF
+  posteriors at `s3://jams-mir-eval-usw2/k10/`, selection/eval scripts at
+  `k10/scripts/`; trainer committed as `eval/train_key_cnn.py`.
+
 ## Transcription (Slakh2100-redux test, n=151, GT stems = oracle)
 
 | # | date | commit | system | bass note-F | other note-F | drums onset-F | artifacts |

@@ -42,12 +42,13 @@ def fig_key_forest() -> None:
     # STATS.md point estimates + 95% CI (n=567, MIREX weighted, bootstrap 10k seed 0)
     systems = [
         ("edma (template)", 0.7589, 0.7277, 0.7885, GRAY),          # K1
-        ("honest retrain", 0.8095, 0.7799, 0.8372, BLUE),            # K3
+        ("mode retrain", 0.8095, 0.7799, 0.8372, BLUE),              # K3
         ("S-KEY", 0.8168, 0.7887, 0.8434, BLUE),                     # K4
-        ("fusion (shipped)", 0.8123, 0.7831, 0.8402, GREEN),         # K6
+        ("fusion (shipped)", 0.8123, 0.7831, 0.8402, BLUE),          # K6
+        ("key CNN (ours)", 0.8321, 0.8039, 0.8586, GREEN),           # K10
         ("madmom CNN\n(CC BY-NC-SA)", 0.8328, 0.8063, 0.8580, ORANGE),  # K9
     ]
-    fig, ax = plt.subplots(figsize=(4.6, 2.6))
+    fig, ax = plt.subplots(figsize=(4.6, 2.9))
     ys = range(len(systems))
     for y, (name, m, lo, hi, c) in zip(ys, systems):
         ax.errorbar(m, y, xerr=[[m - lo], [hi - m]], fmt="o", color=c,
@@ -62,13 +63,13 @@ def fig_key_forest() -> None:
     ax.text(0.7591, -0.55, "best published\n(full set): 0.759", ha="center", va="bottom",
             fontsize=7.5, color=GRAY)
     # Subset-calibration arrow: madmom published 0.746 -> 0.8328 on our n=567 subset (K9)
-    ax.annotate("", xy=(0.8328, 4.42), xytext=(0.746, 4.42),
+    ax.annotate("", xy=(0.8328, 5.42), xytext=(0.746, 5.42),
                 arrowprops=dict(arrowstyle="->", color=ORANGE, lw=1.2))
-    ax.plot([0.746], [4.42], marker="s", color=ORANGE, ms=4, clip_on=False)
-    ax.text(0.789, 4.62, "+0.087 subset shift (same system)", ha="center", va="top",
+    ax.plot([0.746], [5.42], marker="s", color=ORANGE, ms=4, clip_on=False)
+    ax.text(0.789, 5.62, "+0.087 subset shift (same system)", ha="center", va="top",
             fontsize=7.5, color=ORANGE)
     ax.set_xlim(0.70, 0.875)
-    ax.set_ylim(5.15, -1.65)
+    ax.set_ylim(6.15, -1.65)
     ax.set_xlabel("MIREX weighted score, GiantSteps Key (n=567), 95% CI")
     fig.savefig(OUT / "fig_key_forest.pdf")
     plt.close(fig)
