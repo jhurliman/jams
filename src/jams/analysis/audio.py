@@ -23,8 +23,11 @@ def validate_audio_path(path: str | Path) -> Path:
 def load_mono(path: str | Path, sample_rate: int):
     """Load audio as a mono float32 numpy array at ``sample_rate``.
 
-    Uses Essentia's ``MonoLoader`` when available (fast, handles resampling), and
-    falls back to librosa so the package stays usable without Essentia installed.
+    Uses Essentia's ``MonoLoader`` (fast, native mp3 decode, handles resampling).
+    No librosa fallback: the two decoders produce subtly different samples, which
+    would silently perturb every downstream feature. A failure here is either a
+    broken install (essentia is a hard dependency) or an unreadable file — both
+    must surface as errors, not as quality variance.
     """
     path = str(path)
     try:
@@ -32,14 +35,12 @@ def load_mono(path: str | Path, sample_rate: int):
         essentia.log.infoActive = False
         essentia.log.warningActive = False
         import essentia.standard as es
-
-        return es.MonoLoader(filename=path, sampleRate=sample_rate)()
-    except Exception as exc:  # pragma: no cover - exercised only without essentia
-        logger.debug("Essentia load failed (%s); using librosa", exc)
-        import librosa
-
-        y, _ = librosa.load(path, sr=sample_rate, mono=True)
-        return y
+    except ImportError as exc:
+        raise RuntimeError(
+            "essentia-tensorflow is required for audio loading (no fallback by design). "
+            "It ships wheels for macOS arm64 and Linux x86_64 on CPython 3.14."
+        ) from exc
+    return es.MonoLoader(filename=path, sampleRate=sample_rate)()
 
 
 def duration_seconds(path: str | Path) -> float | None:

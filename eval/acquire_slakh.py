@@ -25,6 +25,10 @@ the small ``babyslakh`` subset (default) for a quick end-to-end check, or point
 If the data is not present on disk, the script prints download instructions and exits
 non-zero.
 
+.. note:: mirdata's redux index embeds the ``slakh2100_flac_redux/`` directory in every
+   path, so ``--data-home`` must be the **parent** of ``slakh2100_flac_redux/`` — not the
+   redux directory itself. (A split-only extraction, e.g. just ``test/``, works fine.)
+
 Examples
 --------
     # Babyslakh smoke test (point --data-home at a local babyslakh_16k install):
@@ -213,12 +217,13 @@ def main() -> None:
             print(_BABYSLAKH_HELP if args.subset == "babyslakh" else _FULL_HELP, file=sys.stderr)
             sys.exit(1)
 
-    # Never trigger the giant audio download; just check the data is already present. Probe a
-    # sample of tracks, not only the first — a partial local copy (e.g. a truncated tarball
-    # stream) can miss the first indexed track while holding hundreds of complete ones.
+    # Never trigger the giant audio download; just check the data is already present. Scan
+    # ALL ids (path existence checks are cheap) — a sampled probe false-negatives on
+    # split-only local copies (e.g. only test/ extracted: 151 of 2100 ids clustered
+    # together, easily straddled by a fixed sampling stride).
     mtrack_ids = list(dataset.mtrack_ids)
     data_present = False
-    for mid in mtrack_ids[:: max(1, len(mtrack_ids) // 50)]:
+    for mid in mtrack_ids:
         try:
             probe = dataset.multitrack(mid)
             if probe.mix_path and Path(probe.mix_path).exists():

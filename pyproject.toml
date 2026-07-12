@@ -26,7 +26,7 @@ dependencies = [
 # optional "replicate" backend (hosted model).
 structure = ["replicate>=1.0.0", "requests>=2.31"]
 # Reproduce / extend the accuracy benchmark (GiantSteps key/tempo + Harmonix structure).
-eval = ["mirdata>=0.3.9", "tqdm>=4.66", "scikit-learn>=1.3", "mir_eval>=0.7", "yt-dlp>=2024.1", "pretty_midi>=0.2.10", "soundfile>=0.12"]
+eval = ["mirdata>=0.3.9", "tqdm>=4.66", "scikit-learn>=1.3", "mir_eval>=0.7", "yt-dlp>=2024.1", "pretty_midi>=0.2.10", "soundfile>=0.12", "mlflow-skinny>=2.14"]
 
 [project.scripts]
 jams = "jams.server:main"
@@ -47,12 +47,14 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/jams"]
 # Ship the pretrained TempoCNN graph + the self-contained structure worker as package data.
-artifacts = ["src/jams/data/models/*.pb", "src/jams/data/*.json", "src/jams/data/structure_worker.py", "src/jams/data/stems_worker.py", "src/jams/data/drum_worker.py"]
+artifacts = ["src/jams/data/models/*.pb", "src/jams/data/*.json", "src/jams/data/structure_worker.py", "src/jams/data/stems_worker.py", "src/jams/data/drum_worker.py", "src/jams/data/skey_worker.py", "src/jams/data/scnet/*.py"]
 
 [tool.ruff]
 line-length = 100
 target-version = "py310"
 src = ["src", "tests"]
+# Vendored third-party code (SCNet, MIT) is kept byte-faithful to upstream — don't lint it.
+extend-exclude = ["src/jams/data/scnet/scnet.py", "src/jams/data/scnet/separation.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "C4"]

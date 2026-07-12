@@ -33,6 +33,35 @@ Methods: key = Essentia `edma`; tempo = pretrained TempoCNN `deepsquare` + genre
 octave resolution. Chosen by `benchmark_*`; both beat librosa, RhythmExtractor2013,
 Percival, and madmom (see git history / the comparison scripts).
 
+## Key: honest protocol + S-KEY fusion
+
+**Contamination disclosure.** The original mode-refinement model (`mode_model.json`,
+`train_mode_model.py`) was 5-fold cross-validated *and refit* on GiantSteps Key — the
+test set. Its 0.801 weighted was a fair CV generalization estimate but is not comparable
+to published numbers (which train elsewhere and test once on GiantSteps Key). Fixed by
+adopting the literature protocol: train on **GiantSteps-MTG-Keys** (`acquire_gsmtg.py`,
+1,157 high-confidence single-key Beatport previews), evaluate **once** on GiantSteps Key.
+
+The production pipeline now fuses edma with **S-KEY** (Kong et al., ICASSP 2025;
+`deezer/skey`, MIT, checkpoint in-package, provably uncontaminated — self-supervised on
+Deezer's catalog): a mode head (chroma cues + edma confidence + S-KEY posterior features)
+and a rerank head (keep refined edma vs switch to S-KEY). Thresholds and model selection
+by 5-fold CV on GS-MTG only; the exported heads ship at `src/jams/data/key_fusion.json`.
+
+GiantSteps Key (567 tracks, single evaluation):
+
+| system | MIREX weighted | exact |
+|--------|---------------:|------:|
+| edma raw | 0.7589 | 0.6878 |
+| legacy mode model (contaminated — reference only) | 0.801 | 0.743 |
+| honest mode retrain (GS-MTG) | 0.8095 | 0.7531 |
+| S-KEY standalone | 0.8168 | 0.7478 |
+| **production fusion (mode + rerank)** | **0.8123** | **0.7566** |
+
+Honest published SOTA: Korzeniowski & Widmer 2018 (madmom CNN) 74.6 weighted,
+InceptionKeyNet 75.68, KeyMyna 75.91. The pair's oracle ceiling is 0.868 — remaining
+fusion headroom. (Experiment scripts to be added to `eval/` in a follow-up.)
+
 ## Label corrections
 
 The GiantSteps **Key** tempo labels are *wrong* for half-time genres (D&B labeled ~87 when
@@ -178,21 +207,54 @@ its pinned `tensorflow==2.9.1` has no arm64 wheel.)
 
 ### Headline results — Slakh2100-redux **test split** (151 tracks, 44.1 kHz)
 
-| Metric | oracle (GT stems) | e2e (Demucs → transcribe) |
-|--------|------------------:|--------------------------:|
-| bass note-F | **0.789** | 0.596 |
-| other note-F | 0.490 | 0.459 |
-| drums onset-F (5-class) | **0.638** | 0.585 |
-| SI-SDR (drums / other / bass) | — | **11.6** / 10.1 / 4.6 dB |
+Shipped pipeline (SCNet XL IHF separation, YourMT3+ pitched, ADTOF drums):
+
+| Metric | oracle (GT stems) | **e2e (mix → separate → transcribe)** |
+|--------|------------------:|--------------------------------------:|
+| bass note-F | **0.849** | 0.661 |
+| other note-F | **0.849** | **0.788** |
+| drums onset-F (5-class) | **0.638** | 0.574 |
+| SI-SDR (drums / other / bass) | — | **14.3** / 11.8 / 6.0 dB |
+
+(`results_aws/slakh_test_e2e_scnet_yourmt3.json`; the launch-era htdemucs+basic-pitch
+e2e — bass 0.596 / other 0.459 / drums 0.585, SDR 11.6/10.1/4.6 — survives as row S1 of
+the separation A/B below.) Separation costs YourMT3+ only 6.1 pt on `other`; e2e `other`
+**exceeds basic-pitch's oracle 0.490** — the full system beats the lightweight
+transcriber's ground-truth-stem ceiling on polyphonic accompaniment.
 
 0 failures either mode. **E-GMD** (500 test tracks, isolated e-kit recordings): drums
 onset-F **0.645** — lower than ADTOF's ~0.85 on real music because E-GMD's Roland TD-17
 timbres are out of the model's crowdsourced-real-music training domain.
 
-**Separation-model A/B.** `htdemucs_ft` is a consistent quality win at ~4× separation
-time: +2.5 pt bass note-F on the Slakh test 50 (0.607 vs 0.582, +0.4–0.6 dB SI-SDR all
-stems) and +6 pt bass / +2 pt other on babyslakh (bass SDR 3.0 → 4.0 dB). `htdemucs`
-stays the default; set `JAMS_STEMS_MODEL=htdemucs_ft` when quality beats latency.
+**Transcriber A/B (Slakh test, 151 tracks, ground-truth stems).** YourMT3+ (YPTF.MoE+Multi
+via `mt3-infer`) vs basic-pitch, identical scoring (onset+pitch F, 50 ms / 50 cents, offsets
+ignored; bass at written pitch):
+
+| oracle note-F | basic-pitch | **YourMT3+** |
+|---|---:|---:|
+| bass | 0.789 | **0.849** |
+| other | 0.490 | **0.849** |
+
+YourMT3+ is the production default (`JAMS_STEMS_TRANSCRIBER`); it also transcribes vocals
+(first single-track MedleyDB smoke: basic-pitch 0.582 — the 61-track vocals benchmark runs
+once full dataset access lands). Licensing: mt3-infer MIT, checkpoint Apache-2.0.
+
+**Separation-model A/B (Slakh test split, 151 tracks).** Candidates from the MSST zoo
+scored through the full pipeline (SI-SDR vs GT stems + note-F of transcription run on the
+separated stems, same oracle-mode protocol for all):
+
+| backend | SI-SDR drums/other/bass (dB) | bass note-F | other note-F | drums onset-F |
+|---|---|---:|---:|---:|
+| **SCNet XL IHF** (now default) | **14.3 / 11.8 / 6.0** | **0.645** | **0.473** | 0.574 |
+| htdemucs | 11.6 / 10.1 / 4.6 | 0.596 | 0.459 | 0.585 |
+| htdemucs_ft (50-track subset) | +0.4–0.6 vs htdemucs | 0.607 | 0.455 | 0.605 |
+| BS Roformer 4-stem (47 usable) | 13.1 / 8.6 / 5.7 | 0.628 | 0.468 | **0.596** |
+
+SCNet XL IHF wins SDR and pitched note-F decisively and ships as the default
+(`JAMS_STEMS_MODEL=scnet_xl_ihf`, vendored MIT code + ZFTurbo checkpoint,
+download-on-first-use). Notably drums *transcription* mildly prefers Demucs/BS-Roformer
+stems despite SCNet's higher drum SDR — ADTOF is sensitive to transient character, not
+just separation quality; a per-stem hybrid is future work.
 **Do not use `htdemucs_6s`** with the current 4-stem contract: it splits guitar/piano
 into stems the pipeline drops, cratering `other` (note-F 0.421 → 0.222, SDR −1.2 dB);
 supporting it would require mapping its extra stems back into `other` first.

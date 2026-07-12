@@ -19,6 +19,14 @@ class Settings(BaseSettings):
     # Reject uploads larger than this (MB).
     max_upload_mb: int = 100
 
+    # --- Key detection ------------------------------------------------------
+    # Fuse edma with Deezer's S-KEY model (uv worker, src/jams/data/skey_worker.py) —
+    # the honest-protocol default (GiantSteps Key weighted 0.812 / exact 0.757, heads
+    # trained only on GiantSteps-MTG). Disabling falls back to the LEGACY mode-refinement
+    # model, which was trained on GiantSteps Key itself (contaminated — don't quote its
+    # numbers against the literature).
+    key_fusion: bool = True
+
     # --- Song structure (All-In-One) ---------------------------------------
     # "local": run All-In-One on-device. The worker is a self-contained uv script
     # (all-in-one-mps), so it can't share jams' Python 3.14 env (no torch wheel) —
@@ -41,8 +49,14 @@ class Settings(BaseSettings):
     # Demucs + basic-pitch + the ADTOF drum model run in self-contained uv workers
     # (src/jams/data/stems_worker.py), same subprocess pattern as structure.
     stems_uv: str = "uv"
-    # Demucs model: "htdemucs" (4-stem default) — "htdemucs_ft" for higher quality/slower.
-    stems_model: str = "htdemucs"
+    # Separation model. "scnet_xl_ihf" (default) = vendored SCNet XL IHF, the Slakh-test
+    # A/B winner (SI-SDR drums 14.3 vs htdemucs 11.6; bass note-F 0.596 -> 0.645).
+    # "htdemucs" / "htdemucs_ft" select Demucs (faster / legacy comparison).
+    stems_model: str = "scnet_xl_ihf"
+    # Pitched-stem transcriber. "yourmt3" (default) = YourMT3+ via mt3-infer — Slakh-test
+    # oracle note-F bass 0.849 / other 0.849 vs basic-pitch 0.789 / 0.490. Needs git-lfs on
+    # first run (checkpoint clone). "basic-pitch" = lighter/faster, no git-lfs.
+    stems_transcriber: Literal["yourmt3", "basic-pitch"] = "yourmt3"
     # Snap transcribed note onsets to jams' resolved beat grid when available.
     stems_quantize: bool = True
     # Directory the worker writes stems + MIDI into (served to the webapp). Per-track

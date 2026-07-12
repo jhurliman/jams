@@ -1,9 +1,11 @@
 """Tempo (BPM) detection with genre-aware octave resolution.
 
-Method cascade (best first, each falling through on failure):
-  1. TempoCNN ``deepsquare`` (pretrained, bundled)  — Acc1 0.92 on GiantSteps
-  2. Essentia ``RhythmExtractor2013`` (multifeature) — Acc1 0.93
-  3. librosa beat-tracker                            — Acc1 0.83
+Method: TempoCNN ``deepsquare`` (pretrained, bundled) via essentia-tensorflow — a **hard
+requirement** (wheels ship for macOS arm64 and Linux x86_64, CPython 3.14). There is
+deliberately no fallback tracker: earlier versions silently degraded to
+RhythmExtractor2013 or librosa (Acc1 0.965 -> 0.83) on any import/runtime error, which
+made accuracy depend on installation accidents. Now a broken essentia install raises a
+clear error instead of quietly returning worse numbers.
 
 Trackers nail the BPM *value* but can land an octave off (half/double-time), and that
 error concentrates in genres with a half-time feel. Given a ``genre`` or explicit
@@ -46,24 +48,25 @@ _essentia_lock = threading.Lock()
 
 @lru_cache(maxsize=1)
 def _tempocnn():
-    import essentia
-    essentia.log.infoActive = False
-    essentia.log.warningActive = False
-    import essentia.standard as es
-
-    if _MODEL_PATH.exists() and hasattr(es, "TempoCNN"):
-        return es.TempoCNN(graphFilename=str(_MODEL_PATH))
-    return None
-
-
-@lru_cache(maxsize=1)
-def _rhythm2013():
-    import essentia
-    essentia.log.infoActive = False
-    essentia.log.warningActive = False
-    import essentia.standard as es
-
-    return es.RhythmExtractor2013(method="multifeature")
+    try:
+        import essentia
+        essentia.log.infoActive = False
+        essentia.log.warningActive = False
+        import essentia.standard as es
+    except ImportError as exc:
+        raise RuntimeError(
+            "essentia-tensorflow is required for tempo detection (no fallback by design). "
+            "It ships wheels for macOS arm64 and Linux x86_64 on CPython 3.14 — check that "
+            "`uv sync` ran on Python 3.14 (.python-version)."
+        ) from exc
+    if not _MODEL_PATH.exists():
+        raise RuntimeError(f"Bundled TempoCNN graph missing at {_MODEL_PATH} — broken install?")
+    if not hasattr(es, "TempoCNN"):
+        raise RuntimeError(
+            "This essentia build lacks TempoCNN — install essentia-tensorflow (not plain "
+            "essentia), which bundles the TensorFlow ops."
+        )
+    return es.TempoCNN(graphFilename=str(_MODEL_PATH))
 
 
 def _genre_octave(genre: str | None) -> float | None:
@@ -111,31 +114,12 @@ def resolve_tempo_octave(
 
 
 def _raw_bpm(path: str) -> tuple[float, str]:
-    # 1. TempoCNN
-    try:
-        with _essentia_lock:
-            model = _tempocnn()
-            if model is not None:
-                audio = load_mono(path, 11025)
-                return float(model(audio)[0]), "tempocnn-deepsquare"
-    except Exception as exc:
-        logger.warning("TempoCNN unavailable (%s); trying RhythmExtractor2013", exc)
-
-    # 2. RhythmExtractor2013
-    try:
-        with _essentia_lock:
-            audio = load_mono(path, 44100)
-            return float(_rhythm2013()(audio)[0]), "rhythm2013"
-    except Exception as exc:
-        logger.warning("RhythmExtractor2013 unavailable (%s); using librosa fallback", exc)
-
-    # 3. librosa
-    import librosa
-    import numpy as np
-
-    y = load_mono(path, 22050)
-    bpm = float(np.atleast_1d(librosa.beat.beat_track(y=y, sr=22050)[0])[0])
-    return bpm, "librosa"
+    # TempoCNN only — a failure here is an environment or input defect and must surface,
+    # not silently downgrade accuracy (see module docstring).
+    with _essentia_lock:
+        model = _tempocnn()
+        audio = load_mono(path, 11025)
+        return float(model(audio)[0]), "tempocnn-deepsquare"
 
 
 def detect_tempo(
@@ -152,7 +136,9 @@ def detect_tempo(
     validate_audio_path(path)
     raw_bpm, method = _raw_bpm(path)
     default_octave = _DEFAULT_TEMPO_OCTAVE if fold_default else None
-    bpm = resolve_tempo_octave(raw_bpm, bpm_range=bpm_range, genre=genre, default_octave=default_octave)
+    bpm = resolve_tempo_octave(
+        raw_bpm, bpm_range=bpm_range, genre=genre, default_octave=default_octave
+    )
     return {
         "bpm": round(bpm, 2),
         "bpm_raw": round(raw_bpm, 2),

@@ -4,9 +4,12 @@
 # dependencies = [
 #   "demucs>=4.0",
 #   "basic-pitch[onnx]>=0.4",
+#   "torch==2.8.*",
+#   "torchaudio==2.8.*",
 #   "soundfile>=0.12",
 #   "numpy>=1.23,<2",
 #   "librosa>=0.10",
+#   "pyyaml>=6.0",
 # ]
 # ///
 """Stem separation + pitched-stem transcription worker for jams.
@@ -23,8 +26,12 @@ basic-pitch), and MIDI assembly + beat quantization happen in the orchestrator
 (``jams.analysis.stems`` + ``jams.analysis.gm``). This keeps this env modern and conflict-free.
 
 Pipeline:
-1. Separate the mix into 4 stems (drums/bass/other/vocals) with Demucs ``htdemucs`` — device
-   auto-select cuda -> mps -> cpu, so the same worker runs on Linux + macOS.
+1. Separate the mix into 4 stems (drums/bass/other/vocals). Two backends, chosen by the
+   requested model name (device auto-select cuda -> mps -> cpu on both):
+   - ``scnet*`` (default ``scnet_xl_ihf``): the vendored **SCNet XL IHF** (see ``scnet/``),
+     ZFTurbo's MUSDB18 checkpoint, downloaded to ~/.cache/jams/scnet on first use. Won our
+     Slakh-test A/B: SI-SDR drums 14.3 dB (htdemucs 11.6), bass note-F 0.596 -> 0.645.
+   - ``htdemucs*``: Demucs via the stable 4.0.x APIs (kept for speed / comparison).
 2. Transcribe the pitched stems (bass/other/vocals) with basic-pitch: bass/vocals get a
    monophonic post-filter; ``other`` stays polyphonic. The drums stem wav is written but NOT
    transcribed here (the orchestrator hands it to drum_worker).
@@ -60,10 +67,9 @@ PITCHED_STEMS = ("bass", "other", "vocals")
 GM_PROGRAM = {"bass": 33, "other": 0, "vocals": 85}
 MONOPHONIC_STEMS = frozenset({"bass", "vocals"})
 FREQ_RANGE = {"bass": (30.0, 400.0), "vocals": (65.0, 2100.0), "other": (None, None)}
-# Bass is written an octave above where it sounds (MIDI/notation convention); basic-pitch
-# detects the sounding pitch. +12 aligns our bass MIDI with the written convention — validated
-# on Slakh GT: note-F 0.04 -> 0.80 across all tracks, no regressions.
-BASS_OCTAVE_SHIFT = 12
+# NOTE: notes leave this worker at SOUNDING pitch. The written-pitch bass convention (+12)
+# is applied once in the orchestrator (jams.analysis.gm.shift_bass_notes) so it cannot
+# double-apply across transcriber backends.
 # basic-pitch (onset, frame) thresholds per stem. The dense polyphonic "other" stem does
 # better with a stricter onset gate: (0.6, 0.25) scored 0.468 vs the default (0.5, 0.3)'s
 # 0.445 note-F in a sweep on babyslakh ground-truth stems. Bass/vocals keep the defaults
@@ -75,11 +81,36 @@ _DEFAULT_ONSET_FRAME = (0.5, 0.3)
 # --- Device selection -------------------------------------------------------
 
 
+_warned_cpu_fallback = False
+
+
+def _warn_if_cpu_with_gpu(tag: str) -> None:
+    """Loud, once-per-process, NON-fatal warning when an NVIDIA GPU is present but this
+    torch build has no CUDA (wrong wheel/driver pairing). CPU/MPS are legitimate on Macs;
+    on a GPU box this is almost always a broken env resolving the wrong torch build, and
+    silently running ~20x slower is worse than noise on stderr."""
+    global _warned_cpu_fallback
+    if _warned_cpu_fallback:
+        return
+    import shutil
+    from pathlib import Path
+
+    if Path("/proc/driver/nvidia").exists() or shutil.which("nvidia-smi"):
+        _warned_cpu_fallback = True
+        print(
+            f"[{tag}] " + "!" * 70 + f"\n[{tag}] WARNING: NVIDIA GPU present but torch has "
+            f"no CUDA support — check the torch build vs driver pairing. Running on CPU "
+            f"(~20x slower).\n[{tag}] " + "!" * 70,
+            file=sys.stderr, flush=True,
+        )
+
+
 def _select_device() -> str:
     import torch
 
     if torch.cuda.is_available():
         return "cuda"
+    _warn_if_cpu_with_gpu("stems")
     if getattr(torch.backends, "mps", None) is not None and torch.backends.mps.is_available():
         return "mps"
     return "cpu"
@@ -107,8 +138,8 @@ def _get_demucs(model: str):
     return _demucs_model
 
 
-def separate_stems(audio: str, out_dir: Path, model: str) -> dict[str, str]:
-    """Split ``audio`` into 4 stems, write wavs into ``out_dir``, return {stem: path}."""
+def _separate_demucs(audio: str, out_dir: Path, model: str) -> dict[str, str]:
+    """Split ``audio`` into 4 stems with Demucs, write wavs, return {stem: path}."""
     import librosa
     import numpy as np
     import soundfile as sf
@@ -139,6 +170,159 @@ def separate_stems(audio: str, out_dir: Path, model: str) -> dict[str, str]:
         sf.write(dest, by_name[name].cpu().numpy().T, dm.samplerate)
         paths[name] = str(dest)
     return paths
+
+
+# --- Separation (SCNet XL IHF, vendored) -------------------------------------
+# Vendored from ZFTurbo/Music-Source-Separation-Training (MIT) under ./scnet/. The XL IHF
+# MUSDB18 checkpoint won our Slakh-test separation A/B on SI-SDR and pitched note-F.
+
+_SCNET_BASE = "https://github.com/ZFTurbo/Music-Source-Separation-Training/releases/download"
+_SCNET_FILES = {
+    "config": (f"{_SCNET_BASE}/v1.0.15/config_musdb18_scnet_xl_more_wide_v5.yaml", 1_000),
+    "weights": (f"{_SCNET_BASE}/v1.0.15/model_scnet_ep_36_sdr_10.0891.ckpt", 200_000_000),
+}
+
+
+def _is_scnet(model: str) -> bool:
+    return model.lower().startswith("scnet")
+
+
+class _AttrDict(dict):
+    """Minimal recursive attribute-access dict for the vendored demix config."""
+
+    def __getattr__(self, k):
+        try:
+            v = self[k]
+        except KeyError as exc:
+            raise AttributeError(k) from exc
+        return _AttrDict(v) if isinstance(v, dict) else v
+
+
+def _scnet_cache_dir() -> Path:
+    import os
+
+    return Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "jams" / "scnet"
+
+
+def _download_scnet_file(kind: str) -> Path:
+    """Fetch config/weights on first use; verify size so a truncated download can't ship."""
+    import urllib.request
+
+    url, min_bytes = _SCNET_FILES[kind]
+    dest = _scnet_cache_dir() / url.rsplit("/", 1)[-1]
+    if dest.exists() and dest.stat().st_size >= min_bytes:
+        return dest
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    print(f"[stems] downloading SCNet {kind} -> {dest}", file=sys.stderr, flush=True)
+    urllib.request.urlretrieve(url, dest)  # noqa: S310 - pinned release URL
+    if not dest.exists() or dest.stat().st_size < min_bytes:
+        size = dest.stat().st_size if dest.exists() else 0
+        dest.unlink(missing_ok=True)
+        raise RuntimeError(
+            f"SCNet {kind} download truncated ({size} bytes < {min_bytes}); retry."
+        )
+    return dest
+
+
+_scnet_model = None
+_scnet_cfg = None
+_scnet_device = None
+
+
+def _set_scnet_device(device) -> None:
+    global _scnet_device
+    _scnet_device = device
+
+
+def _get_scnet():
+    """Load (once) the vendored SCNet + XL IHF checkpoint; probe the device with a
+    tiny forward pass and fall back cuda -> mps -> cpu on op gaps (explicit log —
+    output is identical across devices, only speed differs)."""
+    global _scnet_model, _scnet_cfg, _scnet_device
+    if _scnet_model is not None:
+        return _scnet_model, _scnet_cfg, _scnet_device
+
+    import torch
+    import yaml
+
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from scnet import SCNet
+
+    cfg_path = _download_scnet_file("config")
+    ckpt_path = _download_scnet_file("weights")
+    cfg = _AttrDict(yaml.load(cfg_path.read_text(), Loader=yaml.FullLoader))
+    model = SCNet(**cfg["model"])
+    state = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+    if "state" in state:
+        state = state["state"]
+    if "state_dict" in state:
+        state = state["state_dict"]
+    model.load_state_dict(state)
+    model.eval()
+
+    for dev in (_select_device(), "cpu"):
+        try:
+            device = torch.device(dev)
+            model.to(device)
+            with torch.inference_mode():
+                model(torch.zeros(1, cfg["model"]["audio_channels"], 44100, device=device))
+            print(f"[stems] SCNet ready on {dev}", file=sys.stderr, flush=True)
+            _scnet_model, _scnet_cfg, _scnet_device = model, cfg, device
+            return model, cfg, device
+        except Exception as exc:  # noqa: BLE001 - op-gap probe; fall through to cpu
+            if dev == "cpu":
+                raise
+            print(f"[stems] SCNet probe failed on {dev} ({exc}); using cpu",
+                  file=sys.stderr, flush=True)
+    raise RuntimeError("unreachable")
+
+
+def _separate_scnet(audio: str, out_dir: Path) -> dict[str, str]:
+    """Split ``audio`` into 4 stems with the vendored SCNet XL IHF."""
+    import librosa
+    import numpy as np
+    import soundfile as sf
+    from scnet.demix import demix  # sys.path set up by _get_scnet
+
+    model, cfg, device = _get_scnet()
+    sr = cfg["audio"]["sample_rate"]
+    y, _ = librosa.load(audio, sr=sr, mono=False)
+    if y.ndim == 1:
+        y = np.stack([y, y])
+    if device.type != "cuda":
+        # The 11 s x batch-4 chunks OOM 32 GB unified memory on MPS; batch 1 fits and is
+        # numerically identical (chunk windowing is per-chunk).
+        cfg["inference"]["batch_size"] = 1
+    try:
+        sources = demix(cfg, model, y, device)  # {instrument: (channels, samples)}
+    except RuntimeError as exc:
+        if "out of memory" not in str(exc).lower() or device.type == "cpu":
+            raise
+        # Same output on any device — an explicit device downgrade, never a quality change.
+        print(f"[stems] SCNet {device.type} OOM; retrying on cpu", file=sys.stderr, flush=True)
+        import torch
+        if device.type == "mps":
+            torch.mps.empty_cache()
+        model.to("cpu")
+        _set_scnet_device(torch.device("cpu"))
+        sources = demix(cfg, model, y, torch.device("cpu"))
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    paths: dict[str, str] = {}
+    for name in STEM_ORDER:
+        if name not in sources:
+            continue
+        dest = out_dir / f"{name}.wav"
+        sf.write(dest, sources[name].T, sr)
+        paths[name] = str(dest)
+    return paths
+
+
+def separate_stems(audio: str, out_dir: Path, model: str) -> dict[str, str]:
+    """Split ``audio`` into 4 stems, write wavs into ``out_dir``, return {stem: path}."""
+    if _is_scnet(model):
+        return _separate_scnet(audio, out_dir)
+    return _separate_demucs(audio, out_dir, model)
 
 
 # --- Pitched transcription (basic-pitch) ------------------------------------
@@ -195,8 +379,6 @@ def transcribe_pitched(wav: str, stem_type: str) -> list[dict]:
     ]
     if stem_type in MONOPHONIC_STEMS:
         notes = _monophonic_filter(notes)
-    if stem_type == "bass":
-        notes = [{**n, "pitch": min(127, n["pitch"] + BASS_OCTAVE_SHIFT)} for n in notes]
     return notes
 
 
@@ -214,7 +396,9 @@ def analyze(req: dict) -> dict:
         stem_paths = separate_stems(req["audio"], out_dir, req.get("model", "htdemucs"))
 
     transcriptions: list[dict] = []
-    for stem_type in PITCHED_STEMS:
+    # The orchestrator can skip basic-pitch when another transcriber handles pitched stems.
+    pitched = PITCHED_STEMS if req.get("transcribe", True) else ()
+    for stem_type in pitched:
         wav = stem_paths.get(stem_type)
         if not wav:
             continue

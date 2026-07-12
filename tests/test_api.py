@@ -1,4 +1,4 @@
-"""API smoke tests against the real analysis stack (Essentia or librosa fallback)."""
+"""API smoke tests against the real analysis stack (essentia-tensorflow required)."""
 
 from __future__ import annotations
 

@@ -6,13 +6,16 @@ SOTA-on-GiantSteps methods benchmarked in the companion eval harness.
 
 | Analysis | Method | Accuracy (GiantSteps) |
 |----------|--------|-----------------------|
-| Key | Essentia `edma` tonic + a learned major/minor refinement | MIREX **0.801** / exact 0.743 |
+| Key | Essentia `edma` + **S-KEY fusion** (learned mode + rerank heads) | MIREX **0.812** / exact **0.757** (honest protocol) |
 | Tempo | Pretrained **TempoCNN** + genre-aware octave resolution | Acc1 **0.965** (corrected labels) |
 | Structure | **All-In-One EDM ensemble on-device** (Apple-Silicon/MPS) | Raveform held-out CV reproduces SOTA (see `eval/`) |
-| Stems → MIDI | **Demucs** 4-stem split + per-stem transcription (basic-pitch; ADTOF drums → General MIDI) | Slakh test: oracle bass 0.79 / drums 0.64; e2e SDR 11.6 dB drums (see `eval/`) |
+| Stems → MIDI | **SCNet XL IHF** 4-stem split + per-stem transcription (**YourMT3+**; ADTOF drums → General MIDI) | Slakh test **e2e** (mix→MIDI): other **0.79** / bass 0.66 note-F, 14.3 dB drums SI-SDR (see `eval/`) |
 
-Both key and tempo fall back to librosa automatically if Essentia isn't installed. Key
-mode (major/minor) is refined by a small chroma classifier — see *Key mode* below.
+`essentia-tensorflow` is a **hard requirement** (wheels for macOS arm64 and Linux x86_64 on
+CPython 3.14) — there are deliberately **no silent fallbacks**: a broken install raises a
+clear error instead of quietly degrading accuracy (the old librosa fallback cost ~19 pt
+MIREX on key and ~13 pt Acc1 on tempo). Key mode (major/minor) is refined by a small
+chroma classifier — see *Key mode* below.
 
 ## Requirements
 
@@ -23,14 +26,24 @@ mode (major/minor) is refined by a small chroma classifier — see *Key mode* be
 - `uv` (https://docs.astral.sh/uv). First `uv sync` pulls `essentia-tensorflow` (~95 MB,
   native) and TensorFlow — give it a minute.
 - The TempoCNN model is bundled (`src/jams/data/models/deepsquare-k16-3.pb`); no download.
-- For the librosa *fallback* path to decode mp3s you need `ffmpeg` on PATH (Essentia decodes
-  mp3 natively, so this only matters if Essentia is unavailable).
+- `ffmpeg` on PATH is needed to run key **mode refinement on mp3 inputs** (its chroma pass
+  uses librosa/audioread decoding to byte-match the training features; Essentia decodes mp3
+  natively everywhere else).
 
 ## Quickstart
 
 ```sh
 uv sync                       # install (pulls essentia-tensorflow — heavy, native)
 uv run jams                   # serve on http://0.0.0.0:8000  (Swagger at /docs)
+```
+
+Or bring up the whole local stack — the jams API plus the **annotator webapp**
+(waveform editor for beat/structure annotations, see [`webapp/README.md`](webapp/README.md)) —
+with one command:
+
+```sh
+./scripts/dev.sh              # installs all deps, runs jams API (:8000) + annotator
+                              # API (:8787) + frontend (:5173), opens the browser
 ```
 
 Analyze an upload:
@@ -67,16 +80,31 @@ jungle resolve to **full tempo (~174)**, not half-time. `bpm_alt` always returns
 other octave so a client can flip it. With no hint, the raw value is returned unchanged
 (nothing is silently folded).
 
-## Key mode (major vs minor)
+## Key detection (edma + S-KEY fusion)
 
-`edma` nails the *tonic* but, like all template methods, over-calls **major** on minor
-tracks — the diagnostic note is the **third** (minor 3rd vs major 3rd above the tonic),
-which a full-template correlation dilutes. We keep edma's tonic and refine the *mode*
-with a small logistic classifier over chroma cues (the third, 6th, 7th, and a
-bass-register third), overriding edma only when confident. 5-fold CV: MIREX
-**0.759→0.801**, exact **0.688→0.743**, with major-key recall preserved. The model ships
-at `src/jams/data/mode_model.json`; retrain with `eval/train_mode_model.py`. Pass
-`detect_key(path, refine_mode=False)` to skip it (saves a ~1-2 s chroma pass).
+`edma` nails the *tonic* but over-calls **major** on minor tracks. The default pipeline
+fuses it with Deezer's **S-KEY** (self-supervised, MIT, trained on 1M songs with zero
+key labels — run as a uv worker, `src/jams/data/skey_worker.py`): a learned *mode head*
+refines major/minor from chroma cues + the S-KEY posterior, and a *rerank head* decides
+per-track whether to keep the refined edma key or S-KEY's key outright. Their errors
+decorrelate: edma is exact-hit-strong, S-KEY near-miss-strong.
+
+**Honest protocol** (the literature standard): all learned heads train only on
+**GiantSteps-MTG-Keys** and are evaluated once on **GiantSteps Key**. An earlier mode
+model was inadvertently trained on the test set itself; it remains only behind
+`JAMS_KEY_FUSION=0` (legacy) and its numbers must not be compared to published results.
+
+| system | MIREX weighted | exact |
+|--------|---------------:|------:|
+| edma raw | 0.759 | 0.688 |
+| edma + honest mode retrain | 0.810 | 0.753 |
+| S-KEY standalone | 0.817 | 0.748 |
+| **production fusion** | **0.812** | **0.757** |
+
+Honest published SOTA on GiantSteps Key is ~0.76 weighted (Korzeniowski 74.6,
+InceptionKeyNet 75.7, KeyMyna 75.9) — every row above clears it. Fusion models ship at
+`src/jams/data/key_fusion.json`. Pass `detect_key(path, refine_mode=False)` to skip
+refinement entirely (plain edma, saves the chroma pass + worker round-trip).
 
 ## Song structure (on-device)
 
@@ -106,11 +134,18 @@ the original `jhurliman/allinone-targetbpm` endpoint instead.
 ## Stems → MIDI (on-device)
 
 Opt-in per request (`stems=true`): split a track into 4 stems (**drums / bass / other /
-vocals**) with **Demucs `htdemucs`**, then transcribe each to MIDI —
+vocals**) with **SCNet XL IHF** (vendored, MIT; A/B-selected on Slakh — see table), then
+transcribe each to MIDI —
 
-- **bass / vocals** → basic-pitch, monophonic post-filter (GM programs 34 / 85). Bass is
-  shifted +12 to the written-MIDI convention (validated on Slakh: note-F 0.04 → 0.80).
-- **other** → basic-pitch, polyphonic (GM piano)
+- **pitched stems (bass / other / vocals)** → **YourMT3+** (default; Chang et al., MLSP
+  2024, via the MIT `mt3-infer` toolkit with Apache-2.0 weights — the GPL upstream repo is
+  not used). Slakh-test oracle note-F: bass **0.849**, other **0.849** vs basic-pitch's
+  0.789 / 0.490; full **mix→MIDI e2e**: other **0.788** / bass 0.661 — the e2e system beats
+  basic-pitch's ground-truth-stem ceiling on polyphonic accompaniment.
+  `JAMS_STEMS_TRANSCRIBER=basic-pitch` selects the lighter transcriber.
+  Bass/vocals get a shared monophonic post-filter; bass is shifted +12 to the written-MIDI
+  convention in the orchestrator (validated for both transcribers). **First-run
+  requirement: `git-lfs`** (the YourMT3 checkpoint clones from Hugging Face, ~536 MB).
 - **drums** → **ADTOF Frame_RNN** (torch port of Zehren et al.'s crowdsourced-data CRNN;
   F 88.5 vs the original's 88.7 on MDBDrums++) → General MIDI percussion on channel 10
   (36 kick, 38 snare, 42 hats, 47 toms, 49 cymbals), quantized to jams' beat grid
@@ -125,11 +160,22 @@ pitched) and `drum_worker.py` (drums, isolated so its git-sourced model dependen
 touches jams' own env). The orchestrator (`analysis/stems.py` + `analysis/gm.py`) merges them
 and assembles the MIDI.
 
+**Separation backend** (`JAMS_STEMS_MODEL`, default `scnet_xl_ihf`) — A/B on the Slakh
+test split (151 tracks, through-separation scoring):
+
+| backend | SI-SDR drums/other/bass (dB) | bass note-F | other note-F | drums onset-F |
+|---|---|---:|---:|---:|
+| **SCNet XL IHF** (default) | **14.3 / 11.8 / 6.0** | **0.645** | **0.473** | 0.574 |
+| htdemucs | 11.6 / 10.1 / 4.6 | 0.596 | 0.459 | 0.585 |
+| BS Roformer 4-stem | 13.1 / 8.6 / 5.7 | 0.628 | 0.468 | **0.596** |
+
+`htdemucs` / `htdemucs_ft` remain selectable. Drums transcription slightly prefers the
+Demucs-family stems — a per-stem hybrid (SCNet pitched + htdemucs drums) is future work.
+
 **Platform:** fully cross-platform — separation auto-selects cuda → mps → cpu, and both
 transcribers are torch/ONNX, so the whole pipeline (drums included) runs on Apple-Silicon
-Macs, Linux, and CI identically. Config: `JAMS_STEMS_MODEL` (`htdemucs`),
-`JAMS_STEMS_QUANTIZE`, `JAMS_STEMS_OUT_DIR`, `JAMS_STEMS_UV`. See `eval/README.md` for the
-transcription benchmark.
+Macs, Linux, and CI identically. Config: `JAMS_STEMS_MODEL`, `JAMS_STEMS_TRANSCRIBER`, `JAMS_STEMS_QUANTIZE`,
+`JAMS_STEMS_OUT_DIR`, `JAMS_STEMS_UV`. See `eval/README.md` for the transcription benchmark.
 
 ## Endpoints
 
@@ -182,6 +228,31 @@ uv run --extra eval eval/analyze_errors.py    # where the errors are, by genre/m
 
 See `eval/README.md` for the method shoot-outs, the wrong-label story, and the curated
 `tempo_corrections.csv`.
+
+### Experiment tracking (MLflow)
+
+**MLflow is the experiment system of record** (paper/EXPERIMENTS.md is the narrative twin).
+The server runs on the aleph0 GPU box in Docker (container `mlflow`, storage
+`/mnt/d/jams/mlflow/`, sqlite backend). Reach the UI through the tailnet:
+
+```sh
+ssh -N -L 127.0.0.1:5566:localhost:5000 -p 2222 jhurliman@aleph0.mole-acoustic.ts.net &
+open http://localhost:5566        # local port 5566 — macOS AirPlay squats on 5000
+```
+
+(`aleph0.local` works as the host when on the same LAN.) Three pieces feed it:
+
+- **Direct logging** — the structure trainer (`~/all-in-one` on aleph0) logs every run to
+  experiment `raveform-structure` via lightning's `MLFlowLogger` (`MLFLOW_TRACKING_URI`,
+  default `http://localhost:5000` on the box; startup **raises** if the server is down —
+  no silent fallback).
+- **wandb-offline sync** — `~/wandb2mlflow.py` (daemon on aleph0) mirrors the full metric
+  history of pre-patch wandb-offline runs, plus GPU util/mem and the training log as an
+  artifact, every 5 min. Restart: `nohup ~/mlflow_venv/bin/python ~/wandb2mlflow.py >
+  ~/wandb2mlflow.log 2>&1 &`. Server restart: `docker start mlflow`.
+- **Ledger backfill** — `uv run --extra eval eval/mlflow_backfill.py` loads every
+  paper/EXPERIMENTS.md entry (key / transcription / separation) as a tagged MLflow run;
+  idempotent by `ledger_id` tag.
 
 ## Layout
 

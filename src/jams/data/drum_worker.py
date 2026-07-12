@@ -3,7 +3,8 @@
 # requires-python = ">=3.10,<3.13"
 # dependencies = [
 #   "adtof-pytorch @ git+https://github.com/xavriley/ADTOF-pytorch",
-#   "torch>=2.0",
+#   "torch==2.8.*",
+#   "torchaudio==2.8.*",
 #   "librosa>=0.10",
 #   "pretty_midi>=0.2.10",
 #   "numpy",
@@ -78,6 +79,28 @@ def _velocities_from_audio(wav: str, notes: list[dict]) -> list[dict]:
     return out
 
 
+_warned_cpu_fallback = False
+
+
+def _warn_if_cpu_with_gpu() -> None:
+    """Loud, once-per-process, NON-fatal warning when an NVIDIA GPU is present but this
+    torch build has no CUDA (wrong wheel/driver pairing). The CRNN is small enough that
+    CPU works, but on a GPU box a missing-CUDA torch means the env resolved wrong."""
+    global _warned_cpu_fallback
+    if _warned_cpu_fallback:
+        return
+    import shutil
+
+    if Path("/proc/driver/nvidia").exists() or shutil.which("nvidia-smi"):
+        _warned_cpu_fallback = True
+        print(
+            "[drums] " + "!" * 70 + "\n[drums] WARNING: NVIDIA GPU present but torch has "
+            "no CUDA support — check the torch build vs driver pairing. Running on CPU."
+            "\n[drums] " + "!" * 70,
+            file=sys.stderr, flush=True,
+        )
+
+
 def transcribe_drums(wav: str) -> list[dict]:
     """Transcribe a drum stem to notes via the ADTOF Frame_RNN model (torch)."""
     import pretty_midi
@@ -85,6 +108,8 @@ def transcribe_drums(wav: str) -> list[dict]:
     from adtof_pytorch import transcribe_to_midi
 
     device = "cuda" if torch.cuda.is_available() else "cpu"  # tiny CRNN; cpu is fast enough
+    if device == "cpu":
+        _warn_if_cpu_with_gpu()
     with tempfile.TemporaryDirectory() as td:
         midi_out = Path(td) / "drums_adtof.mid"
         transcribe_to_midi(wav, midi_out, device=device)
