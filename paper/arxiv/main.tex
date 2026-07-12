@@ -20,7 +20,7 @@
 \newcommand{\sig}{$^{*}$}
 
 \title{\textbf{An Open, Auditable MIR Stack for Electronic Dance Music:\\
-Evaluation Hygiene, Subset Calibration, and Mix-to-MIDI Transcription}}
+Benchmark Calibration and Mix-to-MIDI Transcription}}
 
 % Author list and acknowledgments TBD by John (paper/VENUE.md); placeholder below.
 \author{John Hurliman\\
@@ -34,34 +34,30 @@ Evaluation Hygiene, Subset Calibration, and Mix-to-MIDI Transcription}}
 
 \begin{abstract}
 We present \jams{}, an open-source music-information-retrieval (MIR) service for
-electronic dance music (EDM) that couples every analysis capability---key, tempo, beats,
-structural segmentation, source separation, and per-stem MIDI transcription---to a
-reproducible evaluation harness, and we report evaluation-hygiene findings that reframe
-how key-detection results are compared. First, auditing our own pipeline surfaced
-test-set contamination (a learned refinement fit on GiantSteps Key itself); retraining
-under a strict protocol (fit on GiantSteps-MTG-Keys, evaluate once on GiantSteps Key)
-showed the contaminated number had in fact been honest---but only the audit could tell.
-Second, and more consequentially: re-running the strongest published system (the madmom
-key CNN, published 0.746 weighted) on our $n{=}567$ usable-track subset yields
-0.833---a $+0.087$ shift from subset selection alone---demonstrating that the field's
-routine comparison of new results against published GiantSteps numbers is miscalibrated
-by more than the total claimed progress of recent systems. Under same-subset paired
-bootstrap comparisons, our fusion of an EDM-tuned template method with a self-supervised
+electronic dance music (EDM) covering key, tempo, beats, structural segmentation,
+source separation, and per-stem MIDI transcription, in which every capability is backed
+by a reproducible evaluation harness and every reported number regenerates from
+committed code. We report four main findings. (1)~A calibration result that reframes
+how key-detection results are compared: re-running the strongest published system (the
+madmom key CNN, published 0.746 weighted) on our $n{=}567$ usable-track subset of
+GiantSteps~Key yields 0.833---a $+0.087$ shift from subset selection alone, more than
+six times the field's total claimed progress since 2018---so comparisons against
+published numbers are uninterpretable and only same-subset paired tests rank systems.
+Under such tests, our fusion of an EDM-tuned template method with a self-supervised
 tonality estimator is not significantly different from the madmom CNN
-($\Delta{=}-0.021$ \ci{-0.044}{+0.003}; the point estimate favors the CNN) while
-carrying no non-commercial license restriction, with the best exact accuracy (0.757). On transcription, feeding ground-truth stems to a
+($\Delta{=}-0.021$ \ci{-0.044}{+0.003}) while carrying no non-commercial license
+restriction, with the best exact accuracy (0.757). (2)~Feeding ground-truth stems to a
 multi-instrument transformer (YourMT3+) yields 0.849 note-F on both bass and dense
 polyphonic accompaniment on the Slakh2100 test split, and the full mix$\to$MIDI system
 (SCNet~XL $\to$ YourMT3+) reaches 0.788 note-F on accompaniment---\emph{above the
-ground-truth-stem ceiling of a widely used lightweight transcriber} (0.490)---while we
-quantify separation costs per stem, including a case where $+2.7$\,dB SI-SDR
-\emph{reduces} downstream drum-transcription accuracy. On structural analysis we report
-a disciplined negative result: three pre-registered training variants of an
-11-class EDM structure model all failed their gates, with per-class gains consistently
-funded by adjacent-class regressions; the pre-registration machinery itself caught an
-invalid experiment (a frozen \emph{random} trunk) and a decode-threshold artifact before
-either could contaminate conclusions. All code, evaluation scripts, per-track artifacts,
-and statistical analyses are public.
+ground-truth-stem ceiling of a widely used lightweight transcriber} (0.490).
+(3)~Signal-level separation quality and downstream accuracy can disagree: a
+$+2.7$\,dB SI-SDR improvement \emph{reduces} drum-transcription accuracy. (4)~A
+pre-registered negative result on EDM structure analysis: three class-rebalanced
+training variants all failed their gates, with per-class gains consistently funded by
+adjacent-class regressions---evidence that the binding constraint is the training
+signal, not model weights or capacity. All code, evaluation scripts, per-track
+artifacts, and statistical analyses are public.
 \end{abstract}
 
 \section{Introduction}
@@ -87,39 +83,37 @@ scoring scripts using \texttt{mir\_eval}~\citep{raffel2014mireval}, an experimen
 ledger in which every quantitative claim traces to a script and commit, and a
 statistical-analysis script that regenerates every confidence interval in this paper.
 
-This paper is as much about \emph{how} the numbers were obtained as about the numbers.
-Working toward state-of-the-art results on public benchmarks, our audit-first protocol
-repeatedly changed conclusions that model work alone would have gotten wrong:
+We report four contributions:
 
 \begin{enumerate}
-  \item \textbf{A contamination case study} (\S\ref{sec:key}): we found a learned
-  component of our own shipped key detector had been fit on the test set. The honest
-  retrain matched the contaminated number---leakage had masked a legitimate result, but
-  only the audit could establish that.
   \item \textbf{A subset-calibration finding} (\S\ref{sec:key}): the strongest published
   GiantSteps~Key system gains $+0.087$ weighted score when re-run on our usable-track
   subset---larger than the total claimed progress across recent published systems---so
   comparisons of subset-measured numbers against published full-set numbers are
-  uninterpretable. Only same-subset paired tests rank systems.
-  \item \textbf{Separation-cascade measurement} (\S\ref{sec:transcription},
-  \S\ref{sec:separation}): stem-level SI-SDR and downstream transcription accuracy can
-  disagree in sign; we quantify the mix$\to$stems$\to$MIDI cascade at each stage,
-  including a full-system result that exceeds a popular transcriber's ground-truth-stem
-  ceiling.
+  uninterpretable. Only same-subset paired tests rank systems; under those, we report
+  the strongest key system free of non-commercial license restrictions, with full
+  significance analysis.
+  \item \textbf{Stem-input and end-to-end transcription results}
+  (\S\ref{sec:transcription}): we quantify the cascade from mix to stems to MIDI at
+  each stage on Slakh2100, including a full-system result that exceeds a popular
+  transcriber's ground-truth-stem ceiling.
+  \item \textbf{Separation-cascade measurement} (\S\ref{sec:separation}): stem-level
+  SI-SDR and downstream transcription accuracy can disagree in sign---separator
+  selection should be scored on the task it feeds.
   \item \textbf{A pre-registered negative result} (\S\ref{sec:structure}): three
   variants of class-rebalanced structure-model training, each gated before results were
-  seen, all failed---and the gating machinery caught an invalid experiment and a
-  measurement artifact along the way. We argue the negative result is load-bearing for
-  practitioners tempted by the same obvious interventions.
+  seen, all failed, with every per-class gain funded by an adjacent-class regression.
+  The negative result is load-bearing for practitioners tempted by the same obvious
+  interventions.
 \end{enumerate}
 
-Contributions: (1) leakage-free key-detection results on GiantSteps Key with a
-contamination case study, a subset-calibration analysis, and full significance
-reporting; (2) a stem-input and end-to-end evaluation of multi-instrument transcription
-on Slakh2100 quantifying separation-cascade costs; (3) a pre-registered negative result
-on class-rebalanced training for EDM structure analysis, replicated across two folds for
-the strongest variant; and (4) the open system and harness itself, in which every number
-in this paper regenerates from committed code.
+Throughout, we follow one measurement protocol (\S\ref{sec:protocol}): anything learned
+is fit on training data only and evaluated once on the test set; all system comparisons
+are paired per-track bootstraps on identical track subsets; and structure experiments
+were gated by pass/fail criteria committed to the public experiments ledger before
+results existed. The same protocol surfaced and replaced a leaked refinement in our own
+earlier key detector (\S\ref{sec:key})---the harness audits us on the same terms as the
+baselines.
 
 \section{Related work}
 \label{sec:related}
@@ -189,9 +183,9 @@ cost $-0.20$ note-F downstream; \S\ref{sec:separation}).
 \begin{table}[t]
 \centering\footnotesize
 \setlength{\tabcolsep}{4pt}
-\caption{Shipped capabilities and their headline honest-protocol numbers. Each traces to
-the experiments ledger; \S\ref{sec:results} gives full context, CIs, and caveats.
-SI-SDR values are drums/other/bass.}
+\caption{Shipped capabilities and their headline numbers under the protocol of
+\S\ref{sec:protocol}. Each traces to the experiments ledger; \S\ref{sec:results} gives
+full context, CIs, and caveats. SI-SDR values are drums/other/bass.}
 \label{tab:system}
 \begin{tabular}{lll}
 \toprule
@@ -254,7 +248,7 @@ that matters for the product. Structure: beat/downbeat F (70\,ms), boundary hit-
 HR@0.5s and @3s, pairwise frame clustering F, V-measure; per-class label quality as
 GT-duration coverage.
 
-\textbf{Honest-training protocol.} Anything learned is fit on the training dataset
+\textbf{Training protocol.} Anything learned is fit on the training dataset
 only (GS-MTG for key), model-selected by cross-validation \emph{within the training
 split}, then evaluated exactly once on the test set. For structure experiments, gates
 (pass/fail criteria and their metrics) were pre-registered in the experiments ledger
@@ -287,7 +281,7 @@ Essentia (AGPL) for the template stage.}
 system & weighted [95\% CI] & exact & license \\
 \midrule
 \texttt{edma} template (no refinement) & 0.759 \ci{0.728}{0.789} & 0.688 & AGPL (Essentia) \\
-honest mode retrain & 0.810 \ci{0.780}{0.837} & 0.753 & ours (MIT) \\
+mode retrain & 0.810 \ci{0.780}{0.837} & 0.753 & ours (MIT) \\
 S-KEY~\citep{kong2025skey} & 0.817 \ci{0.789}{0.843} & 0.748 & MIT \\
 \textbf{fusion (shipped)} & \textbf{0.812} \ci{0.783}{0.840} & \textbf{0.757} & MIT \\
 madmom CNN~\citep{korzeniowski2018genre} & 0.833 \ci{0.806}{0.858} & 0.773 & CC BY-NC-SA \\
@@ -308,7 +302,7 @@ between the four strongest systems.}
 \end{figure}
 
 \textbf{Systems.} The template row is Essentia's \texttt{edma} profile matcher,
-unmodified. \emph{Honest mode retrain} augments it with a mode (major/minor) logistic
+unmodified. \emph{Mode retrain} augments it with a mode (major/minor) logistic
 classifier over hand-crafted chroma cue features, fit on GS-MTG with its decision
 threshold chosen by 5-fold CV within the training split. \emph{S-KEY} is the
 self-supervised tonality estimator of Kong et al.~\citep{kong2025skey}, run from its
@@ -365,14 +359,11 @@ cross-validation only (rerank CV 0.732 vs.\ 0.700), not test scores. An
 oracle that picks the better of the two fused systems per track reaches 0.868, so
 headroom remains in fusion quality itself.
 
-\textbf{Contamination case study.} Our previously shipped key refinement---a mode
-classifier---turned out to have been fit on GiantSteps~Key itself (weighted 0.801 while
-contaminated). Retraining it under the honest protocol (fit on GS-MTG, CV-selected
-threshold, single test evaluation) scored 0.810: the contaminated number had been
-\emph{honest all along}, but nothing short of the retrain could establish that. We keep
-the case study in the paper because its cost asymmetry generalizes: the audit and
-retrain took a day; the alternative was publishing a number whose validity we could not
-defend.
+\textbf{A note on leakage.} An earlier shipped version of the mode refinement had been
+fit on GiantSteps~Key itself (0.801 weighted); the strict retrain reported here (0.810)
+replaced it before any comparison in this paper was run. The two scores happen to
+agree---leakage does not always inflate a number---but only the leakage-free protocol
+makes the number defensible.
 
 \textbf{Genre analysis.} Per-genre weighted scores of the shipped fusion range from
 0.868 (Electro House) to 0.734 (Trance), with Techno (0.746) and Trance weakest---both
@@ -508,24 +499,19 @@ class-rebalanced training is supposed to fix, so we attempted it---under pre-reg
 gates---in three isolated variants:
 
 \begin{description}
-  \item[ST-v1: re-weighted training.] Inverse-duration function-class weights
-  (effective range ${\sim}110{:}1$) with genre-balanced sampling. \emph{Failed its gate
-  on two independent folds}: boundary HR@0.5 $-0.15$/$-0.21$, pairwise $-0.18$/$-0.16$,
-  and---the tell---beat-F $-0.050$ on \emph{both} folds: the shared trunk itself
-  degraded. Rare-class gains on fold~2 (cooldown $+0.25$) reversed on fold~1
-  ($-0.18$) under longer training: progressive damage, not a stable trade.
-  \item[ST-v2: invalidated before its gate ran.] Intended head-only training on a
-  frozen trunk. Tensor-level checkpoint validation found 489/491 trunk tensors differing
-  from stock: the trainer had \emph{no pretrained-weight loading}---it trains from
-  scratch, so the freeze had fixed a \emph{random} trunk. (This also reframes ST-v1 as
-  re-weighted \emph{from-scratch} training; its paired verdicts stand.) The gate was
-  never run; a conclusion already established at the tensor level cannot be
-  re-adjudicated by an expensive evaluation.
-  \item[ST-v3: true transfer.] Stock weights loaded as initialization (verified
-  round-trip byte-identical), trunk and beat/section heads frozen, class weights capped
-  at $3.0$; only the 1{,}067-parameter function readout trains. Validity held by
-  construction and exactly: beats, downbeats, and boundaries byte-identical to stock on
-  all 165 held-out tracks. The gate reduced to label quality---and exposed a
+  \item[ST-v1: re-weighted from-scratch training.\footnotemark] Inverse-duration
+  function-class weights (effective range ${\sim}110{:}1$) with genre-balanced sampling.
+  \emph{Failed its gate on two independent folds}: boundary HR@0.5 $-0.15$/$-0.21$,
+  pairwise $-0.18$/$-0.16$, and---the tell---beat-F $-0.050$ on \emph{both} folds: the
+  shared trunk itself degraded. Rare-class gains on fold~2 (cooldown $+0.25$) reversed
+  on fold~1 ($-0.18$) under longer training: progressive damage, not a stable trade.
+  A decode-threshold mismatch between the arms was later found and corrected;
+  re-scoring moved beat-F by less than $0.01$ and changed no verdict.
+  \item[ST-v3: transfer with a frozen trunk.] Stock weights loaded as initialization
+  (verified round-trip byte-identical), trunk and beat/section heads frozen, class
+  weights capped at $3.0$; only the 1{,}067-parameter function readout trains. Validity
+  held by construction and exactly: beats, downbeats, and boundaries byte-identical to
+  stock on all 165 held-out tracks. The gate reduced to label quality---and exposed a
   \textbf{class trade} (Figure~\ref{fig:structuretrade}): cooldown $+0.233$
   \ci{+0.157}{+0.312} but buildup $-0.158$ \ci{-0.219}{-0.098} and outro $-0.092$.
   \item[ST-v4: capacity, single variable.] A zero-initialized residual MLP
@@ -536,6 +522,11 @@ gates---in three isolated variants:
   v3's cooldown gain shrank to a non-significant $+0.076$. The apparent bridge gain
   ($+0.125$) rests on $n{=}4$ tracks and is not significant.
 \end{description}
+\footnotetext{An intermediate head-only variant (ST-v2) was invalidated before
+evaluation: checkpoint validation showed the trainer had no pretrained-weight loading,
+so its ``frozen'' trunk was randomly initialized. The same check established that ST-v1
+was re-weighted from-scratch training rather than fine-tuning; its paired verdicts are
+unaffected. ST-v3 is the corrected experiment.}
 
 \begin{figure}[t]
 \centering
@@ -547,12 +538,6 @@ class gains with adjacent-class regressions. Neither improves \emph{buildup}, a 
 requirement.}
 \label{fig:structuretrade}
 \end{figure}
-
-A measurement audit accompanied the arc: the checkpoint converter was found to drop the
-stock models' tuned DBN decode thresholds, contaminating the v1 arms' decode settings.
-Re-running both v1 arms with corrected thresholds moved beat-F by less than $0.01$ (and
-slightly \emph{down}), refuting the convenient hypothesis that v1's beat regression was
-a decode artifact. The verdicts stand.
 
 \textbf{Arc conclusion.} Across re-weighted training, a rebalanced frozen readout, and
 added readout capacity, \emph{buildup never improved and every gain was funded by an
@@ -628,15 +613,13 @@ An open, EDM-focused MIR stack assembled from openly licensed components is
 statistically competitive with the strongest system we measured where comparison is
 valid, and exceeds widely used production defaults by wide margins (a mix$\to$MIDI
 system whose accompaniment transcription beats a popular transcriber's
-ground-truth-stem ceiling). The methodological findings are, we think, the more durable
-contribution: benchmark-subset selection alone can move key-detection scores by more
-than six times the field's eight years of claimed progress; SI-SDR can rank separators
-opposite to the task they feed; test-set contamination can hide inside \emph{correct}
-numbers; and pre-registered gates with paired statistics turn three failed training
-variants into a defensible negative result while catching an invalid experiment and a
-measurement artifact on the way.
-None of this machinery is expensive---the audits in this paper cost days, not
-GPU-months---and all of it is committed code. Hidden-test-set community evaluations
+ground-truth-stem ceiling). The measurement findings travel beyond this system:
+benchmark-subset selection alone can move key-detection scores by more than six times
+the field's eight years of claimed progress; SI-SDR can rank separators opposite to the
+task they feed; dataset conventions (bass octave, preview bandwidth, half-time tempo
+labels) shift scores by amounts that dwarf typical model improvements; and
+pre-registered gates with paired statistics make a negative result on class-rebalanced
+structure training defensible enough to publish. Hidden-test-set community evaluations
 (e.g., the revived MIREX campaigns) are the systemic complement to the same-subset
 paired protocol we advocate; we plan to submit the key system for independent
 validation.
