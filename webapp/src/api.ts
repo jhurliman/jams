@@ -76,9 +76,10 @@ export const api = {
   /** Upload + analyze an audio file; resolves to the new track id. Slow (full analysis) —
    *  the server replies only once the jams backend has finished. Prefer importStart +
    *  the SSE progress stream for interactive use. */
-  importTrack: async (file: File): Promise<{ id: string }> => {
+  importTrack: async (file: File, opts?: { stems?: boolean }): Promise<{ id: string }> => {
     const form = new FormData();
     form.append('file', file);
+    if (opts?.stems === false) form.append('stems', 'false');
     const res = await fetch('/api/import', { method: 'POST', body: form });
     if (!res.ok) {
       const body = (await res.json().catch(() => null)) as { error?: string } | null;
@@ -88,9 +89,10 @@ export const api = {
   },
 
   /** Kick off a progress-reporting import; stream stage events from importProgressUrl. */
-  importStart: async (file: File): Promise<{ importId: string }> => {
+  importStart: async (file: File, opts?: { stems?: boolean }): Promise<{ importId: string }> => {
     const form = new FormData();
     form.append('file', file);
+    if (opts?.stems === false) form.append('stems', 'false');
     const res = await fetch('/api/import/start', { method: 'POST', body: form });
     if (!res.ok) {
       const body = (await res.json().catch(() => null)) as { error?: string } | null;

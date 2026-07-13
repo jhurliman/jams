@@ -2,20 +2,32 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { api } from '../api.ts';
 import { STRUCTURE_ANALYSIS_REALTIME_FACTOR } from '../config.ts';
+import { importStemsEnabled } from '../importPrefs.ts';
 import { useEditor } from '../store.ts';
 
 /** Stages shown in the checklist, in display order. Analysis stages run CONCURRENTLY
- *  on the jams side (key ∥ tempo→structure) — each flips running/done independently. */
-const STAGES = ['upload', 'key', 'tempo', 'structure', 'importing'] as const;
+ *  on the jams side (key ∥ tempo→structure; stems last) — each flips running/done
+ *  independently. The stems row only shows when transcription is enabled. */
+const STAGES = ['upload', 'key', 'tempo', 'structure', 'stems', 'importing'] as const;
 type Stage = (typeof STAGES)[number];
 type StageState = 'pending' | 'running' | 'done';
 
-/** Share of the overall bar each stage owns; structure dominates wall time. */
+/** Share of the overall bar each stage owns; structure dominates wall time when stems
+ *  are off, stems (separation + MIDI transcription) dominate when on. */
 const STAGE_WEIGHT: Record<Stage, number> = {
   upload: 0.05,
   key: 0.1,
   tempo: 0.1,
   structure: 0.7,
+  stems: 0,
+  importing: 0.05,
+};
+const STAGE_WEIGHT_STEMS: Record<Stage, number> = {
+  upload: 0.05,
+  key: 0.05,
+  tempo: 0.05,
+  structure: 0.3,
+  stems: 0.5,
   importing: 0.05,
 };
 
@@ -24,6 +36,7 @@ const STAGE_LABEL: Record<Stage, string> = {
   key: 'Key (CNN)',
   tempo: 'Tempo',
   structure: 'Beats & structure',
+  stems: 'Stems & MIDI',
   importing: 'Importing track',
 };
 
@@ -56,6 +69,7 @@ const initialStages = (): Record<Stage, StageState> => ({
   key: 'pending',
   tempo: 'pending',
   structure: 'pending',
+  stems: 'pending',
   importing: 'pending',
 });
 
@@ -65,6 +79,7 @@ export function ImportDropZone() {
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
   const [stages, setStages] = useState<Record<Stage, StageState>>(initialStages);
   const [elapsed, setElapsed] = useState(0);
+  const [withStems, setWithStems] = useState(true);
   // dragenter/dragleave fire for every child element; track depth to know when the
   // pointer actually left the window.
   const depth = useRef(0);
@@ -81,28 +96,31 @@ export function ImportDropZone() {
   }, [phase.kind]);
 
   const progress = useCallback((): number => {
+    const weights = withStems ? STAGE_WEIGHT_STEMS : STAGE_WEIGHT;
     let total = 0;
     for (const s of STAGES) {
-      if (stages[s] === 'done') total += STAGE_WEIGHT[s];
+      if (stages[s] === 'done') total += weights[s];
       else if (stages[s] === 'running' && s === 'structure') {
         const { structureStartedAt, durationSec } = timing.current;
         if (structureStartedAt && durationSec) {
           const expected = durationSec * STRUCTURE_ANALYSIS_REALTIME_FACTOR;
           const frac = Math.min((Date.now() - structureStartedAt) / 1000 / expected, 0.95);
-          total += STAGE_WEIGHT[s] * frac;
+          total += weights[s] * frac;
         }
       } else if (stages[s] === 'running') {
-        total += STAGE_WEIGHT[s] * 0.5;
+        total += weights[s] * 0.5;
       }
     }
     return Math.min(total, 0.99);
-  }, [stages]);
+  }, [stages, withStems]);
 
   const doImport = useCallback(async (file: File) => {
     if (!AUDIO_EXT.test(file.name)) {
       setPhase({ kind: 'error', message: `'${file.name}' is not a supported audio file` });
       return;
     }
+    const stems = importStemsEnabled();
+    setWithStems(stems);
     timing.current = { startedAt: Date.now(), structureStartedAt: 0, durationSec: null };
     setStages(initialStages());
     setElapsed(0);
@@ -111,7 +129,7 @@ export function ImportDropZone() {
       timing.current.durationSec = d;
     });
     try {
-      const { importId } = await api.importStart(file);
+      const { importId } = await api.importStart(file, { stems });
       setStages((s) => ({ ...s, upload: 'done' }));
       const stream = new EventSource(api.importProgressUrl(importId));
       es.current = stream;
@@ -133,6 +151,7 @@ export function ImportDropZone() {
                 next.key = 'done';
                 next.tempo = 'done';
                 next.structure = 'done';
+                next.stems = 'done';
               }
             }
             for (const st of ev.done) if (st in next) next[st as Stage] = 'done';
@@ -211,7 +230,7 @@ export function ImportDropZone() {
             <div className="import-bar-fill" style={{ width: `${progress() * 100}%` }} />
           </div>
           <ul className="import-stages">
-            {STAGES.map((s) => (
+            {STAGES.filter((s) => s !== 'stems' || withStems).map((s) => (
               <li key={s} className={stages[s]}>
                 <span className="mark">
                   {stages[s] === 'done' ? '✓' : stages[s] === 'running' ? <span className="spinner sm" /> : '·'}
@@ -220,7 +239,12 @@ export function ImportDropZone() {
               </li>
             ))}
           </ul>
-          <div className="dim">{Math.floor(elapsed)}s elapsed — key &amp; tempo run alongside structure</div>
+          <div className="dim">
+            {Math.floor(elapsed)}s elapsed —{' '}
+            {stages.stems === 'running'
+              ? 'stem separation & MIDI transcription can take a few minutes'
+              : 'key & tempo run alongside structure'}
+          </div>
         </div>
       )}
       {phase.kind === 'error' && (

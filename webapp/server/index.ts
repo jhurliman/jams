@@ -41,7 +41,9 @@ app.post('/api/import', async (c) => {
     return c.json({ error: "multipart form must include a 'file' field" }, 400);
   }
   try {
-    const id = await importTrack(file.name, new Uint8Array(await file.arrayBuffer()));
+    const id = await importTrack(file.name, new Uint8Array(await file.arrayBuffer()), undefined, {
+      stems: body.stems !== 'false',
+    });
     return c.json({ id });
   } catch (err) {
     if (err instanceof ImportError) return c.json({ error: err.message }, err.status as 400);
@@ -79,7 +81,7 @@ app.post('/api/import/start', async (c) => {
   const state: PendingImport = { events: [] };
   pendingImports.set(importId, state);
   const bytes = new Uint8Array(await file.arrayBuffer());
-  void importTrack(file.name, bytes, (p) => state.events.push(p))
+  void importTrack(file.name, bytes, (p) => state.events.push(p), { stems: body.stems !== 'false' })
     .then((id) => {
       state.done = { id };
       state.finishedAt = Date.now();

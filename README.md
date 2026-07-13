@@ -56,10 +56,16 @@ The whole loop is one command + one webpage:
 
 Drop a `wav` / `mp3` / `flac` / `aiff` / `ogg` / `m4a` / `aac` anywhere in the annotator
 window. Under the hood the file is uploaded to the annotator server, run through the jams
-API (key, tempo, beats/downbeats, structure), and registered as a new track
+API (key, tempo, beats/downbeats, structure, stems), and registered as a new track
 (`import.<name>`) with the audio and analysis stored alongside the dataset — it opens in
 the editor with the waveform, beat grid, and section labels ready to inspect or correct.
 Full analysis runs on-device; expect roughly 30–90 s per track on Apple Silicon.
+
+Stem separation + per-stem MIDI transcription (the piano-roll lanes under the waveform)
+runs by default and is by far the slowest stage — the first import additionally downloads
+model checkpoints (YourMT3+ clones via git-lfs; the SCNet and ADTOF worker envs resolve
+through uv), so budget several minutes the first time. The **Transcribe stems on import**
+checkbox at the bottom of the track list skips it.
 
 If the analysis found too few (or too many) sections for your taste, use the **Sections**
 slider in the right-hand inspector: it re-thresholds the cached boundary activations from
