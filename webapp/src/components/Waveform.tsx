@@ -277,6 +277,17 @@ export function Waveform({ peaks, audio }: Props) {
     draw();
   }, [draw, annotation, view, selectedSegment, selectedBeat, prediction, showEval, rev]);
 
+  // The playhead is read imperatively from the audio element, so seeks while paused
+  // change no React state and the draw effect above never fires. Redraw on `seeked`
+  // (covers every seek source: waveform clicks, transport buttons, keyboard).
+  useEffect(() => {
+    const el = audio.audioRef.current;
+    if (!el) return;
+    const onSeeked = () => drawRef.current();
+    el.addEventListener('seeked', onSeeked);
+    return () => el.removeEventListener('seeked', onSeeked);
+  }, [audio.audioRef, annotation]);
+
   // Playback loop: advance playhead + auto-scroll to keep it on screen.
   useEffect(() => {
     if (!audio.isPlaying) return;
