@@ -1,4 +1,5 @@
 \documentclass[11pt]{article}
+\pdfoutput=1
 
 \usepackage[margin=1.1in]{geometry}
 \usepackage[T1]{fontenc}
@@ -12,6 +13,8 @@
 \usepackage{xcolor}
 \usepackage[numbers,sort&compress]{natbib}
 \usepackage[hidelinks]{hyperref}
+\hypersetup{pdftitle={An Open, Auditable MIR Stack for Electronic Dance Music},
+            pdfauthor={John Hurliman}}
 \usepackage{caption}
 \captionsetup{font=small,labelfont=bf}
 
@@ -90,8 +93,8 @@ We report four contributions:
   \item \textbf{A subset-calibration finding} (\S\ref{sec:key}): the strongest published
   GiantSteps~Key system gains $+0.087$ weighted score when re-run on our usable-track
   subset---larger than the total claimed progress across recent published systems---so
-  comparisons of subset-measured numbers against published full-set numbers are
-  uninterpretable. Only same-subset paired tests rank systems; under those, a small
+  subset-measured numbers are not comparable to published full-set numbers. Only
+  same-subset paired tests rank systems; under those, a small
   CNN we train on public data---pre-registered, evaluated once---statistically ties
   the strongest baseline with the best exact accuracy and no non-commercial license
   restriction.
@@ -99,7 +102,7 @@ We report four contributions:
   (\S\ref{sec:transcription}): we quantify the cascade from mix to stems to MIDI at
   each stage on Slakh2100, including a full-system result that exceeds a popular
   transcriber's ground-truth-stem ceiling.
-  \item \textbf{Separation-cascade measurement} (\S\ref{sec:separation}): stem-level
+  \item \textbf{Metric divergence in separator selection} (\S\ref{sec:separation}): stem-level
   SI-SDR and downstream transcription accuracy can disagree in sign---separator
   selection should be scored on the task it feeds.
   \item \textbf{A pre-registered negative result} (\S\ref{sec:structure}): three
@@ -197,7 +200,7 @@ key & 24-class key CNN (ours, MIT; \S\ref{sec:key}) & 0.832 MIREX / 0.780 exact 
 tempo & TempoCNN~\citep{schreiber2018tempocnn} + octave resolution & 0.965 Acc1 (corrected labels) \\
 beats / structure & All-In-One EDM ensemble (on-device) & 0.978 beat-F / 0.755 HR@0.5 \\
 stems & SCNet~XL & SI-SDR 14.3 / 11.8 / 6.0 dB \\
-stems $\to$ MIDI & YourMT3+ (pitched), ADTOF (drums), GM assembly & 0.788 note-F e2e (other) \\
+stems $\to$ MIDI & YourMT3+ (pitched), ADTOF (drums), GM assembly & 0.788 note-F mix$\to$MIDI (other) \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -221,8 +224,11 @@ MIT-licensed.
 
 \textbf{Datasets.} \emph{Key}: GiantSteps~Key~\citep{knees2015giantsteps} (test only;
 $n{=}567$ usable of 604 after dropping atonal/multi-key/unparseable labels---a
-documented subset, central to \S\ref{sec:key}); GiantSteps-MTG-Keys
-\citep{faraldo2017thesis} (training only; 1{,}157 usable high-confidence tracks).
+documented subset, central to \S\ref{sec:key}); for training, GiantSteps-MTG-Keys
+\citep{faraldo2017thesis} (1{,}157 usable high-confidence tracks; used by the earlier
+learned refinements) and its revised-annotation superset \texttt{beatport\_key}
+(1{,}486 tracks, 1{,}363 usable; used by the key CNN)---the two share one underlying
+Beatport corpus, verified to have zero track-id overlap with GiantSteps~Key.
 \emph{Transcription/separation}: the Slakh2100 test split~\citep{manilow2019slakh} in
 its de-duplicated ``redux'' form ($n{=}151$ multitracks; stems regrouped to
 drums/bass/other; ground-truth stems are summed class stems, ground-truth notes merged
@@ -250,8 +256,9 @@ that matters for the product. Structure: beat/downbeat F (70\,ms), boundary hit-
 HR@0.5s and @3s, pairwise frame clustering F, V-measure; per-class label quality as
 GT-duration coverage.
 
-\textbf{Training protocol.} Anything learned is fit on the training dataset
-only (GS-MTG for key), model-selected by cross-validation \emph{within the training
+\textbf{Training protocol.} Anything learned is fit on the training corpus
+only (for key: GS-MTG or its \texttt{beatport\_key} superset, never GiantSteps~Key),
+model-selected by cross-validation \emph{within the training
 split}, then evaluated exactly once on the test set. For structure experiments, gates
 (pass/fail criteria and their metrics) were pre-registered in the experiments ledger
 before results were seen.
@@ -310,13 +317,21 @@ the repository); they are retained in the table as context and as the systems th
 superseded. \emph{S-KEY} is the self-supervised tonality estimator of Kong et
 al.~\citep{kong2025skey}, run from its released MIT checkpoint. The madmom CNN baseline
 was run with its published weights and default
-processor settings. \emph{Key CNN (K10)} is ours: a 24-class CNN in the Korzeniowski
-\& Widmer family (log-CQT input, ${\sim}0.1$\,M parameters, MIT), trained on the public
-Beatport corpus underlying GS-MTG (1{,}363 usable tracks; zero test-set overlap,
-verified by track id) with $\pm4$-semitone pitch-shift augmentation. The experiment was
-pre-registered in the public ledger with a fixed decision rule; all selection
-(architecture, capacity, and standalone-vs-fusion candidates) used training-corpus CV
-only, and the locked model received exactly one test evaluation.
+processor settings. The \emph{key CNN} is ours (pre-registered as experiment K10 in
+the public ledger): input is a log-magnitude CQT, 24 bins per octave over 8 octaves
+from C1 (hop 4096 at 22.05\,kHz); three convolutional blocks (two $3{\times}3$
+convolutions with batch normalization and ELU, then $2{\times}2$ max-pooling; 16/32/64
+channels) feed a dropout layer, time-only average pooling---frequency structure reaches
+the readout, which absolute-pitch tasks require---and a linear 24-way softmax; 109k
+parameters, 0.45\,MB, MIT. Training: \texttt{beatport\_key} (1{,}363 usable tracks;
+zero test-set overlap, verified by track id), AdamW with a cosine schedule,
+${\sim}60$-second random crops, $\pm4$-semitone pitch-shift augmentation via CQT
+bin-roll with label transposition; the final model trains on the full corpus at the
+CV-selected epoch budget. Inference is a single forward pass over the full-track CQT;
+the shipped worker analyzes a two-minute track in under two seconds on Apple-Silicon
+CPU, including model load. The experiment was pre-registered with a fixed decision
+rule; all selection (architecture, capacity, and standalone-vs-fusion candidates) used
+training-corpus CV only, and the locked model received exactly one test evaluation.
 
 \textbf{The calibration finding.} GiantSteps~Key ships 604 annotations, of which 600
 have retrievable preview audio in our pull; like prior work, we further drop atonal,
@@ -352,7 +367,7 @@ key CNN $-$ madmom CNN & $-0.001$ \ci{-0.019}{+0.018} \\
 
 \textbf{Rankings under paired tests} (Table~\ref{tab:keypaired}): no pairwise
 difference among the learned systems reaches significance, and all significantly exceed
-the raw template. The sharpest comparison is our K10 CNN against the madmom CNN:
+the raw template. The sharpest comparison is our key CNN against the madmom CNN:
 $\Delta = -0.001$ \ci{-0.019}{+0.018}, with 486 of 567 tracks scored identically---a
 statistical dead heat with the strongest published system, from a model trained in two
 hours on public data. Under K10's pre-registered rule this is reported as a failure to
@@ -596,10 +611,11 @@ subset track list and per-track outputs for future same-subset comparisons.
 versus 0.721 in its paper~\citep{kong2025skey}; newer weights and subset differences
 likely both contribute, and we cannot attribute the gap precisely.
 
-\textbf{K10 CNN.} A single training run (no seed variance), selected by
+\textbf{Key CNN.} A single training run (no seed variance), selected by
 training-corpus CV and evaluated exactly once; parity with madmom is a
 failure-to-reject, not demonstrated equivalence, though the CI is tight
-(\ci{-0.019}{+0.018}) and 486 of 567 tracks score identically.
+(\ci{-0.019}{+0.018}) and 486 of 567 tracks score identically. The model is trained
+and evaluated exclusively on EDM; out-of-genre behavior is unmeasured.
 
 \textbf{Synthetic transcription data.} Slakh is sample-rendered; real-mix performance
 will differ. Vocals are unmeasured beyond a single smoke test. ADTOF drums are
@@ -640,7 +656,9 @@ validation.
 The repository (\url{https://github.com/jhurliman/jams}, MIT) contains the service, all
 acquisition and evaluation scripts, the experiments ledger every claim traces to, the
 statistics script that regenerates every CI in this paper, per-track result artifacts,
-and the figure-generation script for this paper. Datasets are fetched by committed
+and the figure-generation script for this paper. The key CNN is fully specified by its
+training script (\texttt{eval/train\_key\_cnn.py}) and shipped worker
+(\texttt{src/jams/data/key\_cnn\_worker.py}). Datasets are fetched by committed
 scripts (audio is not redistributed). Environment pins that materially affect
 reproduction are documented in the ledger.
 
