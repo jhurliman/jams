@@ -65,14 +65,32 @@ def cmd_acquire(args) -> None:
         gskey_ids.add(Path(r["audio_path"]).name.split()[0].split(".")[0])
 
     gt = mirdata.initialize("giantsteps_tempo", data_home=str(args.data_home / "gstempo"))
-    gt.download()
+    gt.download()  # index + annotations; audio is manual in mirdata -> fetch below
     excluded = 0
+    import subprocess
+
+    def fetch_audio(catalog: str, dest: Path) -> bool:
+        """Beatport preview, then JKU mirrors (same sources as acquire_gsmtg.py)."""
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        for url in (
+            f"http://geo-samples.beatport.com/lofi/{catalog}.LOFI.mp3",
+            f"http://www.cp.jku.at/datasets/giantsteps/backup/{catalog}.LOFI.mp3",
+            f"http://www.cp.jku.at/datasets/giantsteps/tempo_backup/{catalog}.LOFI.mp3",
+        ):
+            r = subprocess.run(["curl", "-sfL", "--max-time", "60", "-o", str(dest), url])
+            if r.returncode == 0 and dest.exists() and dest.stat().st_size > 10_000:
+                return True
+            dest.unlink(missing_ok=True)
+        return False
+
     for tid in gt.track_ids:
         t = gt.track(tid)
         catalog = Path(t.audio_path).name.split(".")[0]
         if catalog in gskey_ids:
             excluded += 1
             continue
+        if not Path(t.audio_path).exists():
+            fetch_audio(catalog, Path(t.audio_path))
         bpm = None
         for attr in ("tempo_v2", "tempo"):
             try:
