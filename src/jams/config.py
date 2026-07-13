@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     # Reject uploads larger than this (MB).
     max_upload_mb: int = 100
 
+    # Run independent analysis stages concurrently (key ∥ tempo→structure). The key
+    # CNN and structure model are subprocess workers and tempo inference releases the
+    # GIL, so this cuts full-analysis wall time to roughly the structure stage alone.
+    # Set JAMS_PARALLEL_STAGES=0 to force the sequential order.
+    parallel_stages: bool = True
+
     # --- Key detection ------------------------------------------------------
     # "cnn" (default): our own 24-class key CNN (K10; MIT, weights bundled, uv worker
     # src/jams/data/key_cnn_worker.py). GiantSteps Key honest protocol, one

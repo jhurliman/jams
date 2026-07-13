@@ -85,37 +85,103 @@ function toBeats(times: number[], downbeats: number[]): Beat[] {
   });
 }
 
-/** Run one uploaded file through jams and register it. Returns the new track id. */
-export async function importTrack(fileName: string, bytes: Uint8Array): Promise<string> {
-  const ext = extname(fileName).toLowerCase();
-  if (!IMPORT_EXTS.has(ext)) {
-    throw new ImportError(422, `Unsupported audio format '${ext || fileName}'`);
-  }
+/** One progress event from the analyze→import pipeline. Stages run CONCURRENTLY on
+ *  the jams side (key ∥ tempo→structure), so consumers get independent per-stage
+ *  running/done transitions rather than a strict sequence. */
+export interface ImportProgress {
+  running: string[];
+  done: string[];
+}
 
+interface JamsJobStatus {
+  status: 'running' | 'done' | 'error';
+  stages_running: string[];
+  stages_done: string[];
+  result?: JamsResponse;
+  error?: string;
+  error_stage?: string | null;
+}
+
+const JOB_POLL_MS = 500;
+
+const notReachable = () =>
+  new ImportError(
+    503,
+    `jams analysis server is not reachable at ${JAMS_API_URL} — ` +
+      `start the full stack with scripts/dev.sh (or just the API with \`uv run jams\`).`,
+  );
+
+/** Start an async jams analysis job and poll it to completion, forwarding stage
+ *  transitions to `onProgress`. */
+async function analyzeWithProgress(
+  fileName: string,
+  bytes: Uint8Array,
+  onProgress?: (p: ImportProgress) => void,
+): Promise<JamsResponse> {
   const form = new FormData();
   form.append('file', new Blob([bytes]), fileName);
   form.append('key', 'true');
   form.append('tempo', 'true');
   form.append('structure', 'true');
+  form.append('async', 'true');
 
   let res: Response;
   try {
     res = await fetch(`${JAMS_API_URL}/v1/analyze`, { method: 'POST', body: form });
   } catch {
-    throw new ImportError(
-      503,
-      `jams analysis server is not reachable at ${JAMS_API_URL} — ` +
-        `start the full stack with scripts/dev.sh (or just the API with \`uv run jams\`).`,
-    );
+    throw notReachable();
   }
-  if (!res.ok) {
+  if (res.status !== 202) {
     const detail = await res
       .json()
       .then((b) => (b as { detail?: string }).detail)
       .catch(() => null);
     throw new ImportError(res.status, `analysis failed (${res.status}): ${detail ?? res.statusText}`);
   }
-  const analysis = (await res.json()) as JamsResponse;
+  const { job_id } = (await res.json()) as { job_id: string };
+
+  let last = '';
+  for (;;) {
+    await new Promise((r) => setTimeout(r, JOB_POLL_MS));
+    let poll: Response;
+    try {
+      poll = await fetch(`${JAMS_API_URL}/v1/jobs/${job_id}`);
+    } catch {
+      throw notReachable();
+    }
+    if (!poll.ok) throw new ImportError(502, `analysis job lookup failed (${poll.status})`);
+    const job = (await poll.json()) as JamsJobStatus;
+    const sig = JSON.stringify([job.stages_running, job.stages_done]);
+    if (sig !== last) {
+      last = sig;
+      onProgress?.({ running: job.stages_running, done: job.stages_done });
+    }
+    if (job.status === 'error') {
+      const where = job.error_stage ? ` during ${job.error_stage}` : '';
+      throw new ImportError(502, `analysis failed${where}: ${job.error ?? 'unknown error'}`);
+    }
+    if (job.status === 'done') {
+      if (!job.result) throw new ImportError(502, 'analysis job finished without a result');
+      return job.result;
+    }
+  }
+}
+
+/** Run one uploaded file through jams and register it. Returns the new track id.
+ *  `onProgress` (optional) receives concurrent stage transitions plus the final
+ *  'importing' step; omitting it keeps the original blocking behavior. */
+export async function importTrack(
+  fileName: string,
+  bytes: Uint8Array,
+  onProgress?: (p: ImportProgress) => void,
+): Promise<string> {
+  const ext = extname(fileName).toLowerCase();
+  if (!IMPORT_EXTS.has(ext)) {
+    throw new ImportError(422, `Unsupported audio format '${ext || fileName}'`);
+  }
+
+  const analysis = await analyzeWithProgress(fileName, bytes, onProgress);
+  onProgress?.({ running: ['importing'], done: [] });
   const structure = analysis.structure;
   if (!structure || structure.beats.length === 0) {
     throw new ImportError(502, 'analysis returned no beat grid — is the structure backend configured?');

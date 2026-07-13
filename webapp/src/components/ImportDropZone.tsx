@@ -1,7 +1,31 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { api } from '../api.ts';
+import { STRUCTURE_ANALYSIS_REALTIME_FACTOR } from '../config.ts';
 import { useEditor } from '../store.ts';
+
+/** Stages shown in the checklist, in display order. Analysis stages run CONCURRENTLY
+ *  on the jams side (key ∥ tempo→structure) — each flips running/done independently. */
+const STAGES = ['upload', 'key', 'tempo', 'structure', 'importing'] as const;
+type Stage = (typeof STAGES)[number];
+type StageState = 'pending' | 'running' | 'done';
+
+/** Share of the overall bar each stage owns; structure dominates wall time. */
+const STAGE_WEIGHT: Record<Stage, number> = {
+  upload: 0.05,
+  key: 0.1,
+  tempo: 0.1,
+  structure: 0.7,
+  importing: 0.05,
+};
+
+const STAGE_LABEL: Record<Stage, string> = {
+  upload: 'Upload',
+  key: 'Key (CNN)',
+  tempo: 'Tempo',
+  structure: 'Beats & structure',
+  importing: 'Importing track',
+};
 
 type Phase =
   | { kind: 'idle' }
@@ -11,26 +35,128 @@ type Phase =
 
 const AUDIO_EXT = /\.(wav|mp3|flac|aiff|ogg|m4a|aac)$/i;
 
+/** Best-effort local audio duration (drives the structure-stage bar estimate). */
+function fileDuration(file: File): Promise<number | null> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const el = new Audio();
+    const done = (v: number | null) => {
+      URL.revokeObjectURL(url);
+      resolve(v);
+    };
+    el.onloadedmetadata = () => done(Number.isFinite(el.duration) ? el.duration : null);
+    el.onerror = () => done(null);
+    setTimeout(() => done(null), 3000);
+    el.src = url;
+  });
+}
+
+const initialStages = (): Record<Stage, StageState> => ({
+  upload: 'running',
+  key: 'pending',
+  tempo: 'pending',
+  structure: 'pending',
+  importing: 'pending',
+});
+
 /** Full-window drag-and-drop import: drop an audio file anywhere to run it through the
  *  jams analysis backend and open it as a new track. Renders nothing while idle. */
 export function ImportDropZone() {
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
+  const [stages, setStages] = useState<Record<Stage, StageState>>(initialStages);
+  const [elapsed, setElapsed] = useState(0);
   // dragenter/dragleave fire for every child element; track depth to know when the
   // pointer actually left the window.
   const depth = useRef(0);
+  const es = useRef<EventSource | null>(null);
+  const timing = useRef({ startedAt: 0, structureStartedAt: 0, durationSec: null as number | null });
+
+  useEffect(() => () => es.current?.close(), []);
+
+  // 4 Hz tick drives the elapsed readout + intra-structure bar animation.
+  useEffect(() => {
+    if (phase.kind !== 'analyzing') return;
+    const t = setInterval(() => setElapsed((Date.now() - timing.current.startedAt) / 1000), 250);
+    return () => clearInterval(t);
+  }, [phase.kind]);
+
+  const progress = useCallback((): number => {
+    let total = 0;
+    for (const s of STAGES) {
+      if (stages[s] === 'done') total += STAGE_WEIGHT[s];
+      else if (stages[s] === 'running' && s === 'structure') {
+        const { structureStartedAt, durationSec } = timing.current;
+        if (structureStartedAt && durationSec) {
+          const expected = durationSec * STRUCTURE_ANALYSIS_REALTIME_FACTOR;
+          const frac = Math.min((Date.now() - structureStartedAt) / 1000 / expected, 0.95);
+          total += STAGE_WEIGHT[s] * frac;
+        }
+      } else if (stages[s] === 'running') {
+        total += STAGE_WEIGHT[s] * 0.5;
+      }
+    }
+    return Math.min(total, 0.99);
+  }, [stages]);
 
   const doImport = useCallback(async (file: File) => {
     if (!AUDIO_EXT.test(file.name)) {
       setPhase({ kind: 'error', message: `'${file.name}' is not a supported audio file` });
       return;
     }
+    timing.current = { startedAt: Date.now(), structureStartedAt: 0, durationSec: null };
+    setStages(initialStages());
+    setElapsed(0);
     setPhase({ kind: 'analyzing', name: file.name });
+    void fileDuration(file).then((d) => {
+      timing.current.durationSec = d;
+    });
     try {
-      const { id } = await api.importTrack(file);
-      const ed = useEditor.getState();
-      ed.refreshTracks();
-      await ed.loadTrack(id);
-      setPhase({ kind: 'idle' });
+      const { importId } = await api.importStart(file);
+      setStages((s) => ({ ...s, upload: 'done' }));
+      const stream = new EventSource(api.importProgressUrl(importId));
+      es.current = stream;
+      stream.onmessage = (msg) => {
+        const ev = JSON.parse(msg.data as string) as
+          | { type: 'progress'; running: string[]; done: string[] }
+          | { type: 'done'; id: string }
+          | { type: 'error'; message: string };
+        if (ev.type === 'progress') {
+          setStages((s) => {
+            const next = { ...s, upload: 'done' as StageState };
+            for (const st of ev.running) {
+              if (st in next) next[st as Stage] = 'running';
+              if (st === 'structure' && !timing.current.structureStartedAt) {
+                timing.current.structureStartedAt = Date.now();
+              }
+              // once analysis stages hand off to importing, they're all complete
+              if (st === 'importing') {
+                next.key = 'done';
+                next.tempo = 'done';
+                next.structure = 'done';
+              }
+            }
+            for (const st of ev.done) if (st in next) next[st as Stage] = 'done';
+            return next;
+          });
+        } else if (ev.type === 'done') {
+          stream.close();
+          es.current = null;
+          const ed = useEditor.getState();
+          ed.refreshTracks();
+          void ed.loadTrack(ev.id).then(() => setPhase({ kind: 'idle' }));
+        } else {
+          stream.close();
+          es.current = null;
+          setPhase({ kind: 'error', message: ev.message });
+        }
+      };
+      stream.onerror = () => {
+        if (es.current === stream) {
+          stream.close();
+          es.current = null;
+          setPhase({ kind: 'error', message: 'lost connection to the import progress stream' });
+        }
+      };
     } catch (err) {
       setPhase({ kind: 'error', message: err instanceof Error ? err.message : String(err) });
     }
@@ -78,11 +204,23 @@ export function ImportDropZone() {
       {phase.kind === 'hover' && <div className="import-card">Drop to analyze &amp; import</div>}
       {phase.kind === 'analyzing' && (
         <div className="import-card">
-          <div className="spinner" />
           <div>
-            Analyzing <strong>{phase.name}</strong>…
+            Analyzing <strong>{phase.name}</strong>
           </div>
-          <div className="dim">key · tempo · beats · structure — this can take a minute</div>
+          <div className="import-bar">
+            <div className="import-bar-fill" style={{ width: `${progress() * 100}%` }} />
+          </div>
+          <ul className="import-stages">
+            {STAGES.map((s) => (
+              <li key={s} className={stages[s]}>
+                <span className="mark">
+                  {stages[s] === 'done' ? '✓' : stages[s] === 'running' ? <span className="spinner sm" /> : '·'}
+                </span>
+                {STAGE_LABEL[s]}
+              </li>
+            ))}
+          </ul>
+          <div className="dim">{Math.floor(elapsed)}s elapsed — key &amp; tempo run alongside structure</div>
         </div>
       )}
       {phase.kind === 'error' && (

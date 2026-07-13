@@ -2,9 +2,12 @@ import { createReadStream, existsSync, statSync } from 'node:fs';
 import { Readable } from 'node:stream';
 import type { ReadableStream as NodeWebReadableStream } from 'node:stream/web';
 
+import { randomUUID } from 'node:crypto';
+
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { streamSSE } from 'hono/streaming';
 
 import type { Annotation } from '../shared/types.ts';
 import {
@@ -15,7 +18,7 @@ import {
   saveAnnotation,
   trackMeta,
 } from './annotations.ts';
-import { ImportError, importTrack } from './imports.ts';
+import { ImportError, type ImportProgress, importTrack } from './imports.ts';
 import { audioPath } from './paths.ts';
 
 const app = new Hono();
@@ -38,6 +41,74 @@ app.post('/api/import', async (c) => {
     if (err instanceof ImportError) return c.json({ error: err.message }, err.status as 400);
     return c.json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
+});
+
+/** Progress-reporting variant of /api/import: POST the file to /start (returns an
+ *  import id immediately), then stream stage events from /progress/:id as SSE.
+ *  Events: {type:'progress', running, done} | {type:'done', id} | {type:'error', ...}. */
+interface PendingImport {
+  events: ImportProgress[];
+  done?: { id: string };
+  error?: { status: number; message: string };
+  finishedAt?: number;
+}
+const pendingImports = new Map<string, PendingImport>();
+const PENDING_TTL_MS = 10 * 60 * 1000;
+
+function purgePending(): void {
+  const now = Date.now();
+  for (const [id, p] of pendingImports) {
+    if (p.finishedAt && now - p.finishedAt > PENDING_TTL_MS) pendingImports.delete(id);
+  }
+}
+
+app.post('/api/import/start', async (c) => {
+  purgePending();
+  const body = await c.req.parseBody();
+  const file = body.file;
+  if (!(file instanceof File)) {
+    return c.json({ error: "multipart form must include a 'file' field" }, 400);
+  }
+  const importId = randomUUID();
+  const state: PendingImport = { events: [] };
+  pendingImports.set(importId, state);
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  void importTrack(file.name, bytes, (p) => state.events.push(p))
+    .then((id) => {
+      state.done = { id };
+      state.finishedAt = Date.now();
+    })
+    .catch((err: unknown) => {
+      state.error =
+        err instanceof ImportError
+          ? { status: err.status, message: err.message }
+          : { status: 500, message: err instanceof Error ? err.message : String(err) };
+      state.finishedAt = Date.now();
+    });
+  return c.json({ importId });
+});
+
+app.get('/api/import/progress/:importId', (c) => {
+  const state = pendingImports.get(c.req.param('importId'));
+  if (!state) return c.notFound();
+  return streamSSE(c, async (stream) => {
+    let sent = 0;
+    for (;;) {
+      while (sent < state.events.length) {
+        const ev = state.events[sent++]!;
+        await stream.writeSSE({ data: JSON.stringify({ type: 'progress', ...ev }) });
+      }
+      if (state.done) {
+        await stream.writeSSE({ data: JSON.stringify({ type: 'done', ...state.done }) });
+        return;
+      }
+      if (state.error) {
+        await stream.writeSSE({ data: JSON.stringify({ type: 'error', ...state.error }) });
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 200));
+    }
+  });
 });
 
 app.get('/api/tracks/:id', (c) => {
