@@ -175,14 +175,15 @@ class _Worker:
     if the subprocess has died. Mirrors ``structure._LocalWorker``.
     """
 
-    def __init__(self, script: Path, label: str) -> None:
+    def __init__(self, script: Path, label: str, uv_setting: str = "stems_uv") -> None:
         self._script = script
         self._label = label
+        self._uv_setting = uv_setting
         self._proc: subprocess.Popen | None = None
         self._lock = threading.Lock()
 
     def _spawn(self) -> None:
-        uv = get_settings().stems_uv
+        uv = getattr(get_settings(), self._uv_setting)
         cmd = [uv, "run", "--script", str(self._script), "--serve"]
         logger.info("Starting %s worker: %s", self._label, " ".join(cmd))
         self._proc = subprocess.Popen(  # noqa: S603 - args are not user-controlled
