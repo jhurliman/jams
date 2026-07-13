@@ -61,6 +61,12 @@ API (key, tempo, beats/downbeats, structure), and registered as a new track
 the editor with the waveform, beat grid, and section labels ready to inspect or correct.
 Full analysis runs on-device; expect roughly 30–90 s per track on Apple Silicon.
 
+If the analysis found too few (or too many) sections for your taste, use the **Sections**
+slider in the right-hand inspector: it re-thresholds the cached boundary activations from
+the analysis instantly (no re-run), and ⌘Z restores the previous segments. Available for
+imported tracks up to 10 minutes (longer tracks are analyzed in chunks, which don't keep
+activations).
+
 Analyze an upload:
 
 ```sh

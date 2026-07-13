@@ -1,4 +1,11 @@
-import type { Annotation, StemsResult, TrackListItem, TrackMeta } from '../shared/types.ts';
+import type {
+  Annotation,
+  ResegmentInfo,
+  Segment,
+  StemsResult,
+  TrackListItem,
+  TrackMeta,
+} from '../shared/types.ts';
 
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
@@ -26,6 +33,38 @@ export const api = {
   },
 
   midiUrl: (id: string, stem: string): string => `/api/tracks/${id}/midi/${stem}`,
+
+  /** Section-count slider metadata; null when the track has no cached activations. */
+  getResegmentInfo: async (id: string): Promise<ResegmentInfo | null> => {
+    const res = await fetch(`/api/tracks/${id}/resegment`);
+    if (res.status === 204) return null;
+    return json<ResegmentInfo>(res);
+  },
+
+  /** Rethreshold the track's cached activations to `count` sections (instant — no model). */
+  resegment: async (id: string, count: number): Promise<{ segments: Segment[]; threshold: number }> => {
+    const res = await fetch(`/api/tracks/${id}/resegment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ count }),
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as { error?: string } | null;
+      throw new Error(body?.error ?? `${res.status} ${res.statusText}`);
+    }
+    const raw = (await res.json()) as {
+      segments: { start: number; end: number; label: string }[];
+      threshold: number;
+    };
+    return {
+      segments: raw.segments.map((s) => ({
+        start: s.start,
+        end: s.end,
+        label: s.label as Segment['label'],
+      })),
+      threshold: raw.threshold,
+    };
+  },
 
   saveAnnotation: (id: string, ann: Annotation): Promise<{ ok: boolean }> =>
     fetch(`/api/tracks/${id}/annotation`, {

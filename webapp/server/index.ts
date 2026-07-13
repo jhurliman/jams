@@ -18,7 +18,13 @@ import {
   saveAnnotation,
   trackMeta,
 } from './annotations.ts';
-import { ImportError, type ImportProgress, importTrack } from './imports.ts';
+import {
+  ImportError,
+  type ImportProgress,
+  importTrack,
+  resegmentInfo,
+  resegmentTrack,
+} from './imports.ts';
 import { audioPath } from './paths.ts';
 
 const app = new Hono();
@@ -129,6 +135,28 @@ app.get('/api/tracks/:id/prediction', (c) => {
 app.get('/api/tracks/:id/stems', (c) => {
   const stems = loadStems(c.req.param('id'));
   return stems ? c.json(stems) : c.body(null, 204);
+});
+
+/** Section-count slider metadata (204 when the track has no cached activations). */
+app.get('/api/tracks/:id/resegment', (c) => {
+  const info = resegmentInfo(c.req.param('id'));
+  return info ? c.json(info) : c.body(null, 204);
+});
+
+/** Rethreshold the track's cached structure activations to `count` sections. Proxies to
+ *  jams' /v1/resegment (pure numpy — effectively instant); the client replaces its
+ *  in-memory segments with the result, so nothing is written server-side here. */
+app.post('/api/tracks/:id/resegment', async (c) => {
+  const { count } = (await c.req.json()) as { count?: number };
+  if (!Number.isInteger(count) || count! < 1) {
+    return c.json({ error: 'count must be a positive integer' }, 400);
+  }
+  try {
+    return c.json(await resegmentTrack(c.req.param('id'), count!));
+  } catch (err) {
+    if (err instanceof ImportError) return c.json({ error: err.message }, err.status as 400);
+    return c.json({ error: err instanceof Error ? err.message : String(err) }, 500);
+  }
 });
 
 /** Stream a per-stem (or 'combined') MIDI file resolved from the stems result's `midiPaths`. */

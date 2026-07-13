@@ -18,7 +18,7 @@ from jams.analysis.audio import SUPPORTED_FORMATS
 from jams.api.jobs import get_registry
 from jams.config import get_settings
 from jams.jams_export import to_jams
-from jams.models import AnalyzePathRequest, AnalyzeResponse
+from jams.models import AnalyzePathRequest, AnalyzeResponse, ResegmentRequest, ResegmentResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/v1", tags=["analyze"])
@@ -32,10 +32,12 @@ def _bpm_range(bpm_min: float | None, bpm_max: float | None) -> tuple[float, flo
     return None
 
 
-def _run(path: str, *, key, tempo, structure, stems, genre, bpm_range, filename, fmt: Format):
+def _run(path: str, *, key, tempo, structure, structure_activations, stems, genre, bpm_range,
+         filename, fmt: Format):
     try:
         result = analyze_track(
-            path, key=key, tempo=tempo, structure=structure, stems=stems,
+            path, key=key, tempo=tempo, structure=structure,
+            structure_activations=structure_activations, stems=stems,
             genre=genre, bpm_range=bpm_range,
         )
     except ValueError as exc:  # bad/missing file, unsupported format
@@ -50,7 +52,8 @@ def _run(path: str, *, key, tempo, structure, stems, genre, bpm_range, filename,
     return response
 
 
-def _spawn_job(path: str, *, key, tempo, structure, stems, genre, bpm_range, filename) -> str:
+def _spawn_job(path: str, *, key, tempo, structure, structure_activations, stems, genre,
+               bpm_range, filename) -> str:
     """Start a background analysis thread; the temp file is owned (and removed) by it."""
     registry = get_registry()
     job = registry.create()
@@ -58,7 +61,8 @@ def _spawn_job(path: str, *, key, tempo, structure, stems, genre, bpm_range, fil
     def work() -> None:
         try:
             result = analyze_track(
-                path, key=key, tempo=tempo, structure=structure, stems=stems,
+                path, key=key, tempo=tempo, structure=structure,
+                structure_activations=structure_activations, stems=stems,
                 genre=genre, bpm_range=bpm_range,
                 on_stage=lambda stage, event: (
                     registry.start_stage(job, stage) if event == "start"
@@ -84,6 +88,7 @@ async def analyze_upload(
     key: bool = Form(True),
     tempo: bool = Form(True),
     structure: bool = Form(False),
+    activations: bool = Form(False, description="Include the structure resegmentation blob"),
     stems: bool = Form(False),
     genre: str | None = Form(None),
     bpm_min: float | None = Form(None),
@@ -108,14 +113,16 @@ async def analyze_upload(
     if async_:
         # The job thread owns (and deletes) the temp file.
         job_id = _spawn_job(
-            tmp.name, key=key, tempo=tempo, structure=structure, stems=stems,
+            tmp.name, key=key, tempo=tempo, structure=structure,
+            structure_activations=activations, stems=stems,
             genre=genre, bpm_range=_bpm_range(bpm_min, bpm_max), filename=file.filename,
         )
         return JSONResponse(status_code=202, content={"job_id": job_id})
 
     try:
         return await run_in_threadpool(
-            _run, tmp.name, key=key, tempo=tempo, structure=structure, stems=stems,
+            _run, tmp.name, key=key, tempo=tempo, structure=structure,
+            structure_activations=activations, stems=stems,
             genre=genre, bpm_range=_bpm_range(bpm_min, bpm_max),
             filename=file.filename, fmt=format,
         )
@@ -137,10 +144,28 @@ async def analyze_path(
     format: Format = Query("native", description="'native' (default) or 'jams' (JAMS spec)"),
 ):
     return await run_in_threadpool(
-        _run, req.path, key=req.key, tempo=req.tempo, structure=req.structure, stems=req.stems,
+        _run, req.path, key=req.key, tempo=req.tempo, structure=req.structure,
+        structure_activations=req.activations, stems=req.stems,
         genre=req.genre, bpm_range=_bpm_range(req.bpm_min, req.bpm_max),
         filename=os.path.basename(req.path), fmt=format,
     )
+
+
+@router.post("/resegment", response_model=ResegmentResponse,
+             summary="Rethreshold cached structure activations")
+async def resegment(req: ResegmentRequest):
+    """Instant re-segmentation from an ``activations`` blob returned by ``/analyze`` —
+    the section-count slider's backend. Pure numpy: no model, no worker subprocess."""
+    from jams.analysis.structure import resegment_structure
+
+    try:
+        result = resegment_structure(
+            req.activations.model_dump(), threshold=req.threshold,
+            target_sections=req.target_sections, beats=req.beats,
+        )
+    except (ValueError, KeyError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return ResegmentResponse(**result)
 
 
 @router.get("/stems/file", summary="Fetch a generated stem wav or MIDI file")
