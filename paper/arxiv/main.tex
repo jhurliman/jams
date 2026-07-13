@@ -222,14 +222,16 @@ ties---so the shipped stack replaces third-party tempo weights with our own at n
 measured cost. Genre-aware octave resolution is shared by both systems and sits outside
 the model.
 
-\textbf{Licensing posture.} The learned components we ship carry no non-commercial
-terms: the key and tempo CNN weights are ours (MIT, 0.45\,MB and 12\,MB, trained from
-public data; the legacy fusion heads likewise ship as MIT JSON), S-KEY weights are MIT,
-YourMT3+ weights Apache-2.0, and SCNet checkpoints come from the MIT-licensed MSST zoo.
-One caveat we flag rather than bury: the ADTOF drum-transcription weights have no
-declared license (they run subprocess-isolated). The madmom key CNN (CC~BY-NC-SA
-weights) is used for \emph{evaluation only} and never shipped. The repository itself is
-MIT-licensed.
+\textbf{Licensing posture.} With one exception, the learned components we ship carry no
+non-commercial terms: the key and tempo CNN weights are ours (MIT, 0.45\,MB and 12\,MB,
+trained from public data; the legacy fusion heads likewise ship as MIT JSON), S-KEY
+weights are MIT, YourMT3+ weights Apache-2.0, and SCNet checkpoints come from the
+MIT-licensed MSST zoo. The exception, flagged rather than buried: the drum-transcription
+weights are a torch conversion of the ADTOF originals, which are CC~BY-NC-SA~4.0---the
+port itself declares no license. They run subprocess-isolated, and replacing them with
+permissively-licensed weights of our own is registered future work in the experiment
+ledger. The madmom key CNN (CC~BY-NC-SA weights) is used for \emph{evaluation only} and
+never shipped. The repository itself is MIT-licensed.
 
 \section{Evaluation protocol}
 \label{sec:protocol}

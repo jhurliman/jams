@@ -211,6 +211,55 @@ s3://jams-mir-eval-usw2/tp1/gate/ (per-track predictions both arms, gate JSON, o
 Decision per pre-registration: the CNN replaces TempoCNN weights + Essentia inference in
 production.
 
+### D1 (pre-registered 2026-07-13, before any training) — permissively-licensed drum transcription, aiming for superiority
+
+**Motivation:** the shipped drum transcriber (adtof-pytorch) bundles weights mechanically
+converted from ADTOF originals that are **CC BY-NC-SA 4.0** (verified against the upstream
+repo — our earlier "no declared license/GPL" understanding was wrong in both directions:
+the port is unlicensed, the originals are NC). Replace it with a model whose weights we
+own (MIT), and — unlike TP1 — aim for **superiority**: both committed eval protocols are
+ADTOF's documented weak domains (third-party measurement: ADTOF ≈0.45 onset-F on the
+E-GMD test set; electronic timbres are its weakest genre).
+
+**Ruled out by license audit (2026-07-13, web-verified 3/3 adversarial checks):** OaF
+E-GMD checkpoint port (checkpoint has NO license — Apache-by-association only; retrain
+instead); MDB-Drums / IDMT-SMT-Drums / ENST / RBMA13 / TMIDT / A2MD as training data
+(NC / no-license / signed-agreement — eval-only where licenses permit); YourMT3+ drums
+(GPL-3.0 repo vs apache-2.0 HF tag, contradictory); pseudo-labeling with ADTOF as
+teacher (NC contamination).
+
+**Training corpus (all CC BY 4.0, license-verified):** E-GMD train split (444.5 h,
+human-performed e-kit with velocity) + Slakh2100-redux **train-split** drum stems, both
+oracle AND separator-processed (mix → our shipped SCNet → separated drum stem, MIDI
+labels unchanged) — the mix-then-separate domain matching is a verified open gap in the
+literature and matches our deployment input exactly + StemGMD (1,224 h, stem-level
+remixing per Mezza et al.). Optional top-ups, each gated on its own license check before
+use: STAR Drums filtered to permissive per-track licenses; Melucci-style one-shot
+synthesis (sample-pack EULA check first). The n=151 Slakh test tracks and the n=500
+E-GMD test subset NEVER appear in training in any form.
+
+**Design:** 5-class (kick / snare / hi-hat / tom / cymbal) onset model with velocity
+head (E-GMD velocities; ADTOF emits flat 100 — a product win that is NOT part of the
+gate). CRNN family first (Zehren 2023: data, not architecture, drives ADT accuracy);
+architecture iteration at CV stage is allowed but every revision is ledgered here before
+new training (TP1 lesson). Selection ONLY on train-side validation splits (E-GMD val,
+Slakh val, held-out StemGMD kits). Output mapped to GM percussion by the existing
+`jams.analysis.gm` canonicalisation (unchanged, outside the model).
+
+**Gate (decision rule fixed now):** ONE paired test evaluation vs the shipped
+adtof-pytorch on both committed protocols. Primary: Slakh2100-redux oracle drum stems
+(n=151, per-class onset-F 50 ms, macro over classes; ADTOF baseline 0.638). Secondary:
+E-GMD test subset (n=500; baseline 0.6449). SHIP if primary paired Δmacro-F 95% CI
+lower bound > −0.02 AND secondary CI lower bound > −0.02; claim **superiority** only
+where CI lower bound > 0, per protocol, stated separately. Same shot also runs
+MDB-Drums + RBMA13 as external non-gating diagnostics (NC licenses permit evaluation).
+Otherwise: negative result, ADTOF stays (isolated, correctly relicensed in the paper),
+reported as-is.
+
+**Budget:** ≤\$50 Lambda (data prep is the long pole — E-GMD + Slakh + StemGMD are
+hundreds of GB; acquisition and feature extraction happen box-side like K10, not on the
+laptop).
+
 ## Transcription (Slakh2100-redux test, n=151, GT stems = oracle)
 
 | # | date | commit | system | bass note-F | other note-F | drums onset-F | artifacts |
