@@ -125,6 +125,10 @@ the decision rule. Substantively: a statistical dead heat with madmom.**
   Dubstep 0.900 · Electro House 0.894 · Techno 0.854 · Deep House 0.846 · Tech House
   0.812 · D&B 0.804 · House 0.800 · Prog House 0.772 · Trance 0.763 · Electronica/
   Downtempo 0.739. Techno — the fusion's weakest genre (0.746) — recovers to 0.854.
+- Runtime (system property, measured 2026-07-12 on the shipped worker,
+  `key_cnn_worker.py --audio`, Apple-Silicon CPU): 1.6 s wall for a 120 s wav,
+  including process start and model load; inference is one forward pass over the
+  full-track CQT.
 - Cost: ~\$3 Lambda A10 (~2 h wall, instance terminated). Artifacts:
   `eval/data/gsmtg/cnn_gskey.jsonl` (+ S3 `k10/`), fold + final checkpoints and OOF
   posteriors at `s3://jams-mir-eval-usw2/k10/`, selection/eval scripts at
