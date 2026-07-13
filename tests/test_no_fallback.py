@@ -14,13 +14,35 @@ from jams.analysis import key as K
 from jams.analysis import tempo as T
 
 
+def test_detect_key_propagates_cnn_worker_failure(monkeypatch, cmajor_wav):
+    # Default backend is the K10 CNN worker; its failures must surface, not degrade.
+    from jams.config import get_settings
+
+    get_settings.cache_clear()
+    monkeypatch.setenv("JAMS_KEY_BACKEND", "cnn")
+
+    def boom(path):
+        raise RuntimeError("key-cnn worker exploded")
+
+    monkeypatch.setattr(K, "_detect_cnn", boom)
+    with pytest.raises(RuntimeError, match="key-cnn worker exploded"):
+        K.detect_key(cmajor_wav)
+    get_settings.cache_clear()
+
+
 def test_detect_key_propagates_essentia_failure(monkeypatch, cmajor_wav):
+    from jams.config import get_settings
+
+    get_settings.cache_clear()
+    monkeypatch.setenv("JAMS_KEY_BACKEND", "fusion")
+
     def boom(path, refine_mode):
         raise RuntimeError("essentia exploded")
 
     monkeypatch.setattr(K, "_detect_essentia", boom)
     with pytest.raises(RuntimeError, match="essentia exploded"):
         K.detect_key(cmajor_wav)
+    get_settings.cache_clear()
 
 
 def test_detect_tempo_propagates_tempocnn_failure(monkeypatch, cmajor_wav):

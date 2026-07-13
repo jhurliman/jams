@@ -6,7 +6,7 @@ SOTA-on-GiantSteps methods benchmarked in the companion eval harness.
 
 | Analysis | Method | Accuracy (GiantSteps) |
 |----------|--------|-----------------------|
-| Key | Essentia `edma` + **S-KEY fusion** (learned mode + rerank heads) | MIREX **0.812** / exact **0.757** (honest protocol) |
+| Key | **24-class key CNN (ours, MIT — K10)**; `JAMS_KEY_BACKEND=fusion` for the edma + S-KEY fusion | MIREX **0.832** / exact **0.780** (honest protocol) |
 | Tempo | Pretrained **TempoCNN** + genre-aware octave resolution | Acc1 **0.965** (corrected labels) |
 | Structure | **All-In-One EDM ensemble on-device** (Apple-Silicon/MPS) | Raveform held-out CV reproduces SOTA (see `eval/`) |
 | Stems → MIDI | **SCNet XL IHF** 4-stem split + per-stem transcription (**YourMT3+**; ADTOF drums → General MIDI) | Slakh test **e2e** (mix→MIDI): other **0.79** / bass 0.66 note-F, 14.3 dB drums SI-SDR (see `eval/`) |

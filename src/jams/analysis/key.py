@@ -1,6 +1,15 @@
 """Musical-key detection.
 
-Default pipeline (**fusion**, honest-protocol): Essentia ``KeyExtractor`` (EDM-tuned
+Default pipeline (**cnn**): our own 24-class key CNN (K10; MIT, ~0.1 M params, weights
+bundled at ``data/models/key_cnn_v1.pt``, run in a uv worker —
+``data/key_cnn_worker.py``). Trained on the public Beatport corpus underlying
+GiantSteps-MTG-Keys with pitch-shift augmentation; GiantSteps Key honest protocol, one
+pre-registered evaluation: weighted MIREX **0.832** / exact **0.780** — statistically
+indistinguishable from the strongest published system (madmom's CNN, whose weights are
+CC BY-NC-SA) with no non-commercial restriction. Method string: ``key-cnn-v1``.
+Select with ``JAMS_KEY_BACKEND`` ("cnn" | "fusion").
+
+The previous **fusion** pipeline remains available: Essentia ``KeyExtractor`` (EDM-tuned
 ``edma`` profile) provides the tonic and a first mode estimate; Deezer's **S-KEY**
 (self-supervised, MIT, run in a uv worker — ``data/skey_worker.py``) provides an
 independent 24-class key posterior. Two small logistic heads fuse them:
@@ -48,6 +57,7 @@ FLAT_TO_SHARP = {
 _MODE_MODEL_PATH = Path(__file__).resolve().parent.parent / "data" / "mode_model.json"
 _KEY_FUSION_PATH = Path(__file__).resolve().parent.parent / "data" / "key_fusion.json"
 _SKEY_WORKER_PATH = Path(__file__).resolve().parent.parent / "data" / "skey_worker.py"
+_KEY_CNN_WORKER_PATH = Path(__file__).resolve().parent.parent / "data" / "key_cnn_worker.py"
 
 # S-KEY's 24-class posterior ordering (majors 0-11, minors 12-23) — must match the
 # key_map in deezer/skey and the ordering baked into key_fusion.json at export time.
@@ -136,6 +146,7 @@ def _key_fusion_model() -> dict:
 
 
 _skey_singleton = None
+_key_cnn_singleton = None
 _skey_singleton_lock = threading.Lock()
 
 
@@ -149,6 +160,32 @@ def _skey_worker():
 
                 _skey_singleton = _Worker(_SKEY_WORKER_PATH, "skey")
     return _skey_singleton
+
+
+def _key_cnn_worker():
+    """Resident key-CNN uv worker (same subprocess pattern as the stems workers)."""
+    global _key_cnn_singleton
+    if _key_cnn_singleton is None:
+        with _skey_singleton_lock:
+            if _key_cnn_singleton is None:
+                from jams.analysis.stems import _Worker
+
+                _key_cnn_singleton = _Worker(
+                    _KEY_CNN_WORKER_PATH, "key-cnn", uv_setting="key_cnn_uv"
+                )
+    return _key_cnn_singleton
+
+
+def _detect_cnn(path: str) -> dict:
+    """Run the K10 key CNN worker; failures raise (no fallback by design)."""
+    res = _key_cnn_worker().analyze({"audio": path})
+    return {
+        "key": res["key"],
+        "tonic": res["tonic"],
+        "mode": res["mode"],
+        "confidence": round(float(res["confidence"]), 3),
+        "method": res["method"],
+    }
 
 
 def _parse_skey_key(key: str) -> tuple[str, str]:
@@ -255,10 +292,13 @@ def _detect_essentia(path: str, refine_mode: bool) -> dict:
 def detect_key(path: str, *, refine_mode: bool = True) -> dict:
     """Detect the musical key. Returns key, tonic, mode, confidence, method.
 
-    ``refine_mode`` runs the learned refinement — by default the S-KEY fusion (adds a
-    librosa chroma pass + a worker round-trip, a few seconds); set False to skip both
-    for speed (plain edma). Failures raise — there is no silent fallback detector or
-    silent fusion downgrade (see module docstring).
+    Backend is selected by ``JAMS_KEY_BACKEND``: "cnn" (default) runs the bundled K10
+    CNN in its uv worker (``refine_mode`` has no effect — there is no refinement
+    stage); "fusion" runs the edma + S-KEY pipeline, where ``refine_mode=False`` skips
+    the learned refinement for speed (plain edma). Failures raise — there is no silent
+    fallback detector or silent backend downgrade (see module docstring).
     """
     validate_audio_path(path)
+    if get_settings().key_backend == "cnn":
+        return _detect_cnn(path)
     return _detect_essentia(path, refine_mode)
