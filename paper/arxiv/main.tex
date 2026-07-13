@@ -197,7 +197,7 @@ full context, CIs, and caveats. SI-SDR values are drums/other/bass.}
 capability & method & headline result \\
 \midrule
 key & 24-class key CNN (ours, MIT; \S\ref{sec:key}) & 0.832 MIREX / 0.780 exact \\
-tempo & TempoCNN~\citep{schreiber2018tempocnn} + octave resolution & 0.965 Acc1 (corrected labels) \\
+tempo & 256-class tempo CNN (ours, MIT) + octave resolution & 0.967 Acc1 (corrected labels) \\
 beats / structure & All-In-One EDM ensemble (on-device) & 0.978 beat-F / 0.755 HR@0.5 \\
 stems & SCNet~XL & SI-SDR 14.3 / 11.8 / 6.0 dB \\
 stems $\to$ MIDI & YourMT3+ (pitched), ADTOF (drums), GM assembly & 0.788 note-F mix$\to$MIDI (other) \\
@@ -210,13 +210,26 @@ Table~\ref{tab:system} summarizes the shipped configuration. A companion web app
 inspection and correction tool behind our structure error analyses and as a
 demonstration client.
 
+\textbf{Tempo system.} Tempo is a clean-room CNN in the Schreiber--M\"uller
+family~\citep{schreiber2018tempocnn} (2.9M parameters, MIT weights): 40-band mel input,
+short temporal filters, four multi-filter modules, and a 256-class softmax over
+30--285\,BPM with sliding-window averaging, trained on Raveform beat-derived BPM plus
+GiantSteps~Tempo~v2 minus the 42 tracks whose Beatport ids appear in GiantSteps~Key.
+Like the key CNN it was gated by a pre-registered one-shot evaluation before shipping:
+against the pretrained TempoCNN it is statistically indistinguishable---paired
+$\Delta$Acc1 (corrected labels) $-0.002$ \ci{-0.015}{+0.011}, $n{=}458$, 449 exact
+ties---so the shipped stack replaces third-party tempo weights with our own at no
+measured cost. Genre-aware octave resolution is shared by both systems and sits outside
+the model.
+
 \textbf{Licensing posture.} The learned components we ship carry no non-commercial
-terms: the key CNN weights are ours (MIT, 0.45\,MB, trained from public data; the
-legacy fusion heads likewise ship as MIT JSON), S-KEY weights are MIT, YourMT3+ weights
-Apache-2.0, and SCNet checkpoints come from the MIT-licensed MSST zoo. Two caveats we flag rather than bury: the core
-service links Essentia (AGPL), and the ADTOF drum-transcription weights have no
-declared license (they run subprocess-isolated). The madmom key CNN (CC~BY-NC-SA
-weights) is used for \emph{evaluation only} and never shipped. The repository itself is
+terms: the key and tempo CNN weights are ours (MIT, 0.45\,MB and 12\,MB, trained from
+public data; the legacy fusion heads likewise ship as MIT JSON), S-KEY weights are MIT,
+YourMT3+ weights Apache-2.0, and SCNet checkpoints come from the MIT-licensed MSST zoo.
+Two caveats we flag rather than bury: the core service still links Essentia (AGPL) for
+the legacy fusion key path, and the ADTOF drum-transcription weights have no declared
+license (they run subprocess-isolated). The madmom key CNN (CC~BY-NC-SA weights) is
+used for \emph{evaluation only} and never shipped. The repository itself is
 MIT-licensed.
 
 \section{Evaluation protocol}
@@ -594,10 +607,14 @@ quantization is a stylistic transform and defaults to off.
 
 \textbf{Tempo ground truth.} The GiantSteps~Key tempo labels are wrong for half-time
 genres (drum\,\&\,bass labeled ${\sim}87$ where the played tempo is ${\sim}174$). With
-raw labels our tempo stack scores 0.921 Acc1; with corrections curated from the
+raw labels our tempo stack scores 0.919 Acc1; with corrections curated from the
 GiantSteps~Tempo~v2 re-annotation~\citep{schreiber2018crowd} plus an explicit
-full-tempo convention, 0.965 ($n{=}458$). The correction file is committed and
-auditable. Label quality, not model quality, was the larger error source.
+full-tempo convention, 0.967 ($n{=}458$). The correction file is committed and
+auditable. Label quality, not model quality, was the larger error source. A related
+pitfall from our own history: an early cached baseline artifact predated the genre
+metadata that drives octave folding on 13 D\&B/dubstep tracks; every baseline number
+here comes from a regeneration with the committed code, archived per track in the
+ledger.
 
 \section{Limitations}
 \label{sec:limitations}
