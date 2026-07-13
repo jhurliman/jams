@@ -1,19 +1,24 @@
 """Tempo (BPM) detection with genre-aware octave resolution.
 
-Method: TempoCNN ``deepsquare`` (pretrained, bundled) via essentia-tensorflow — a **hard
-requirement** (wheels ship for macOS arm64 and Linux x86_64, CPython 3.14). There is
-deliberately no fallback tracker: earlier versions silently degraded to
-RhythmExtractor2013 or librosa (Acc1 0.965 -> 0.83) on any import/runtime error, which
-made accuracy depend on installation accidents. Now a broken essentia install raises a
-clear error instead of quietly returning worse numbers.
+Method: our own 256-class tempo CNN (TP1; MIT, ~2.9 M params, weights bundled at
+``data/models/tempo_cnn_v1.pt``, run in a uv worker — ``data/tempo_cnn_worker.py``).
+A clean-room implementation of the Schreiber & Müller (ISMIR 2018) single-step family,
+trained on Raveform + GiantSteps-Tempo v2 (minus the 42 tracks overlapping the
+GiantSteps Key eval set). GiantSteps Key tempo protocol (n=458, one pre-registered
+evaluation, corrected labels primary): Acc1 **0.967** — statistically non-inferior to
+the previous production system (paired ΔAcc1 −0.0022, 95% CI [−0.0153, +0.0109]; see
+``paper/EXPERIMENTS.md`` TP1). Method string: ``tempo-cnn-v1``.
+
+There is deliberately no fallback tracker: earlier versions silently degraded to
+RhythmExtractor2013 or librosa on any import/runtime error, which made accuracy depend
+on installation accidents. A broken worker raises a clear error instead of quietly
+returning worse numbers.
 
 Trackers nail the BPM *value* but can land an octave off (half/double-time), and that
 error concentrates in genres with a half-time feel. Given a ``genre`` or explicit
 ``bpm_range``, the result is folded into the expected octave. Critically, D&B/jungle
 are conventionally FULL tempo (~174) — folding them to half-time only matches mislabeled
 metadata (the bug we found while validating against GiantSteps-Tempo v2).
-
-Against corrected labels this reaches global Acc1 0.965 (D&B 0.79, Dubstep 0.87).
 """
 
 from __future__ import annotations
@@ -21,14 +26,13 @@ from __future__ import annotations
 import logging
 import math
 import threading
-from functools import lru_cache
 from pathlib import Path
 
-from jams.analysis.audio import load_mono, validate_audio_path
+from jams.analysis.audio import validate_audio_path
 
 logger = logging.getLogger(__name__)
 
-_MODEL_PATH = Path(__file__).resolve().parent.parent / "data" / "models" / "deepsquare-k16-3.pb"
+_TEMPO_CNN_WORKER_PATH = Path(__file__).resolve().parent.parent / "data" / "tempo_cnn_worker.py"
 
 # Canonical octave (lower bound of a [lo, 2*lo) window) per genre, matched
 # case-insensitively as a substring of the genre string.
@@ -42,31 +46,22 @@ _GENRE_TEMPO_RANGES: dict[str, float] = {
 # Generic DJ octave for fold_default=True when genre/range is unknown.
 _DEFAULT_TEMPO_OCTAVE = 84.0
 
-# Essentia algorithm state isn't thread-safe; serialize use of the cached instances.
-_essentia_lock = threading.Lock()
+_tempo_cnn_singleton = None
+_tempo_cnn_lock = threading.Lock()
 
 
-@lru_cache(maxsize=1)
-def _tempocnn():
-    try:
-        import essentia
-        essentia.log.infoActive = False
-        essentia.log.warningActive = False
-        import essentia.standard as es
-    except ImportError as exc:
-        raise RuntimeError(
-            "essentia-tensorflow is required for tempo detection (no fallback by design). "
-            "It ships wheels for macOS arm64 and Linux x86_64 on CPython 3.14 — check that "
-            "`uv sync` ran on Python 3.14 (.python-version)."
-        ) from exc
-    if not _MODEL_PATH.exists():
-        raise RuntimeError(f"Bundled TempoCNN graph missing at {_MODEL_PATH} — broken install?")
-    if not hasattr(es, "TempoCNN"):
-        raise RuntimeError(
-            "This essentia build lacks TempoCNN — install essentia-tensorflow (not plain "
-            "essentia), which bundles the TensorFlow ops."
-        )
-    return es.TempoCNN(graphFilename=str(_MODEL_PATH))
+def _tempo_cnn_worker():
+    """Resident tempo-CNN uv worker (same subprocess pattern as the stems workers)."""
+    global _tempo_cnn_singleton
+    if _tempo_cnn_singleton is None:
+        with _tempo_cnn_lock:
+            if _tempo_cnn_singleton is None:
+                from jams.analysis.stems import _Worker
+
+                _tempo_cnn_singleton = _Worker(
+                    _TEMPO_CNN_WORKER_PATH, "tempo-cnn", uv_setting="tempo_cnn_uv"
+                )
+    return _tempo_cnn_singleton
 
 
 def _genre_octave(genre: str | None) -> float | None:
@@ -114,12 +109,10 @@ def resolve_tempo_octave(
 
 
 def _raw_bpm(path: str) -> tuple[float, str]:
-    # TempoCNN only — a failure here is an environment or input defect and must surface,
-    # not silently downgrade accuracy (see module docstring).
-    with _essentia_lock:
-        model = _tempocnn()
-        audio = load_mono(path, 11025)
-        return float(model(audio)[0]), "tempocnn-deepsquare"
+    # Tempo CNN worker only — a failure here is an environment or input defect and must
+    # surface, not silently downgrade accuracy (see module docstring).
+    res = _tempo_cnn_worker().analyze({"audio": path})
+    return float(res["bpm"]), res["method"]
 
 
 def detect_tempo(

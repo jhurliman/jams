@@ -10,7 +10,7 @@ class KeyResult(BaseModel):
     tonic: str = Field(examples=["A#"])
     mode: str = Field(examples=["minor"])
     confidence: float = Field(ge=0.0, le=1.0)
-    method: str = Field(examples=["essentia-edma"])
+    method: str = Field(examples=["key-cnn-v1"])
 
 
 class TempoResult(BaseModel):
@@ -21,7 +21,7 @@ class TempoResult(BaseModel):
     bpm_raw: float = Field(examples=[87.0], description="Tracker output before octave resolution")
     bpm_alt: float = Field(examples=[87.0], description="The half/double-time alternative")
     octave_resolved: bool
-    method: str = Field(examples=["tempocnn-deepsquare"])
+    method: str = Field(examples=["tempo-cnn-v1"])
 
 
 class Segment(BaseModel):

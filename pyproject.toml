@@ -46,8 +46,8 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/jams"]
-# Ship the pretrained TempoCNN graph + the self-contained structure worker as package data.
-artifacts = ["src/jams/data/models/*.pb", "src/jams/data/models/*.pt", "src/jams/data/*.json", "src/jams/data/structure_worker.py", "src/jams/data/stems_worker.py", "src/jams/data/drum_worker.py", "src/jams/data/skey_worker.py", "src/jams/data/key_cnn_worker.py", "src/jams/data/scnet/*.py"]
+# Ship the bundled model weights + the self-contained uv workers as package data.
+artifacts = ["src/jams/data/models/*.pt", "src/jams/data/*.json", "src/jams/data/structure_worker.py", "src/jams/data/stems_worker.py", "src/jams/data/drum_worker.py", "src/jams/data/skey_worker.py", "src/jams/data/key_cnn_worker.py", "src/jams/data/tempo_cnn_worker.py", "src/jams/data/scnet/*.py"]
 
 [tool.ruff]
 line-length = 100
