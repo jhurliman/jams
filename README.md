@@ -46,6 +46,21 @@ with one command:
                               # API (:8787) + frontend (:5173), opens the browser
 ```
 
+### Analyze your own tracks in the browser
+
+The whole loop is one command + one webpage:
+
+```sh
+./scripts/dev.sh              # then: drag any audio file onto http://localhost:5173
+```
+
+Drop a `wav` / `mp3` / `flac` / `aiff` / `ogg` / `m4a` / `aac` anywhere in the annotator
+window. Under the hood the file is uploaded to the annotator server, run through the jams
+API (key, tempo, beats/downbeats, structure), and registered as a new track
+(`import.<name>`) with the audio and analysis stored alongside the dataset — it opens in
+the editor with the waveform, beat grid, and section labels ready to inspect or correct.
+Full analysis runs on-device; expect roughly 30–90 s per track on Apple Silicon.
+
 Analyze an upload:
 
 ```sh

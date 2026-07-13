@@ -297,3 +297,49 @@ select {
 .dim {
   color: var(--dim);
 }
+
+/* --- drag-and-drop import overlay --- */
+.import-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 14, 20, 0.72);
+  backdrop-filter: blur(2px);
+}
+.import-overlay.hover {
+  border: 3px dashed #3d5d8a;
+  pointer-events: none;
+}
+.import-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 28px 40px;
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-size: 15px;
+  max-width: 480px;
+  text-align: center;
+}
+.import-card.error {
+  border-color: #5a2530;
+  cursor: pointer;
+}
+.import-card .spinner {
+  width: 22px;
+  height: 22px;
+  border: 3px solid var(--border);
+  border-top-color: #bcd6ff;
+  border-radius: 50%;
+  animation: import-spin 0.9s linear infinite;
+}
+@keyframes import-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

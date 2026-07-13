@@ -17,11 +17,11 @@ export function TrackList() {
   const [query, setQuery] = useState('');
   const [genre, setGenre] = useState('all');
   const [sort, setSort] = useState<Sort>('track');
-  const { trackId, loadTrack, dirty } = useEditor();
+  const { trackId, loadTrack, dirty, tracksRev } = useEditor();
 
   useEffect(() => {
     api.listTracks().then(setTracks).catch(console.error);
-  }, []);
+  }, [tracksRev]);
 
   const genres = useMemo(
     () => ['all', ...[...new Set(tracks.map((t) => t.genre))].sort()],

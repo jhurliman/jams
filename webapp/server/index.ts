@@ -15,12 +15,30 @@ import {
   saveAnnotation,
   trackMeta,
 } from './annotations.ts';
+import { ImportError, importTrack } from './imports.ts';
 import { audioPath } from './paths.ts';
 
 const app = new Hono();
 app.use('/api/*', cors());
 
 app.get('/api/tracks', (c) => c.json(listTracks()));
+
+/** Drag-and-drop import: analyze an uploaded audio file via the jams API and register
+ *  it as a new track. Slow by design (full analysis) — the client shows progress. */
+app.post('/api/import', async (c) => {
+  const body = await c.req.parseBody();
+  const file = body.file;
+  if (!(file instanceof File)) {
+    return c.json({ error: "multipart form must include a 'file' field" }, 400);
+  }
+  try {
+    const id = await importTrack(file.name, new Uint8Array(await file.arrayBuffer()));
+    return c.json({ id });
+  } catch (err) {
+    if (err instanceof ImportError) return c.json({ error: err.message }, err.status as 400);
+    return c.json({ error: err instanceof Error ? err.message : String(err) }, 500);
+  }
+});
 
 app.get('/api/tracks/:id', (c) => {
   const meta = trackMeta(c.req.param('id'));
@@ -65,6 +83,16 @@ app.put('/api/tracks/:id/annotation', async (c) => {
   return c.json({ ok: true, edited: true });
 });
 
+const AUDIO_MIME: Record<string, string> = {
+  '.m4a': 'audio/mp4',
+  '.aac': 'audio/aac',
+  '.mp3': 'audio/mpeg',
+  '.wav': 'audio/wav',
+  '.flac': 'audio/flac',
+  '.ogg': 'audio/ogg',
+  '.aiff': 'audio/aiff',
+};
+
 /** Range-aware audio streaming so the browser can seek without downloading the whole file. */
 app.get('/audio/:id', (c) => {
   const path = audioPath(c.req.param('id'));
@@ -73,7 +101,7 @@ app.get('/audio/:id', (c) => {
   const range = c.req.header('range');
 
   const headers: Record<string, string> = {
-    'Content-Type': 'audio/mp4',
+    'Content-Type': AUDIO_MIME[path.slice(path.lastIndexOf('.'))] ?? 'audio/mp4',
     'Accept-Ranges': 'bytes',
   };
 

@@ -31,8 +31,34 @@ from jams.analysis.key import NOTES, _logistic, _parse_skey_key, _skey_feats
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
-# Banked artifacts live in the main checkout's eval/data (gitignored, shared across worktrees).
-DATA = Path("/Users/jhurliman/Documents/Code/jhurliman/jams/eval/data")
+
+
+def _resolve_data_dir() -> Path:
+    """Banked artifacts live in eval/data (gitignored). From a git worktree that dir only
+    exists in the main checkout, so resolve: env override -> local -> main checkout."""
+    import os
+    import subprocess
+
+    if env := os.environ.get("JAMS_EVAL_DATA"):
+        return Path(env)
+    local = REPO / "eval" / "data"
+    if (local / "manifest.jsonl").exists():
+        return local
+    try:
+        common = subprocess.run(
+            ["git", "rev-parse", "--git-common-dir"],
+            cwd=HERE, capture_output=True, text=True, check=True,
+        ).stdout.strip()
+        main_root = (HERE / common).resolve().parent
+        candidate = main_root / "eval" / "data"
+        if (candidate / "manifest.jsonl").exists():
+            return candidate
+    except (subprocess.CalledProcessError, OSError):
+        pass
+    return local
+
+
+DATA = _resolve_data_dir()
 PUBLISHED_SOTA_WEIGHTED = 0.7591  # KeyMyna (arXiv 2604.10021), best honest published number
 
 FLAT = {"Db": "C#", "Eb": "D#", "Gb": "F#", "Ab": "G#", "Bb": "A#", "Cb": "B", "Fb": "E"}
