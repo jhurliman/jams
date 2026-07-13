@@ -13,7 +13,7 @@ import pytest
 
 from jams.analysis import key as K
 from jams.analysis import stems as S
-from jams.config import Settings, get_settings
+from jams.config import Settings
 
 _RESULT = {
     "key": "D minor",
@@ -77,9 +77,6 @@ def test_worker_uses_key_cnn_uv_setting(monkeypatch):
 
 
 def test_detect_key_dispatches_to_cnn(monkeypatch, cmajor_wav):
-    get_settings.cache_clear()
-    monkeypatch.setenv("JAMS_KEY_BACKEND", "cnn")
-
     class FakeWorker:
         def analyze(self, req):
             assert req["audio"] == cmajor_wav
@@ -91,23 +88,9 @@ def test_detect_key_dispatches_to_cnn(monkeypatch, cmajor_wav):
         "key": "D minor", "tonic": "D", "mode": "minor",
         "confidence": 0.871, "method": "key-cnn-v1",
     }
-    get_settings.cache_clear()
-
-
-def test_detect_key_fusion_backend_still_routes_to_essentia(monkeypatch, cmajor_wav):
-    get_settings.cache_clear()
-    monkeypatch.setenv("JAMS_KEY_BACKEND", "fusion")
-    monkeypatch.setattr(
-        K, "_detect_essentia", lambda path, refine_mode: {"method": "essentia-edma"}
-    )
-    assert K.detect_key(cmajor_wav)["method"] == "essentia-edma"
-    get_settings.cache_clear()
 
 
 def test_cnn_worker_error_propagates(monkeypatch, cmajor_wav):
-    get_settings.cache_clear()
-    monkeypatch.setenv("JAMS_KEY_BACKEND", "cnn")
-
     class FakeWorker:
         def analyze(self, req):
             raise RuntimeError("key-cnn worker failed: weights missing")
@@ -115,7 +98,6 @@ def test_cnn_worker_error_propagates(monkeypatch, cmajor_wav):
     monkeypatch.setattr(K, "_key_cnn_worker", lambda: FakeWorker())
     with pytest.raises(RuntimeError, match="weights missing"):
         K.detect_key(cmajor_wav)
-    get_settings.cache_clear()
 
 
 def test_bundled_weights_present():

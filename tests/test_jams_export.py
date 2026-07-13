@@ -12,7 +12,7 @@ client = TestClient(app)
 NATIVE = {
     "duration_sec": 120.0,
     "key": {"key": "C major", "tonic": "C", "mode": "major",
-            "confidence": 0.8, "method": "essentia-edma"},
+            "confidence": 0.8, "method": "key-cnn-v1"},
     "tempo": {"bpm": 174.0, "bpm_raw": 87.0, "bpm_alt": 87.0,
               "octave_resolved": True, "method": "tempo-cnn-v1"},
     "structure": {"bpm": 174.0, "beats": [0.0, 0.34, 0.69, 1.03], "downbeats": [0.0],
@@ -40,7 +40,7 @@ def test_key_mode_value_and_provenance():
     assert obs["value"] == "C:major"
     assert obs["confidence"] == 0.8
     assert obs["time"] == 0.0 and obs["duration"] == 120.0
-    assert a["annotation_metadata"]["annotation_tools"] == "essentia-edma"
+    assert a["annotation_metadata"]["annotation_tools"] == "key-cnn-v1"
     assert a["annotation_metadata"]["data_source"] == "jams MIR service"
 
 

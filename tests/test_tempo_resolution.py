@@ -1,4 +1,4 @@
-"""Octave-resolution logic — pure, fast, no audio or Essentia needed."""
+"""Octave-resolution logic — pure, fast, no audio needed."""
 
 from __future__ import annotations
 
