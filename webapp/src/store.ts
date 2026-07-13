@@ -1,6 +1,13 @@
 import { create } from 'zustand';
 
-import type { Annotation, SectionLabel, Segment, StemsResult, TrackMeta } from '../shared/types.ts';
+import type {
+  Annotation,
+  ResegmentInfo,
+  SectionLabel,
+  Segment,
+  StemsResult,
+  TrackMeta,
+} from '../shared/types.ts';
 import { api } from './api.ts';
 
 interface ViewState {
@@ -17,6 +24,8 @@ interface EditorState {
   prediction: Annotation | null;
   /** Read-only per-stem MIDI transcriptions; null when none exist for the track. */
   stems: StemsResult | null;
+  /** Section-count slider metadata; null when the track has no cached activations. */
+  resegmentInfo: ResegmentInfo | null;
   showEval: boolean;
   loading: boolean;
   /** Bumped on every annotation change; lets the canvas invalidate its cached render. */
@@ -39,6 +48,8 @@ interface EditorState {
   zoomAround: (factor: number, anchorClientX: number) => void;
   selectSegment: (i: number | null) => void;
   selectBeat: (i: number | null) => void;
+  /** Replace all segments with a re-thresholded segmentation (slider); undoable. */
+  applyResegment: (segments: Segment[]) => void;
   updateSegment: (i: number, patch: Partial<Segment>) => void;
   relabelSegment: (i: number, label: SectionLabel) => void;
   splitSegmentAt: (time: number) => void;
@@ -75,6 +86,7 @@ export const useEditor = create<EditorState>((set, get) => {
     annotation: null,
     prediction: null,
     stems: null,
+    resegmentInfo: null,
     showEval: true,
     loading: false,
     rev: 0,
@@ -97,12 +109,14 @@ export const useEditor = create<EditorState>((set, get) => {
         selectedBeat: null,
         prediction: null,
         stems: null,
+        resegmentInfo: null,
       });
-      const [meta, annotation, prediction, stems] = await Promise.all([
+      const [meta, annotation, prediction, stems, resegmentInfo] = await Promise.all([
         api.getTrack(id),
         api.getAnnotation(id),
         api.getPrediction(id),
         api.getStems(id),
+        api.getResegmentInfo(id),
       ]);
       // Ignore a stale response: if another track was selected while these fetches were in
       // flight, don't clobber its state (which would also make save() write to the wrong track).
@@ -116,6 +130,7 @@ export const useEditor = create<EditorState>((set, get) => {
         annotation,
         prediction,
         stems,
+        resegmentInfo,
         loading: false,
         dirty: false,
         past: [],
@@ -157,6 +172,13 @@ export const useEditor = create<EditorState>((set, get) => {
 
     selectSegment: (i) => set({ selectedSegment: i, selectedBeat: null }),
     selectBeat: (i) => set({ selectedBeat: i, selectedSegment: null }),
+
+    applyResegment: (segments) => {
+      set({ selectedSegment: null, selectedBeat: null });
+      commit((ann) => {
+        ann.segments = structuredClone(segments);
+      });
+    },
 
     updateSegment: (i, patch) =>
       commit((ann) => {

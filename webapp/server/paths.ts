@@ -52,6 +52,7 @@ export const AUDIO_DIR = resolve(DATA_DIR, 'audio');
 export const ANNOTATIONS_DIR = resolve(DATA_DIR, 'annotations');
 export const PREDICTIONS_DIR = resolve(DATA_DIR, 'predictions');
 export const STEMS_DIR = resolve(DATA_DIR, 'stems');
+export const ACTIVATIONS_DIR = resolve(DATA_DIR, 'activations');
 
 /** Dataset audio is .m4a; imported tracks keep their uploaded extension. */
 export const AUDIO_EXTS = ['.m4a', '.mp3', '.wav', '.flac', '.ogg', '.aac', '.aiff'] as const;
@@ -67,7 +68,9 @@ export const beatCsvPath = (id: string): string => resolve(BEATS_DIR, `${id}.bea
 export const editedPath = (id: string): string => resolve(ANNOTATIONS_DIR, `${id}.json`);
 export const predictionPath = (id: string): string => resolve(PREDICTIONS_DIR, `${id}.json`);
 export const stemsPath = (id: string): string => resolve(STEMS_DIR, `${id}.json`);
+export const activationsPath = (id: string): string => resolve(ACTIVATIONS_DIR, `${id}.json`);
 
 export const hasAudio = (id: string): boolean => existsSync(audioPath(id));
 export const hasPrediction = (id: string): boolean => existsSync(predictionPath(id));
 export const hasStems = (id: string): boolean => existsSync(stemsPath(id));
+export const hasActivations = (id: string): boolean => existsSync(activationsPath(id));

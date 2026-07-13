@@ -10,7 +10,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { extname, resolve } from 'node:path';
 
 import type { Beat, Segment } from '../shared/types.ts';
-import { AUDIO_DIR, IMPORTS_JSON } from './paths.ts';
+import { ACTIVATIONS_DIR, activationsPath, AUDIO_DIR, IMPORTS_JSON } from './paths.ts';
 
 /** Where the jams analysis API lives; scripts/dev.sh starts it on :8000. */
 const JAMS_API_URL = process.env.JAMS_API_URL ?? 'http://localhost:8000';
@@ -30,11 +30,20 @@ export interface ImportedTrack {
   beats: Beat[];
 }
 
+/** Cached structure activations from jams — opaque to us except the fields the slider
+ *  metadata needs. POSTed back verbatim to /v1/resegment on every slider move. */
+export interface JamsActivations {
+  threshold: number;
+  candidates: [number, number][];
+  [key: string]: unknown;
+}
+
 interface JamsStructure {
   bpm: number | null;
   beats: number[];
   downbeats: number[];
   segments: { start: number; end: number; label: string }[];
+  activations?: JamsActivations | null;
 }
 interface JamsResponse {
   duration_sec: number | null;
@@ -123,6 +132,7 @@ async function analyzeWithProgress(
   form.append('key', 'true');
   form.append('tempo', 'true');
   form.append('structure', 'true');
+  form.append('activations', 'true'); // cached per-track for the section-count slider
   form.append('async', 'true');
 
   let res: Response;
@@ -218,5 +228,57 @@ export async function importTrack(
   };
   const all = [...loadImports(), entry];
   await writeFile(IMPORTS_JSON, JSON.stringify(all, null, 2));
+
+  // Structure activations live in their own per-track file (they're ~100 KB and only the
+  // resegment endpoints read them) rather than bloating imports.json. Tracks long enough
+  // to be analyzed in chunks come back without a blob — the slider just won't show.
+  if (structure.activations) {
+    await mkdir(ACTIVATIONS_DIR, { recursive: true });
+    await writeFile(activationsPath(id), JSON.stringify(structure.activations));
+  }
   return id;
+}
+
+/** Slider metadata from a track's cached activations: the section count the import-time
+ *  threshold produced and the count with every candidate boundary enabled. */
+export function resegmentInfo(id: string): { initialCount: number; maxCount: number } | null {
+  const path = activationsPath(id);
+  if (!existsSync(path)) return null;
+  const blob = JSON.parse(readFileSync(path, 'utf8')) as JamsActivations;
+  // Candidates at frame 0 coincide with the implicit track-start boundary and add no span.
+  const interior = blob.candidates.filter(([frame]) => frame > 0);
+  return {
+    initialCount: interior.filter(([, strength]) => strength > blob.threshold).length + 1,
+    maxCount: interior.length + 1,
+  };
+}
+
+export interface ResegmentResult {
+  segments: { start: number; end: number; label: string }[];
+  threshold: number;
+}
+
+/** Rethreshold a track's cached activations to `count` sections via the jams API. */
+export async function resegmentTrack(id: string, count: number): Promise<ResegmentResult> {
+  const path = activationsPath(id);
+  if (!existsSync(path)) throw new ImportError(404, 'no cached activations for this track');
+  const activations = JSON.parse(readFileSync(path, 'utf8')) as JamsActivations;
+  let res: Response;
+  try {
+    res = await fetch(`${JAMS_API_URL}/v1/resegment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ activations, target_sections: count }),
+    });
+  } catch {
+    throw notReachable();
+  }
+  if (!res.ok) {
+    const detail = await res
+      .json()
+      .then((b) => JSON.stringify((b as { detail?: unknown }).detail))
+      .catch(() => null);
+    throw new ImportError(res.status, `resegment failed (${res.status}): ${detail ?? res.statusText}`);
+  }
+  return (await res.json()) as ResegmentResult;
 }

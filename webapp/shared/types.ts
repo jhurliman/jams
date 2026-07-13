@@ -77,6 +77,14 @@ export interface StemsResult {
   durationSec: number | null;
 }
 
+/** Section-count slider metadata for a track with cached structure activations. */
+export interface ResegmentInfo {
+  /** Section count the import-time boundary threshold produced. */
+  initialCount: number;
+  /** Section count with every candidate boundary enabled (slider max). */
+  maxCount: number;
+}
+
 export interface TrackListItem {
   id: string;
   title: string;
