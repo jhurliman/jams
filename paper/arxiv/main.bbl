@@ -8,7 +8,7 @@
 \bibitem[Raffel et~al.(2014)Raffel, McFee, Humphrey, Salamon, Nieto, Liang, and
   Ellis]{raffel2014mireval}
 Colin Raffel, Brian McFee, Eric~J. Humphrey, Justin Salamon, Oriol Nieto, Dawen
-  Liang, and W.~Ellis, Daniel~P.\.
+  Liang, and Daniel P.~W. Ellis.
 \newblock mir\_eval: A transparent implementation of common {MIR} metrics.
 \newblock In \emph{Proceedings of the 15th International Society for Music
   Information Retrieval Conference (ISMIR)}, Taipei, Taiwan, 2014.
@@ -192,9 +192,9 @@ Taejun Kim and Juhan Nam.
 
 \bibitem[Nieto et~al.(2019)Nieto, McCallum, Davies, Robertson, Stark, and
   Egozy]{nieto2019harmonix}
-Oriol Nieto, Matthew McCallum, P.~Davies, Matthew~E.\, Andrew Robertson, Adam
+Oriol Nieto, Matthew McCallum, Matthew E.~P. Davies, Andrew Robertson, Adam
   Stark, and Eran Egozy.
-\newblock The harmonix set: Beats, downbeats, and functional segment
+\newblock The {Harmonix} {Set}: Beats, downbeats, and functional segment
   annotations of western popular music.
 \newblock In \emph{Proceedings of the 20th International Society for Music
   Information Retrieval Conference (ISMIR)}, Delft, The Netherlands, 2019.

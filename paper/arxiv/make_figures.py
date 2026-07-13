@@ -44,7 +44,7 @@ def fig_key_forest() -> None:
         ("edma (template)", 0.7589, 0.7277, 0.7885, GRAY),          # K1
         ("mode retrain", 0.8095, 0.7799, 0.8372, BLUE),              # K3
         ("S-KEY", 0.8168, 0.7887, 0.8434, BLUE),                     # K4
-        ("fusion (shipped)", 0.8123, 0.7831, 0.8402, BLUE),          # K6
+        ("fusion (prior)", 0.8123, 0.7831, 0.8402, BLUE),            # K6
         ("key CNN (ours)", 0.8321, 0.8039, 0.8586, GREEN),           # K10
         ("madmom CNN\n(CC BY-NC-SA)", 0.8328, 0.8063, 0.8580, ORANGE),  # K9
     ]
