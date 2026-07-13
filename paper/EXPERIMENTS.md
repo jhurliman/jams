@@ -260,6 +260,18 @@ reported as-is.
 hundreds of GB; acquisition and feature extraction happen box-side like K10, not on the
 laptop).
 
+**Phase-1 scoping (2026-07-13, ledgered before any training):** StemGMD deferred from
+the phase-1 corpus (pipeline-simplicity call by the build agent; disk was NOT the
+constraint — 1.4 TB free). It may enter at CV stage only as a further ledgered
+amendment if validation curves show data hunger. Slakh separator-processed variants
+capped at 700 of ~1,560 train+val mixes (validation mixes processed first so selection
+coverage is complete; cap overridable, actual pace logged box-side). Test-leakage
+guards asserted in code: the ENTIRE E-GMD test split is excluded (superset of the n=500
+protocol subset), and the Slakh redux test split is never downloaded to the box at all;
+exclusion counts land in acquire_stats.json. Trainer: PR #17 (eval/train_drum_cnn.py);
+5-class vocabulary pinned to the gm.py representatives 36/38/42/47/49 for like-for-like
+eval-side reduction against ADTOF.
+
 ## Transcription (Slakh2100-redux test, n=151, GT stems = oracle)
 
 | # | date | commit | system | bass note-F | other note-F | drums onset-F | artifacts |
