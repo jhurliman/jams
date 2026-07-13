@@ -210,17 +210,167 @@ def _fix_boundary_labels(segs: list[tuple], duration: float) -> list[tuple]:
     return [tuple(s) for s in out]
 
 
+def _candidate_segments(cand_frames, cand_strengths, threshold, frame_rate,
+                        label_probs, label_frame_rate, duration, labels):
+    """Threshold sparse boundary candidates and label the spans between them (pure numpy).
+
+    The one shared implementation behind both the model path (full-resolution activations,
+    inside ``_postprocess_functional``) and ``resegment_from_activations`` (the pooled blob
+    behind the annotator's section-count slider) — so a slider rethreshold reproduces the
+    model path exactly. Boundary/label logic mirrors upstream's
+    ``postprocess_functional_structure``: frame -> time is ``frame / fps`` (librosa's
+    ``frames_to_time``), a 0/duration edge is added when missing, per-span labels are the
+    argmax of the mean class probabilities with the positional prior applied.
+    """
+    import numpy as np
+
+    cand_frames = np.asarray(cand_frames, dtype=np.int64)
+    cand_strengths = np.asarray(cand_strengths, dtype=np.float64)
+    times = cand_frames[cand_strengths > threshold] / frame_rate
+
+    if times.size == 0:
+        edges = np.array([0.0, duration])
+    else:
+        edges = times
+        if edges[0] != 0:
+            edges = np.insert(edges, 0, 0.0)
+        if edges[-1] != duration:
+            edges = np.append(edges, duration)
+    spans = np.stack([edges[:-1], edges[1:]]).T
+
+    probs = np.asarray(label_probs, dtype=np.float64)
+    # A candidate at frame 0 shapes no span (mirrors upstream's ``indices[indices > 0]``).
+    split_at = [int(round(t * label_frame_rate)) for t in times if t > 0]
+    prob_per_span = np.split(probs, split_at, axis=1)
+
+    early = {labels.index(n) for n in ("intro", "altintro") if n in labels}
+    late = {labels.index(n) for n in ("outro", "altoutro") if n in labels}
+
+    out = []
+    for (s, e), span_probs in zip(spans, prob_per_span, strict=False):
+        # else-branch: span narrower than one label frame (a boundary at the very end)
+        mean = span_probs.mean(axis=1).copy() if span_probs.shape[1] else np.zeros(len(labels))
+        frac = s / duration if duration else 0.0
+        if frac > _INTRO_MAX_FRAC:
+            for i in early:
+                mean[i] = -1.0
+        if frac < _OUTRO_MIN_FRAC:
+            for i in late:
+                mean[i] = -1.0
+        out.append((float(s), float(e), labels[int(mean.argmax())]))
+    return out
+
+
+# Raw activations of the most recent inference, stashed by ``_postprocess_functional`` so
+# ``analyze`` can emit them as a compact JSON blob when the request asks for activations
+# (the annotator's section-count slider rethresholds that blob without re-running the
+# model). The worker serves one request at a time (see ``_serve``), so a global is safe.
+_LAST_ACTIVATIONS: dict | None = None
+
+# Label activations are mean-pooled to this rate for the blob: ~5 fps keeps a 5-minute
+# track around 130 KB of JSON (vs ~2.5 MB at the native 100 fps) and is far finer than any
+# real section. Boundary candidates stay at native resolution — peak picking spaces them
+# >= 12 s apart, so they are only a handful of (frame, strength) pairs.
+_ACTIVATIONS_LABEL_FPS = 5.0
+
+
+def _activations_blob(cap: dict) -> dict:
+    """Shrink a raw activation capture into the JSON blob served to API clients."""
+    import numpy as np
+
+    keep = cap["cand_strengths"] > 0
+    factor = max(1, int(round(cap["frame_rate"] / _ACTIVATIONS_LABEL_FPS)))
+    probs = cap["prob_functions"]
+    pad = (-probs.shape[1]) % factor
+    if pad:
+        probs = np.pad(probs, ((0, 0), (0, pad)), mode="edge")
+    pooled = probs.reshape(probs.shape[0], -1, factor).mean(axis=2)
+    return {
+        "version": 1,
+        "duration": round(float(cap["duration"]), 3),
+        "frame_rate": float(cap["frame_rate"]),
+        "candidates": [
+            [int(f), round(float(s), 5)]
+            for f, s in zip(cap["cand_frames"][keep], cap["cand_strengths"][keep], strict=True)
+        ],
+        "labels": list(cap["labels"]),
+        "label_frame_rate": cap["frame_rate"] / factor,
+        "label_probs": [[round(float(v), 4) for v in col] for col in pooled.T],
+        "threshold": round(float(cap["threshold"]), 4),
+    }
+
+
+def _threshold_for_sections(strengths: list[float], target_sections: int) -> float:
+    """Threshold that keeps exactly the ``target_sections - 1`` strongest boundaries
+    (midpoint between neighboring strengths, so it is robust to blob rounding)."""
+    n_bounds = max(0, int(target_sections) - 1)
+    ordered = sorted(strengths, reverse=True)
+    if n_bounds == 0:
+        return ordered[0] + 1.0 if ordered else 1.0
+    if n_bounds >= len(ordered):
+        return ordered[-1] / 2 if ordered else 0.0
+    return (ordered[n_bounds - 1] + ordered[n_bounds]) / 2
+
+
+def resegment_from_activations(
+    activations: dict,
+    *,
+    threshold: float | None = None,
+    target_sections: int | None = None,
+    beats: list[float] | None = None,
+) -> dict:
+    """Recompute structure segments from a cached activations blob — no model, no torch.
+
+    Powers the annotator's section-count slider: the same thresholding + labelling +
+    boundary-label correction as the import-time path (``_candidate_segments`` +
+    ``_fix_boundary_labels``), in pure numpy, so jams itself can serve it instantly.
+    Give ``threshold`` OR ``target_sections`` (which picks the threshold for you); with
+    neither, the analysis-time threshold stored in the blob is reused.
+    """
+    import numpy as np
+
+    if threshold is not None and target_sections is not None:
+        raise ValueError("pass either 'threshold' or 'target_sections', not both")
+    cands = activations.get("candidates") or []
+    frames = [int(c[0]) for c in cands]
+    strengths = [float(c[1]) for c in cands]
+    duration = float(activations["duration"])
+    labels = [str(x) for x in activations["labels"]]
+    probs = np.asarray(activations["label_probs"], dtype=np.float64).T  # -> classes x frames
+    if probs.ndim != 2 or probs.shape[1] == 0:
+        raise ValueError("activations blob has no label_probs")
+
+    if threshold is None:
+        if target_sections is not None:
+            interior = [s for f, s in zip(frames, strengths, strict=True) if f > 0]
+            threshold = _threshold_for_sections(interior, target_sections)
+        else:
+            threshold = float(activations["threshold"])
+
+    triples = _candidate_segments(
+        frames, strengths, threshold, float(activations["frame_rate"]),
+        probs, float(activations["label_frame_rate"]), duration, labels,
+    )
+    triples = _fix_boundary_labels(triples, duration)
+    beats = beats or []
+    segments = [
+        {
+            "start": st, "end": en, "label": lab,
+            "start_beat": _beat_index(st, beats) if beats else None,
+            "end_beat": _beat_index(en, beats) if beats else None,
+        }
+        for st, en, lab in triples
+    ]
+    return {"segments": segments, "threshold": float(threshold)}
+
+
 def _postprocess_functional(logits, cfg):
     """Drop-in for allin1's ``postprocess_functional_structure`` with a tunable boundary
     threshold (upstream hard-codes 0.0). Mirrors the original otherwise."""
     import numpy as np
     import torch
     from allin1.postprocessing import functional as _fnl
-    from allin1.postprocessing.helpers import (
-        event_frames_to_time,
-        local_maxima,
-        peak_picking,
-    )
+    from allin1.postprocessing.helpers import local_maxima, peak_picking
     from allin1.typings import Segment
 
     raw_prob_sections = torch.sigmoid(logits.logits_section[0])
@@ -231,44 +381,30 @@ def _postprocess_functional(logits, cfg):
 
     candidates = peak_picking(prob_sections, window_past=12 * cfg.fps, window_future=12 * cfg.fps)
     duration = len(prob_sections) * cfg.hop_size / cfg.sample_rate
+    frame_rate = cfg.sample_rate / cfg.hop_size
     if _BOUNDARY_ADAPTIVE:
         thr = _select_boundary_threshold(candidates, duration)
     elif _BOUNDARY_THRESHOLD is not None:
         thr = _BOUNDARY_THRESHOLD
     else:
         thr = float(getattr(cfg, "threshold_section", 0.1) or 0.1)
-    boundary = candidates > thr
 
-    times = event_frames_to_time(boundary, cfg)
-    if len(times) == 0:
-        times = np.array([0.0, duration], dtype=float)
-    else:
-        if times[0] != 0:
-            times = np.insert(times, 0, 0)
-        if times[-1] != duration:
-            times = np.append(times, duration)
-    pred_boundaries = np.stack([times[:-1], times[1:]]).T
-
-    indices = np.flatnonzero(boundary)
-    indices = indices[indices > 0]
-    prob_segment_function = np.split(prob_functions, indices, axis=1)
-
+    cand_frames = np.flatnonzero(candidates)
+    cand_strengths = candidates[cand_frames]
     labels = _fnl.HARMONIX_LABELS  # swapped to the EDM vocab by _set_label_vocab when needed
-    early = {labels.index(n) for n in ("intro", "altintro") if n in labels}
-    late = {labels.index(n) for n in ("outro", "altoutro") if n in labels}
 
-    segments = []
-    for (s, e), probs in zip(pred_boundaries, prob_segment_function, strict=False):
-        mean = probs.mean(axis=1).copy()
-        frac = s / duration if duration else 0.0
-        if frac > _INTRO_MAX_FRAC:
-            for i in early:
-                mean[i] = -1.0
-        if frac < _OUTRO_MIN_FRAC:
-            for i in late:
-                mean[i] = -1.0
-        segments.append(Segment(start=s, end=e, label=labels[int(mean.argmax())]))
-    return segments
+    triples = _candidate_segments(
+        cand_frames, cand_strengths, thr, frame_rate,
+        prob_functions, frame_rate, duration, labels,
+    )
+
+    global _LAST_ACTIVATIONS
+    _LAST_ACTIVATIONS = {
+        "cand_frames": cand_frames, "cand_strengths": cand_strengths,
+        "prob_functions": prob_functions, "frame_rate": frame_rate,
+        "duration": duration, "threshold": thr, "labels": list(labels),
+    }
+    return [Segment(start=s, end=e, label=lab) for s, e, lab in triples]
 
 
 def _remap_v2_to_v1(state_dict: dict) -> dict:
@@ -479,9 +615,13 @@ def _run_chunked(audio: str, model: str, duration: float):
     return beats, downbeats, merged, bpm
 
 
-def analyze(audio: str, target_bpm: float | None, model: str) -> dict:
+def analyze(
+    audio: str, target_bpm: float | None, model: str, include_activations: bool = False,
+) -> dict:
+    global _LAST_ACTIVATIONS
     _register_extra_models()
     _set_label_vocab(model)
+    _LAST_ACTIVATIONS = None
 
     try:
         duration = _audio_duration(audio)
@@ -491,9 +631,17 @@ def analyze(audio: str, target_bpm: float | None, model: str) -> dict:
     if duration > _LEN_CAP_SEC:
         beats, downbeats, raw_segs, bpm = _run_chunked(audio, model, duration)
         method = f"allin1-mps-local:{model}+chunked"
+        # Per-chunk activations don't stitch into one coherent blob; the section-count
+        # slider is unavailable for tracks long enough to need chunking.
+        activations = None
     else:
         beats, downbeats, raw_segs, bpm = _run_single(audio, model)
         method = f"allin1-mps-local:{model}"
+        activations = (
+            _activations_blob(_LAST_ACTIVATIONS)
+            if include_activations and _LAST_ACTIVATIONS is not None
+            else None
+        )
 
     # Keep the native beats (high quality); only octave-correct when target_bpm says the
     # native tempo is a clean half/double. Octave-correct tracks pass through untouched.
@@ -516,10 +664,13 @@ def analyze(audio: str, target_bpm: float | None, model: str) -> dict:
         }
         for st, en, lab in raw_segs
     ]
-    return {
+    result = {
         "bpm": bpm, "beats": beats, "downbeats": downbeats,
         "segments": segments, "method": method,
     }
+    if include_activations:
+        result["activations"] = activations
+    return result
 
 
 def _serve() -> None:
@@ -533,7 +684,10 @@ def _serve() -> None:
             continue
         try:
             req = json.loads(line)
-            res = analyze(req["audio"], req.get("target_bpm"), req.get("model", "all-all"))
+            res = analyze(
+                req["audio"], req.get("target_bpm"), req.get("model", "all-all"),
+                include_activations=bool(req.get("activations", False)),
+            )
             out = {"ok": True, "result": res}
         except Exception as exc:  # noqa: BLE001 - report any failure to the caller
             out = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
@@ -547,6 +701,8 @@ def main() -> None:
     ap.add_argument("--audio", help="audio file (single-shot mode)")
     ap.add_argument("--target-bpm", type=float, default=None)
     ap.add_argument("--model", default="all-all")
+    ap.add_argument("--activations", action="store_true",
+                    help="include the resegmentation activations blob in the output")
     args = ap.parse_args()
 
     if args.serve:
@@ -554,7 +710,8 @@ def main() -> None:
         return
     if not args.audio:
         ap.error("either --serve or --audio is required")
-    print(json.dumps(analyze(args.audio, args.target_bpm, args.model)))
+    print(json.dumps(analyze(args.audio, args.target_bpm, args.model,
+                             include_activations=args.activations)))
 
 
 if __name__ == "__main__":

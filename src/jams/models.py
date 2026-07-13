@@ -32,12 +32,38 @@ class Segment(BaseModel):
     end_beat: int | None = Field(default=None, description="1-indexed beat nearest end")
 
 
+class StructureActivations(BaseModel):
+    """Compact activation blob captured at analysis time (opt-in via ``activations=true``).
+
+    Feeds ``POST /v1/resegment`` so a UI can rethreshold the section boundaries instantly
+    without re-running the model — this backs the annotator's section-count slider.
+    """
+
+    version: int = 1
+    duration: float = Field(description="Track duration in seconds")
+    frame_rate: float = Field(description="Boundary-candidate frame rate (native, 100/s)")
+    candidates: list[tuple[int, float]] = Field(
+        default_factory=list, description="Sparse (frame, peak strength) boundary candidates"
+    )
+    labels: list[str] = Field(description="Class vocabulary in classifier index order")
+    label_frame_rate: float = Field(description="Frame rate of the pooled label_probs")
+    label_probs: list[list[float]] = Field(
+        description="Mean-pooled per-frame class probabilities, frames x classes"
+    )
+    threshold: float = Field(description="Boundary threshold chosen at analysis time")
+
+
 class StructureResult(BaseModel):
     bpm: float | None = None
     beats: list[float] = Field(default_factory=list)
     downbeats: list[float] = Field(default_factory=list)
     segments: list[Segment] = Field(default_factory=list)
     method: str = Field(default="allin1-mps-local", examples=["allin1-mps-local:harmonix-all"])
+    activations: StructureActivations | None = Field(
+        default=None,
+        description="Resegmentation blob; present only when requested (and the track was "
+        "short enough to analyze unchunked)",
+    )
 
 
 class StemNote(BaseModel):
@@ -79,6 +105,24 @@ class AnalyzeResponse(BaseModel):
     stems: StemsResult | None = None
 
 
+class ResegmentRequest(BaseModel):
+    """Rethreshold cached structure activations into a new segmentation (no re-analysis)."""
+
+    activations: StructureActivations
+    threshold: float | None = Field(default=None, description="Explicit boundary threshold")
+    target_sections: int | None = Field(
+        default=None, ge=1, description="Desired section count (picks the threshold for you)"
+    )
+    beats: list[float] | None = Field(
+        default=None, description="Beat grid used to fill start_beat/end_beat (optional)"
+    )
+
+
+class ResegmentResponse(BaseModel):
+    segments: list[Segment]
+    threshold: float = Field(description="The boundary threshold that was applied")
+
+
 class AnalyzePathRequest(BaseModel):
     """Analyze a file already on the server's filesystem (e.g. a local DJ library)."""
 
@@ -87,6 +131,9 @@ class AnalyzePathRequest(BaseModel):
     tempo: bool = True
     structure: bool = False
     stems: bool = False
+    activations: bool = Field(
+        default=False, description="Include the structure resegmentation blob in the result"
+    )
     genre: str | None = Field(
         default=None, examples=["Drum & Bass"], description="Genre hint for tempo octave resolution"
     )
