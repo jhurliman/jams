@@ -338,6 +338,53 @@ select {
   border-radius: 50%;
   animation: import-spin 0.9s linear infinite;
 }
+.import-card .spinner.sm {
+  width: 11px;
+  height: 11px;
+  border-width: 2px;
+  display: inline-block;
+}
+.import-bar {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+  overflow: hidden;
+}
+.import-bar-fill {
+  height: 100%;
+  background: #6ea8ff;
+  border-radius: 3px;
+  transition: width 0.25s linear;
+}
+.import-stages {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-self: flex-start;
+  text-align: left;
+  font-size: 13px;
+}
+.import-stages li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--dim, #8a93a5);
+}
+.import-stages li.running {
+  color: #dce6f5;
+}
+.import-stages li.done {
+  color: #7fd08a;
+}
+.import-stages .mark {
+  width: 16px;
+  display: inline-flex;
+  justify-content: center;
+}
 @keyframes import-spin {
   to {
     transform: rotate(360deg);

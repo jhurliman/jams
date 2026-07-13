@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 import tempfile
+import threading
 from typing import Literal
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
@@ -13,6 +15,7 @@ from fastapi.responses import JSONResponse
 
 from jams.analysis import analyze_track
 from jams.analysis.audio import SUPPORTED_FORMATS
+from jams.api.jobs import get_registry
 from jams.config import get_settings
 from jams.jams_export import to_jams
 from jams.models import AnalyzePathRequest, AnalyzeResponse
@@ -47,7 +50,35 @@ def _run(path: str, *, key, tempo, structure, stems, genre, bpm_range, filename,
     return response
 
 
-@router.post("/analyze", response_model=AnalyzeResponse, summary="Analyze an uploaded audio file")
+def _spawn_job(path: str, *, key, tempo, structure, stems, genre, bpm_range, filename) -> str:
+    """Start a background analysis thread; the temp file is owned (and removed) by it."""
+    registry = get_registry()
+    job = registry.create()
+
+    def work() -> None:
+        try:
+            result = analyze_track(
+                path, key=key, tempo=tempo, structure=structure, stems=stems,
+                genre=genre, bpm_range=bpm_range,
+                on_stage=lambda stage, event: (
+                    registry.start_stage(job, stage) if event == "start"
+                    else registry.end_stage(job, stage)
+                ),
+            )
+            result["filename"] = filename
+            registry.finish(job, result)
+        except Exception as exc:  # noqa: BLE001 — job carries the error to the client
+            logger.exception("async analysis job %s failed", job.id)
+            registry.fail(job, str(exc))
+        finally:
+            with contextlib.suppress(OSError):
+                os.unlink(path)
+
+    threading.Thread(target=work, name=f"analyze-job-{job.id[:8]}", daemon=True).start()
+    return job.id
+
+
+@router.post("/analyze", response_model=None, summary="Analyze an uploaded audio file")
 async def analyze_upload(
     file: UploadFile = File(..., description="Audio file (wav/mp3/flac/aiff/ogg/m4a/aac)"),
     key: bool = Form(True),
@@ -57,6 +88,7 @@ async def analyze_upload(
     genre: str | None = Form(None),
     bpm_min: float | None = Form(None),
     bpm_max: float | None = Form(None),
+    async_: bool = Form(False, alias="async", description="Return a job id immediately"),
     format: Format = Query("native", description="'native' (default) or 'jams' (JAMS spec)"),
 ):
     suffix = os.path.splitext(file.filename or "")[1].lower()
@@ -70,9 +102,18 @@ async def analyze_upload(
         raise HTTPException(status_code=413, detail=f"Upload exceeds {settings.max_upload_mb} MB")
 
     tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
+    tmp.write(data)
+    tmp.close()
+
+    if async_:
+        # The job thread owns (and deletes) the temp file.
+        job_id = _spawn_job(
+            tmp.name, key=key, tempo=tempo, structure=structure, stems=stems,
+            genre=genre, bpm_range=_bpm_range(bpm_min, bpm_max), filename=file.filename,
+        )
+        return JSONResponse(status_code=202, content={"job_id": job_id})
+
     try:
-        tmp.write(data)
-        tmp.close()
         return await run_in_threadpool(
             _run, tmp.name, key=key, tempo=tempo, structure=structure, stems=stems,
             genre=genre, bpm_range=_bpm_range(bpm_min, bpm_max),
@@ -80,6 +121,14 @@ async def analyze_upload(
         )
     finally:
         os.unlink(tmp.name)
+
+
+@router.get("/jobs/{job_id}", summary="Status of an async analysis job")
+async def job_status(job_id: str):
+    job = get_registry().get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Unknown or expired job id")
+    return job.to_public()
 
 
 @router.post("/analyze/path", response_model=AnalyzeResponse, summary="Analyze a file on the server filesystem")
