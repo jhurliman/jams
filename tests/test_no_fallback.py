@@ -45,23 +45,25 @@ def test_detect_key_propagates_essentia_failure(monkeypatch, cmajor_wav):
     get_settings.cache_clear()
 
 
-def test_detect_tempo_propagates_tempocnn_failure(monkeypatch, cmajor_wav):
+def test_detect_tempo_propagates_worker_failure(monkeypatch, cmajor_wav):
     def boom(path):
-        raise RuntimeError("tempocnn exploded")
+        raise RuntimeError("tempo-cnn worker exploded")
 
     monkeypatch.setattr(T, "_raw_bpm", boom)
-    with pytest.raises(RuntimeError, match="tempocnn exploded"):
+    with pytest.raises(RuntimeError, match="tempo-cnn worker exploded"):
         T.detect_tempo(cmajor_wav)
 
 
-def test_tempocnn_missing_graph_raises(monkeypatch, tmp_path):
-    T._tempocnn.cache_clear()
-    monkeypatch.setattr(T, "_MODEL_PATH", tmp_path / "nope.pb")
-    try:
-        with pytest.raises(RuntimeError, match="graph missing"):
-            T._tempocnn()
-    finally:
-        T._tempocnn.cache_clear()  # don't poison the cached instance for other tests
+def test_detect_tempo_propagates_worker_error_response(monkeypatch, cmajor_wav):
+    # A worker-level {"ok": false} becomes a RuntimeError from _Worker.analyze —
+    # detect_tempo must let it surface, not degrade to another tracker.
+    class FakeWorker:
+        def analyze(self, req):
+            raise RuntimeError("tempo-cnn failed: weights missing")
+
+    monkeypatch.setattr(T, "_tempo_cnn_worker", lambda: FakeWorker())
+    with pytest.raises(RuntimeError, match="weights missing"):
+        T.detect_tempo(cmajor_wav)
 
 
 def test_mode_model_missing_raises(monkeypatch, tmp_path):

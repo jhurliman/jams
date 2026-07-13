@@ -7,15 +7,15 @@ SOTA-on-GiantSteps methods benchmarked in the companion eval harness.
 | Analysis | Method | Accuracy (GiantSteps) |
 |----------|--------|-----------------------|
 | Key | **24-class key CNN (ours, MIT — K10)**; `JAMS_KEY_BACKEND=fusion` for the edma + S-KEY fusion | MIREX **0.832** / exact **0.780** (honest protocol) |
-| Tempo | Pretrained **TempoCNN** + genre-aware octave resolution | Acc1 **0.965** (corrected labels) |
+| Tempo | **256-class tempo CNN (ours, MIT — TP1)** + genre-aware octave resolution | Acc1 **0.967** (corrected labels, n=458) |
 | Structure | **All-In-One EDM ensemble on-device** (Apple-Silicon/MPS) | Raveform held-out CV reproduces SOTA (see `eval/`) |
 | Stems → MIDI | **SCNet XL IHF** 4-stem split + per-stem transcription (**YourMT3+**; ADTOF drums → General MIDI) | Slakh test **e2e** (mix→MIDI): other **0.79** / bass 0.66 note-F, 14.3 dB drums SI-SDR (see `eval/`) |
 
-`essentia-tensorflow` is a **hard requirement** (wheels for macOS arm64 and Linux x86_64 on
-CPython 3.14) — there are deliberately **no silent fallbacks**: a broken install raises a
-clear error instead of quietly degrading accuracy (the old librosa fallback cost ~19 pt
-MIREX on key and ~13 pt Acc1 on tempo). Key mode (major/minor) is refined by a small
-chroma classifier — see *Key mode* below.
+There are deliberately **no silent fallbacks**: a broken install raises a clear error
+instead of quietly degrading accuracy (the old librosa fallback cost ~19 pt MIREX on key
+and ~13 pt Acc1 on tempo). Key and tempo run our own bundled CNNs in self-contained uv
+workers; `essentia-tensorflow` (wheels for macOS arm64 and Linux x86_64 on CPython 3.14)
+is still required for the legacy `JAMS_KEY_BACKEND=fusion` key pipeline.
 
 ## Requirements
 
@@ -25,7 +25,7 @@ chroma classifier — see *Key mode* below.
   check `python --version` / `.python-version`.
 - `uv` (https://docs.astral.sh/uv). First `uv sync` pulls `essentia-tensorflow` (~95 MB,
   native) and TensorFlow — give it a minute.
-- The TempoCNN model is bundled (`src/jams/data/models/deepsquare-k16-3.pb`); no download.
+- The key and tempo CNN weights are bundled (`src/jams/data/models/*.pt`); no download.
 - `ffmpeg` on PATH is needed to run key **mode refinement on mp3 inputs** (its chroma pass
   uses librosa/audioread decoding to byte-match the training features; Essentia decodes mp3
   natively everywhere else).
@@ -93,8 +93,8 @@ Example response:
 {
   "filename": "track.wav",
   "duration_sec": 124.0,
-  "key": {"key": "F minor", "tonic": "F", "mode": "minor", "confidence": 0.81, "method": "essentia-edma"},
-  "tempo": {"bpm": 174.0, "bpm_raw": 87.0, "bpm_alt": 87.0, "octave_resolved": true, "method": "tempocnn-deepsquare"}
+  "key": {"key": "F minor", "tonic": "F", "mode": "minor", "confidence": 0.81, "method": "key-cnn-v1"},
+  "tempo": {"bpm": 174.0, "bpm_raw": 87.0, "bpm_alt": 87.0, "octave_resolved": true, "method": "tempo-cnn-v1"}
 }
 ```
 
@@ -289,6 +289,7 @@ src/jams/
   api/        app.py · routes.py                            (FastAPI)
   models.py   pydantic schemas
   config.py   settings
-  data/models/deepsquare-k16-3.pb                            (bundled TempoCNN)
+  data/models/key_cnn_v1.pt · tempo_cnn_v1.pt                (bundled CNN weights, MIT)
+  data/key_cnn_worker.py · tempo_cnn_worker.py               (self-contained uv workers)
   data/structure_worker.py                                   (self-contained uv worker: All-In-One)
 ```

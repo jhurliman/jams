@@ -1,9 +1,10 @@
 """jams — on-demand music-information-retrieval for DJ / electronic music.
 
-Per-track analysis (essentia-tensorflow is a hard requirement — no silent fallbacks):
-  - key    : Essentia ``KeyExtractor`` with the EDM-tuned ``edma`` profile + learned
-             major/minor refinement
-  - tempo  : pretrained TempoCNN + genre-aware octave resolution
+Per-track analysis (no silent fallbacks — failures raise):
+  - key    : our 24-class key CNN (MIT, bundled weights, uv worker); the legacy
+             edma + S-KEY fusion stays available via ``JAMS_KEY_BACKEND=fusion``
+  - tempo  : our 256-class tempo CNN (MIT, bundled weights, uv worker)
+             + genre-aware octave resolution
   - structure (optional) : All-In-One on-device (beats / downbeats / segments)
   - stems (optional)     : Demucs 4-stem split + per-stem MIDI transcription
 """

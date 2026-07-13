@@ -20,8 +20,8 @@ class Settings(BaseSettings):
     max_upload_mb: int = 100
 
     # Run independent analysis stages concurrently (key ∥ tempo→structure). The key
-    # CNN and structure model are subprocess workers and tempo inference releases the
-    # GIL, so this cuts full-analysis wall time to roughly the structure stage alone.
+    # CNN, tempo CNN, and structure model are all subprocess workers, so this cuts
+    # full-analysis wall time to roughly the structure stage alone.
     # Set JAMS_PARALLEL_STAGES=0 to force the sequential order.
     parallel_stages: bool = True
 
@@ -39,6 +39,14 @@ class Settings(BaseSettings):
     # trained on GiantSteps Key itself (contaminated — don't quote its numbers
     # against the literature).
     key_fusion: bool = True
+
+    # --- Tempo detection ----------------------------------------------------
+    # Our own 256-class tempo CNN (TP1; MIT, weights bundled, uv worker
+    # src/jams/data/tempo_cnn_worker.py). GiantSteps Key tempo protocol, one
+    # pre-registered evaluation: Acc1 0.967 (corrected labels, n=458) — statistically
+    # non-inferior to the previous production system. Command used to launch the
+    # worker (absolute path if uv isn't on PATH).
+    tempo_cnn_uv: str = "uv"
 
     # --- Song structure (All-In-One) ---------------------------------------
     # "local": run All-In-One on-device. The worker is a self-contained uv script
