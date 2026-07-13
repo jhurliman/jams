@@ -14,13 +14,24 @@ before any training) to replace the production TempoCNN weights + Essentia
 inference.
 
 Design (fixed by the pre-registration): clean-room Schreiber & Müller (ISMIR
-2018) family — log-mel input (sr 11,025, 40 mels, hop 512), frequency-reducing
-conv stack, multi-scale temporal convs, 256-class softmax (30–285 BPM, 1-BPM
-bins), sliding-window softmax averaging at inference. Augmentation: time-axis
-rescale (log-uniform x0.7–1.4) with label rescaling. Training corpus: Raveform
-bpm_ref (expert-beat-derived) + GiantSteps-Tempo v2 MINUS the 42 tracks whose
-Beatport catalog ids appear in GiantSteps Key (eval set). 5-fold CV only; the
-n=458 GS-Key tempo gate is evaluated exactly once, elsewhere.
+2018) family — mel input (sr 11,025, 40 mels, hop 512), 256-class softmax
+(30–285 BPM, 1-BPM bins), sliding-window softmax averaging at inference.
+Training corpus: Raveform bpm_ref (expert-beat-derived) + GiantSteps-Tempo v2
+MINUS the 42 tracks whose Beatport catalog ids appear in GiantSteps Key (eval
+set). 5-fold CV only; the n=458 GS-Key tempo gate is evaluated exactly once,
+elsewhere.
+
+Architecture v2 (CV-stage amendment, see EXPERIMENTS.md TP1 addendum): v1's
+TimeAvg readout collapsed all temporal structure into 36 channel means before
+the classifier and stalled at CV Acc1 0.445 (loss barely under the ln 256
+floor). v2 follows the published architecture (paper only — no AGPL code
+consulted): 3 short-filter convs (16 x 1x5 along time), 4 multi-filter modules
+(freq avg-pool 5/2/2/2 x1, six parallel 1x{32..256} convs of 24 filters, 1x1
+bottleneck to 36), then flatten the intact time axis into FC 64 -> FC 64 ->
+FC 256. Windows are rescaled to [0,1] on the magnitude mel (reconstructed from
+the stored log1p-power features). Augmentation: discrete time-axis scale
+factors {0.8, 0.84, ..., 1.2} with the label adjusted (bpm/f), skipped at
+validation. Adam at constant lr, early stop on val Acc1 (patience 20).
 
 Stages:
   acquire   gs_tempo via mirdata (with overlap exclusion) + raveform manifest
@@ -163,37 +174,67 @@ def build_model():
     import torch
     import torch.nn as nn
 
-    class TimeAvg(nn.Module):
-        def forward(self, x):
-            return x.mean(dim=(2, 3))
+    class MFMod(nn.Module):
+        """Multi-filter module: freq avg-pool, BN, six parallel temporal convs
+        (24 filters each, ELU), concat, 1x1 bottleneck to 36 (ELU)."""
 
-    def fblock(cin, cout):
-        return [nn.Conv2d(cin, cout, 3, padding=1), nn.BatchNorm2d(cout), nn.ELU(),
-                nn.Conv2d(cout, cout, 3, padding=1), nn.BatchNorm2d(cout), nn.ELU(),
-                nn.MaxPool2d((2, 1))]
+        KERNELS = (32, 64, 96, 128, 192, 256)
 
-    class MultiScaleTemporal(nn.Module):
-        def __init__(self, cin, per_branch, kernels=(32, 64, 96)):
+        def __init__(self, cin, pool):
             super().__init__()
+            self.pool = nn.AvgPool2d((pool, 1))
+            self.bn = nn.BatchNorm2d(cin)
             self.branches = nn.ModuleList(
-                nn.Conv2d(cin, per_branch, (1, k), padding=(0, k // 2)) for k in kernels)
-            self.bn = nn.BatchNorm2d(per_branch * len(kernels))
+                nn.Conv2d(cin, 24, (1, k), padding=(0, k // 2)) for k in self.KERNELS)
+            self.bottleneck = nn.Conv2d(24 * len(self.KERNELS), 36, 1)
             self.act = nn.ELU()
 
         def forward(self, x):
-            outs = [b(x) for b in self.branches]
-            t = min(o.shape[-1] for o in outs)
-            x = torch.cat([o[..., :t] for o in outs], dim=1)
-            return self.act(self.bn(x))
+            x = self.bn(self.pool(x))
+            t = x.shape[-1]  # even kernels pad to T+1: trim back to input length
+            outs = [self.act(b(x))[..., :t] for b in self.branches]
+            return self.act(self.bottleneck(torch.cat(outs, dim=1)))
 
+    def short_filter(cin):
+        return [nn.BatchNorm2d(cin), nn.Conv2d(cin, 16, (1, 5), padding=(0, 2)),
+                nn.ELU()]
+
+    # Freq axis: 40 -> 8 -> 4 -> 2 -> 1; time axis stays WIN_FRAMES and is
+    # flattened intact into the dense back-end (36 * 256 = 9216).
     return nn.Sequential(
-        *fblock(1, 16), *fblock(16, 32), *fblock(32, 32),   # 40 -> 5 mel bands
-        MultiScaleTemporal(32, 12),
-        MultiScaleTemporal(36, 12),
-        nn.Dropout2d(0.2),
-        TimeAvg(),
-        nn.Linear(36, 256),
+        *short_filter(1), *short_filter(16), *short_filter(16),
+        MFMod(16, 5), MFMod(36, 2), MFMod(36, 2), MFMod(36, 2),
+        nn.Flatten(),
+        nn.BatchNorm1d(36 * WIN_FRAMES),
+        nn.Dropout(0.5),
+        nn.Linear(36 * WIN_FRAMES, 64), nn.ELU(),
+        nn.BatchNorm1d(64),
+        nn.Linear(64, 64), nn.ELU(),
+        nn.BatchNorm1d(64),
+        nn.Linear(64, 256),
     )
+
+
+AUG_FACTORS = [round(0.8 + 0.04 * i, 2) for i in range(11)]  # 0.8 .. 1.2
+
+
+def window_norm(w: np.ndarray) -> np.ndarray:
+    """Reconstruct magnitude mel from stored log1p(power) and rescale the
+    window to [0,1] (eps-guarded for silent windows)."""
+    w = np.sqrt(np.expm1(w))
+    lo, hi = float(w.min()), float(w.max())
+    return (w - lo) / (hi - lo + 1e-8)
+
+
+def time_scale(X: np.ndarray, f: float) -> np.ndarray:
+    """Rescale the time axis by factor f (linear interpolation)."""
+    T = X.shape[1]
+    newT = max(WIN_FRAMES, int(round(T * f)))
+    pos = np.linspace(0, T - 1, newT)
+    lo = np.floor(pos).astype(int)
+    hi = np.minimum(lo + 1, T - 1)
+    frac = (pos - lo).astype(np.float32)
+    return X[:, lo] * (1 - frac) + X[:, hi] * frac
 
 
 class TempoDataset:
@@ -210,27 +251,26 @@ class TempoDataset:
 
         tid, bpm = self.items[i]
         X = np.load(self.fdir / f"{tid}.npy").astype(np.float32)
-        T = X.shape[1]
         if self.train:
             for _ in range(8):  # rejection-sample a factor that keeps bpm in range
-                f = float(np.exp(random.uniform(np.log(0.7), np.log(1.4))))
-                if bpm_to_cls(bpm * f) is not None:
+                f = random.choice(AUG_FACTORS)
+                if bpm_to_cls(bpm / f) is not None:
                     break
             else:
                 f = 1.0
-            newT = max(WIN_FRAMES, int(round(T / f)))
-            idx = np.linspace(0, T - 1, newT)
-            X = X[:, idx.astype(int)]
-            bpm = bpm * f
-            T = newT
+            if f != 1.0:
+                X = time_scale(X, f)  # time axis stretched by f -> tempo bpm/f
+                bpm = bpm / f
+            T = X.shape[1]
             s = random.randint(0, T - WIN_FRAMES) if T > WIN_FRAMES else 0
             X = X[:, s:s + WIN_FRAMES]
         else:
+            T = X.shape[1]
             s = max(0, (T - WIN_FRAMES) // 2)
             X = X[:, s:s + WIN_FRAMES]
         if X.shape[1] < WIN_FRAMES:
             X = np.pad(X, ((0, 0), (0, WIN_FRAMES - X.shape[1])))
-        return torch.from_numpy(X)[None], bpm_to_cls(bpm)
+        return torch.from_numpy(window_norm(X))[None], bpm_to_cls(bpm)
 
 
 def acc1(pred_bpm: float, ref_bpm: float) -> float:
@@ -247,7 +287,7 @@ def predict_track(model, X, dev):
         w = X[:, s:s + WIN_FRAMES]
         if w.shape[1] < WIN_FRAMES:
             w = np.pad(w, ((0, 0), (0, WIN_FRAMES - w.shape[1])))
-        wins.append(w)
+        wins.append(window_norm(w))
     batch = torch.from_numpy(np.stack(wins)[:, None]).to(dev)
     with torch.no_grad():
         probs = torch.softmax(model(batch), -1).mean(0)
@@ -293,8 +333,7 @@ def cmd_train(args) -> None:
         dl = DataLoader(TempoDataset(tr, fdir, True), batch_size=args.batch,
                         shuffle=True, num_workers=args.workers, drop_last=True)
         model = build_model().to(dev)
-        opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-4)
-        sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, args.epochs)
+        opt = torch.optim.Adam(model.parameters(), lr=args.lr)
         best = (0.0, 0)
         hist = []
         for ep in range(1, args.epochs + 1):
@@ -308,7 +347,6 @@ def cmd_train(args) -> None:
                 opt.step()
                 tot += float(loss) * len(y)
                 n += len(y)
-            sched.step()
             a = evaluate(model, va)
             hist.append({"epoch": ep, "train_loss": tot / n, "val_acc1": a})
             print(f"fold{k} ep{ep:02d} loss={tot / n:.4f} val_acc1={a:.4f}")
@@ -331,9 +369,8 @@ def cmd_train(args) -> None:
     dl = DataLoader(TempoDataset(tr, fdir, True), batch_size=args.batch, shuffle=True,
                     num_workers=args.workers, drop_last=True)
     model = build_model().to(dev)
-    opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-4)
+    opt = torch.optim.Adam(model.parameters(), lr=args.lr)
     n_ep = cv["median_best_epoch"]
-    sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, n_ep)
     for ep in range(1, n_ep + 1):
         model.train()
         for X, y in dl:
@@ -342,7 +379,6 @@ def cmd_train(args) -> None:
             opt.zero_grad()
             loss.backward()
             opt.step()
-        sched.step()
         print(f"final ep{ep:02d}/{n_ep}")
     torch.save(model.state_dict(), args.out / "final.pt")
     print(f"done -> {args.out}/final.pt")
@@ -381,8 +417,8 @@ def main() -> None:
             p.add_argument("--raveform-manifest", type=Path, required=True)
         if name == "train":
             p.add_argument("--out", type=Path, required=True)
-            p.add_argument("--epochs", type=int, default=60)
-            p.add_argument("--patience", type=int, default=10)
+            p.add_argument("--epochs", type=int, default=150)
+            p.add_argument("--patience", type=int, default=20)
             p.add_argument("--batch", type=int, default=64)
             p.add_argument("--lr", type=float, default=1e-3)
             p.add_argument("--workers", type=int, default=8)
