@@ -170,8 +170,8 @@ selection alone moves scores by more than typical claimed improvements.
 \jams{} is a Python service exposing \texttt{POST /v1/analyze}: audio in, JSON out,
 with optional stems and MIDI. Two architectural decisions matter for reproducibility:
 
-\textbf{Isolated model workers.} The core process (Python 3.14, Essentia-TensorFlow)
-cannot share an environment with PyTorch-era model stacks, so each heavy model runs in a
+\textbf{Isolated model workers.} The heavy model stacks (separation, structure,
+transcription) have mutually conflicting dependency sets, so each runs in a
 self-contained worker subprocess with an inline dependency manifest (PEP~723),
 communicating over line-delimited JSON with automatic respawn. Every worker pins its
 dependencies; environments are rebuilt deterministically by \texttt{uv}. This is what
@@ -226,10 +226,9 @@ the model.
 terms: the key and tempo CNN weights are ours (MIT, 0.45\,MB and 12\,MB, trained from
 public data; the legacy fusion heads likewise ship as MIT JSON), S-KEY weights are MIT,
 YourMT3+ weights Apache-2.0, and SCNet checkpoints come from the MIT-licensed MSST zoo.
-Two caveats we flag rather than bury: the core service still links Essentia (AGPL) for
-the legacy fusion key path, and the ADTOF drum-transcription weights have no declared
-license (they run subprocess-isolated). The madmom key CNN (CC~BY-NC-SA weights) is
-used for \emph{evaluation only} and never shipped. The repository itself is
+One caveat we flag rather than bury: the ADTOF drum-transcription weights have no
+declared license (they run subprocess-isolated). The madmom key CNN (CC~BY-NC-SA
+weights) is used for \emph{evaluation only} and never shipped. The repository itself is
 MIT-licensed.
 
 \section{Evaluation protocol}
@@ -295,8 +294,8 @@ with 95\% bootstrap CIs. Published full-set reference numbers are \emph{not} com
 to subset numbers (see calibration finding); the strongest published full-set numbers
 from systems trained without GiantSteps-Key exposure are 0.746--0.759
 weighted~\citep{korzeniowski2018genre,steinwedel2021inceptionkeynet,keymyna2026}. The
-license column refers to the learned weights/coefficients; the service also links
-Essentia (AGPL) for the template stage.}
+license column refers to the learned weights/coefficients; the template stage of the
+baseline rows runs on Essentia (AGPL), which the shipped system no longer links.}
 \label{tab:key}
 \begin{tabular}{lccc}
 \toprule
