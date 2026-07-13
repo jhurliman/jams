@@ -111,8 +111,8 @@ the decision rule. Substantively: a statistical dead heat with madmom.**
   CNN OOF probs are out-of-fold wrt CNN training; fold-split reproduction verified
   (OOF weighted = CV mean to 4 dp).
 - Two implementation bugs were caught by chance-level CV **before any test
-  involvement** and fixed (commits 5eb5230: 2-D global pooling made the net
-  transposition-invariant; 336bdec: augmentation label sign inverted vs bin-roll,
+  involvement** and fixed (commits 6d6d0a3: 2-D global pooling made the net
+  transposition-invariant; f07d1a3: augmentation label sign inverted vs bin-roll,
   verified numerically). Recorded here as selection-process facts, not results.
 - **Test (the single shot, locked model `final.pt` width 1.0):** weighted **0.8321**
   [0.8039, 0.8586], exact **0.7795** — the best exact accuracy of any system measured
