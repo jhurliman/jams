@@ -167,6 +167,29 @@ negative result, TempoCNN stays, reported as-is.
 
 **Budget:** aleph0 4090 (\$0) preferred; ≤\$20 Lambda fallback.
 
+**TP1 v1 CV result + v2 amendment (2026-07-13, CV stage — test untouched):** v1
+(architecture as first implemented: 3×3 conv/maxpool freq stack → 3 parallel temporal
+convs 1×{32,64,96} → time-average pooling → Linear(36,256); no input normalization;
+AdamW + cosine(T_max=60) with patience 10; log-uniform ×0.7–1.4 aug) failed CV:
+**cv_acc1_mean 0.445** (folds 0.517/0.192/0.535/0.565/0.418), train loss stuck ≈4.8 vs
+ln 256 ≈ 5.545 floor, val Acc1 oscillating 0.03–0.56 between epochs
+(s3://jams-mir-eval-usw2/tp1/out/). Diagnosis from the published paper (clean-room —
+paper only, no AGPL code): (a) the TimeAvg readout collapses the time axis to 36
+channel means before classification, destroying the periodicity detail the reference
+back-end keeps — the published net flattens the intact time axis (36×256) into
+FC 64 → FC 64 → FC 256 (~2.9M params); (b) no per-window input normalization (reference
+rescales each window to [0,1]); (c) cosine schedule sized for 60 epochs while patience
+stopped runs at ~15, so LR never annealed. **v2 (one revision, declared before any new
+CV):** faithful clean-room implementation — 3 short-filter convs (16 @ 1×5 along time),
+4 multi-filter modules (freq avg-pool 5/2/2/2 ×1; six parallel 1×{32,64,96,128,192,256}
+convs, 24 filters each; 1×1 bottleneck → 36; ELU; BN preceding convs), flatten →
+BN → Dropout 0.5 → FC 64 → FC 64 → FC 256 (2,939,402 params); per-window [0,1] rescale
+on magnitude mel (√expm1 of stored log1p-power features); discrete aug factors
+{0.8, 0.84, …, 1.2} time-stretch with label bpm/f (validation un-augmented); Adam
+constant lr 1e-3, early stop on val Acc1 patience 20 (cap 150). Local sanity before
+GPU: forward shape OK; 96-track memorization test converges loss 5.5 → 0.4 with
+accuracy 1.0 (v1 could not leave the floor). Gate and corpus unchanged.
+
 ## Transcription (Slakh2100-redux test, n=151, GT stems = oracle)
 
 | # | date | commit | system | bass note-F | other note-F | drums onset-F | artifacts |
