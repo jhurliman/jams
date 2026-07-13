@@ -377,6 +377,158 @@ def _set_label_vocab(model: str) -> None:
     fnl.HARMONIX_LABELS = _RAVEFORM_LABELS if is_edm else allin1.config.HARMONIX_LABELS
 
 
+# Demix performance knobs (Apple Silicon). Defaults are the fast settings; every knob has an
+# env override so the eval harness / a regression hunt can reproduce the legacy behavior:
+#   JAMS_DEMIX_SHIFTS=1 JAMS_DEMIX_OVERLAP=0.25 JAMS_DEMIX_BATCH=1 JAMS_DEMIX_FP16=0
+# - shifts: upstream allin1 runs demucs with shifts=1 (one randomly-shifted pass). shifts=0
+#   drops the 0.5 s shift padding; output differences are inaudible at feature level.
+# - overlap: upstream 0.25 reprocesses a quarter of every chunk; 0.10 keeps a linear
+#   crossfade with ~17% fewer chunk forwards.
+# - batch: upstream processes chunks serially; stacking full-length chunks per forward
+#   raises MPS utilization. The trailing short chunk keeps the stock unbatched path so its
+#   model-internal end-padding matches upstream exactly.
+# - fp16: autocast the demucs forward on MPS. Default OFF: measured on an M-series MBP the
+#   per-op autocast casts made htdemucs ~60% SLOWER (7.7s -> 12.6s on a 263s track) — MPS
+#   fp32 is already the fast path for this graph. The knob stays for future torch versions.
+_DEMIX_SHIFTS = int(os.environ.get("JAMS_DEMIX_SHIFTS", "0"))
+_DEMIX_OVERLAP = float(os.environ.get("JAMS_DEMIX_OVERLAP", "0.10"))
+_DEMIX_BATCH = int(os.environ.get("JAMS_DEMIX_BATCH", "4"))
+_DEMIX_FP16 = os.environ.get("JAMS_DEMIX_FP16", "0").lower() not in ("0", "false", "no")
+
+
+def _batched_split_apply(model, mix, device, overlap: float, batch_size: int,
+                         use_autocast: bool):
+    """demucs ``apply_model``'s split branch with chunk batching.
+
+    Mirrors the stock triangle-window overlap-add exactly (transition_power=1). Interior
+    chunks all have length ``segment_length`` and are stacked ``batch_size`` at a time; the
+    trailing short chunk (if any) goes through the stock single-chunk path so demucs'
+    model-internal end padding is preserved. Batching only changes evaluation order.
+    """
+    import torch as th
+    from demucs.apply import TensorChunk, apply_model, tensor_chunk
+
+    _batch, _channels, length = mix.shape
+    segment_length = int(model.samplerate * model.segment)
+    stride = int((1 - overlap) * segment_length)
+    offsets = list(range(0, length, stride))
+    weight = th.cat([
+        th.arange(1, segment_length // 2 + 1),
+        th.arange(segment_length - segment_length // 2, 0, -1),
+    ]).float()
+    weight = weight / weight.max()
+
+    out = th.zeros(_batch, len(model.sources), _channels, length)
+    sum_weight = th.zeros(length)
+    mix_chunk = tensor_chunk(mix)
+
+    full = [off for off in offsets if off + segment_length <= length]
+    tail = [off for off in offsets if off not in set(full)]
+
+    autocast_ctx = (
+        th.autocast(device_type="mps", dtype=th.float16)
+        if use_autocast else contextlib.nullcontext()
+    )
+    model.to(device)
+    model.eval()
+    for i in range(0, len(full), batch_size):
+        group = full[i:i + batch_size]
+        stacked = th.cat(
+            [TensorChunk(mix_chunk, off, segment_length).padded(segment_length)
+             for off in group], dim=0).to(device)
+        with th.no_grad(), autocast_ctx:
+            outs = model(stacked)
+        outs = outs.float().cpu()
+        for j, off in enumerate(group):
+            out[..., off:off + segment_length] += weight * outs[j:j + 1]
+            sum_weight[off:off + segment_length] += weight
+    for off in tail:  # stock leaf path for the short trailing chunk
+        chunk = TensorChunk(mix_chunk, off, segment_length)
+        with autocast_ctx:
+            chunk_out = apply_model(model, chunk, device=device, shifts=0,
+                                    split=False, progress=False).cpu().float()
+        chunk_length = chunk_out.shape[-1]
+        out[..., off:off + chunk_length] += weight[:chunk_length] * chunk_out
+        sum_weight[off:off + chunk_length] += weight[:chunk_length]
+    assert float(sum_weight.min()) > 0
+    out /= sum_weight
+    return out
+
+
+def _fast_run_demucs_inprocess(path, out_dir, device) -> None:
+    """Drop-in for ``allin1.demix._run_demucs_inprocess`` honoring the JAMS_DEMIX_* knobs.
+
+    Identical I/O contract and normalization/seeding; only the demucs invocation differs.
+    """
+    import random as _random
+    import time
+    from pathlib import Path as _Path
+
+    import soundfile as sf
+    from demucs.apply import apply_model
+    from demucs.audio import AudioFile, prevent_clip
+    from demucs.pretrained import get_model
+
+    model = get_model("htdemucs")
+    model.cpu()
+    model.eval()
+
+    wav = AudioFile(path).read(
+        streams=0, samplerate=model.samplerate, channels=model.audio_channels)
+    ref = wav.mean(0)
+    wav -= ref.mean()
+    wav /= ref.std()
+    _random.seed(0)
+
+    use_fp16 = _DEMIX_FP16 and str(device) == "mps"
+    t0 = time.monotonic()
+    # ``get_model('htdemucs')`` wraps the single HTDemucs in a BagOfModels; unwrap it for
+    # the batched path (exact for one sub-model with unit weights — anything else keeps
+    # the stock path, which handles bags itself).
+    from demucs.apply import BagOfModels
+
+    single = model
+    if isinstance(model, BagOfModels) and len(model.models) == 1:
+        single = model.models[0]
+    if _DEMIX_BATCH > 1 and _DEMIX_SHIFTS == 0 and not isinstance(single, BagOfModels):
+        sources = _batched_split_apply(
+            single, wav[None], device, _DEMIX_OVERLAP, _DEMIX_BATCH, use_fp16)[0]
+    else:
+        import torch as th
+
+        ctx = (th.autocast(device_type="mps", dtype=th.float16)
+               if use_fp16 else contextlib.nullcontext())
+        with ctx:
+            sources = apply_model(
+                model, wav[None], device=str(device), shifts=_DEMIX_SHIFTS,
+                split=True, overlap=_DEMIX_OVERLAP, progress=True,
+            )[0].float()
+    print(
+        f"[jams] demix {time.monotonic() - t0:.1f}s "
+        f"(shifts={_DEMIX_SHIFTS} overlap={_DEMIX_OVERLAP} "
+        f"batch={_DEMIX_BATCH} fp16={int(use_fp16)})",
+        file=sys.stderr,
+    )
+
+    sources *= ref.std()
+    sources += ref.mean()
+    sources = prevent_clip(sources, mode="rescale")
+
+    out_dir = _Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for source, name in zip(sources, model.sources, strict=False):
+        sf.write(out_dir / f"{name}.wav", source.cpu().numpy().T,
+                 model.samplerate, subtype="PCM_16")
+
+
+def _patch_demix() -> None:
+    """Route allin1's demix through the knob-aware implementation (module-global lookup,
+    so patching the attribute is sufficient — same pattern as the loader patches)."""
+    import allin1.demix
+
+    allin1.demix._run_demucs_inprocess = _fast_run_demucs_inprocess
+
+
 # All-In-One's DiNAT inference breaks past ~2**16 frames (655 s at 100 fps): it emits beats for
 # only the first ~40 s and collapses the rest into one segment. Process longer tracks in
 # overlapping windows (each safely under the cap) and stitch. Threshold is well below the cap.
@@ -481,6 +633,7 @@ def _run_chunked(audio: str, model: str, duration: float):
 
 def analyze(audio: str, target_bpm: float | None, model: str) -> dict:
     _register_extra_models()
+    _patch_demix()
     _set_label_vocab(model)
 
     try:
