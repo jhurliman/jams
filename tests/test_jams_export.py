@@ -14,7 +14,7 @@ NATIVE = {
     "key": {"key": "C major", "tonic": "C", "mode": "major",
             "confidence": 0.8, "method": "essentia-edma"},
     "tempo": {"bpm": 174.0, "bpm_raw": 87.0, "bpm_alt": 87.0,
-              "octave_resolved": True, "method": "tempocnn-deepsquare"},
+              "octave_resolved": True, "method": "tempo-cnn-v1"},
     "structure": {"bpm": 174.0, "beats": [0.0, 0.34, 0.69, 1.03], "downbeats": [0.0],
                   "segments": [{"start": 0.0, "end": 30.0, "label": "intro"}],
                   "method": "allin1-mps-local:harmonix-all"},
