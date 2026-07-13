@@ -13,9 +13,12 @@ dependencies = [
     "python-multipart>=0.0.9",
     "pydantic>=2.7",
     "pydantic-settings>=2.3",
-    "numpy>=1.24",
+    "numpy>=1.26,<2.3",
     "librosa>=0.10",
     "pretty_midi>=0.2.10",
+    # In-process key/tempo CNN inference (the models formerly ran in uv worker
+    # subprocesses solely because the old essentia-pinned core env couldn't hold torch).
+    "torch==2.8.*",
 ]
 
 [project.optional-dependencies]
@@ -46,7 +49,7 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/jams"]
 # Ship the bundled model weights + the self-contained uv workers as package data.
-artifacts = ["src/jams/data/models/*.pt", "src/jams/data/*.json", "src/jams/data/structure_worker.py", "src/jams/data/stems_worker.py", "src/jams/data/drum_worker.py", "src/jams/data/key_cnn_worker.py", "src/jams/data/tempo_cnn_worker.py", "src/jams/data/scnet/*.py"]
+artifacts = ["src/jams/data/models/*.pt", "src/jams/data/*.json", "src/jams/data/structure_worker.py", "src/jams/data/stems_worker.py", "src/jams/data/drum_worker.py", "src/jams/data/scnet/*.py"]
 
 [tool.ruff]
 line-length = 100
