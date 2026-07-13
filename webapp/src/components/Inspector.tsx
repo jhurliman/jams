@@ -2,6 +2,7 @@ import { SECTION_LABELS, type SectionLabel } from '../../shared/types.ts';
 import type { AudioControls } from '../hooks/useAudio.ts';
 import { labelColor } from '../labels.ts';
 import { useEditor } from '../store.ts';
+import { SectionSlider } from './SectionSlider.tsx';
 
 export function Inspector({ audio }: { audio: AudioControls }) {
   const {
@@ -26,6 +27,8 @@ export function Inspector({ audio }: { audio: AudioControls }) {
       <div className="counts">
         {annotation.segments.length} segments · {annotation.beats.length} beats
       </div>
+
+      <SectionSlider />
 
       {seg && selectedSegment !== null && (
         <div className="panel">

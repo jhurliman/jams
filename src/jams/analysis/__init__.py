@@ -26,6 +26,7 @@ def analyze_track(
     key: bool = True,
     tempo: bool = True,
     structure: bool = False,
+    structure_activations: bool = False,
     stems: bool = False,
     genre: str | None = None,
     bpm_range: tuple[float, float] | None = None,
@@ -80,7 +81,12 @@ def analyze_track(
             target = (bpm_range[0] + bpm_range[1]) / 2
         else:
             target = None
-        return _timed("structure", lambda: analyze_structure(path, target_bpm=target))
+        return _timed(
+            "structure",
+            lambda: analyze_structure(
+                path, target_bpm=target, include_activations=structure_activations
+            ),
+        )
 
     parallel = get_settings().parallel_stages and key and (tempo or structure)
     if parallel:

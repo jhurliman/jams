@@ -32,18 +32,70 @@ _WORKER_PATH = Path(__file__).resolve().parent.parent / "data" / "structure_work
 
 
 def analyze_structure(
-    path: str, *, target_bpm: float | None = None, model: str | None = None
+    path: str,
+    *,
+    target_bpm: float | None = None,
+    model: str | None = None,
+    include_activations: bool = False,
 ) -> dict:
     """Return ``bpm, beats, downbeats, segments, method`` for a track.
 
     Dispatches to the configured backend. ``model`` overrides the configured
     All-In-One model (e.g. ``harmonix-fold3`` for per-fold cross-validation).
+    ``include_activations`` adds a compact ``activations`` blob (boundary candidates +
+    pooled label probabilities) that :func:`resegment_structure` can rethreshold
+    instantly — this backs the annotator's section-count slider.
     """
     validate_audio_path(path)
     settings = get_settings()
     if settings.structure_backend == "replicate":
+        if include_activations:
+            logger.warning(
+                "structure backend 'replicate' does not return activations; "
+                "resegmentation will be unavailable for this track"
+            )
         return _analyze_replicate(path, target_bpm=target_bpm)
-    return _local_worker().analyze(path, target_bpm, model or settings.structure_model)
+    return _local_worker().analyze(
+        path, target_bpm, model or settings.structure_model, include_activations
+    )
+
+
+def resegment_structure(
+    activations: dict,
+    *,
+    threshold: float | None = None,
+    target_sections: int | None = None,
+    beats: list[float] | None = None,
+) -> dict:
+    """Recompute ``segments`` from a cached ``activations`` blob — instant (pure numpy).
+
+    No model, no worker subprocess: the math is thresholding + label argmax, shared with
+    the worker via :func:`_worker_module`, so a rethreshold reproduces exactly what the
+    analysis would have produced at that boundary threshold.
+    """
+    return _worker_module().resegment_from_activations(
+        activations, threshold=threshold, target_sections=target_sections, beats=beats
+    )
+
+
+_worker_module_cache = None
+
+
+def _worker_module():
+    """Load ``data/structure_worker.py`` as a module (by path — it is a self-contained uv
+    script, not a package member). Its top level is stdlib-only, so this is safe in jams'
+    own env; the heavy imports stay inside the functions we never call here. Gives the
+    pure-numpy resegmentation helpers a single implementation shared with the worker."""
+    global _worker_module_cache
+    if _worker_module_cache is None:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("jams_structure_worker", _WORKER_PATH)
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        _worker_module_cache = module
+    return _worker_module_cache
 
 
 # --- Local backend (resident uv worker subprocess) -------------------------
@@ -80,8 +132,17 @@ class _LocalWorker:
         self._proc.stdin.flush()
         return self._proc.stdout.readline()
 
-    def analyze(self, audio: str, target_bpm: float | None, model: str) -> dict:
-        request = json.dumps({"audio": audio, "target_bpm": target_bpm, "model": model})
+    def analyze(
+        self,
+        audio: str,
+        target_bpm: float | None,
+        model: str,
+        include_activations: bool = False,
+    ) -> dict:
+        request = json.dumps({
+            "audio": audio, "target_bpm": target_bpm, "model": model,
+            "activations": include_activations,
+        })
         with self._lock:
             self._ensure_alive()
             try:
