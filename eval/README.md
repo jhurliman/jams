@@ -13,6 +13,13 @@ uv run --extra eval eval/benchmark_final.py     # final shoot-out incl. TempoCNN
 uv run --extra eval eval/build_corrections.py   # regenerate tempo_corrections.csv
 ```
 
+> `benchmark_methods.py`, `benchmark_final.py`, and `mlflow_backfill.py` benchmark the
+> retired essentia/TempoCNN systems and need a historical checkout to run
+> (`essentia-tensorflow` left the project deps when those systems were replaced by the
+> bundled CNNs). Their measured numbers remain in `paper/EXPERIMENTS.md` and the tables
+> below. `stats_significance.py` still runs today — it replays the archived fusion heads
+> from banked features, no essentia needed.
+
 ## Dataset
 
 [**GiantSteps Key**](https://github.com/GiantSteps/giantsteps-key-dataset) — 600 EDM

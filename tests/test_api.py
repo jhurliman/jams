@@ -1,4 +1,4 @@
-"""API smoke tests against the real analysis stack (essentia-tensorflow required)."""
+"""API smoke tests against the real analysis stack."""
 
 from __future__ import annotations
 

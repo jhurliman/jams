@@ -16,8 +16,8 @@ GiantSteps Key (n=567, honest protocol, one pre-registered evaluation): weighted
 **0.832** / exact **0.780** — statistically indistinguishable from the strongest
 published system (madmom's CNN, CC BY-NC-SA) with no non-commercial restriction.
 
-Kept in its own uv env because torch has no CPython 3.14 wheels (jams is pinned to
-3.14 for essentia-tensorflow). Same resident-worker JSONL pattern as the other workers.
+Kept in its own uv env so its torch stack stays pinned independently of jams'
+interpreter (CPython 3.14). Same resident-worker JSONL pattern as the other workers.
 CPU inference is well under a second per track after the CQT.
 
 Modes:

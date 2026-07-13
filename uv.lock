@@ -761,22 +761,6 @@ wheels = [
 ]
 
 [[package]]
-name = "essentia-tensorflow"
-version = "2.1b6.dev1438"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-    { name = "pyyaml" },
-    { name = "six" },
-]
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/5b/27/23fdcd5408ea65af81460cf6811c8f60fd2170d0598687d38608fe226c59/essentia_tensorflow-2.1b6.dev1438-cp314-cp314-macosx_15_0_arm64.whl", hash = "sha256:c50c41f3d4cbc6e981dbdd3e32465dcf4a765b38d835ceb26c0206f12108d192", size = 98786744, upload-time = "2026-05-19T16:26:01.685Z" },
-    { url = "https://files.pythonhosted.org/packages/63/56/410d1d5170a0ca064381fdf2aaef280186075ba1389a380a63ecdd5f8bc8/essentia_tensorflow-2.1b6.dev1438-cp314-cp314-macosx_15_0_x86_64.whl", hash = "sha256:5b94689d9ef5bf69af826b06f2f70e33e950d74e68d0d8a069d7173fbd1560e2", size = 122087735, upload-time = "2026-05-19T16:26:09.625Z" },
-    { url = "https://files.pythonhosted.org/packages/e1/64/a105f342b01776aafde9f17c6d9011c4f27c6d1b3c9abe4820e2339d7b0f/essentia_tensorflow-2.1b6.dev1438-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:429959a1b0ef1af3dc40d56aac8ad5d8999af43c8159a10662d64baab602831f", size = 291874340, upload-time = "2026-05-19T16:26:23.128Z" },
-]
-
-[[package]]
 name = "et-xmlfile"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1163,7 +1147,6 @@ name = "jams"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "essentia-tensorflow" },
     { name = "fastapi" },
     { name = "librosa" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -1203,7 +1186,6 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "essentia-tensorflow", specifier = ">=2.1b6.dev1110" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "librosa", specifier = ">=0.10" },
     { name = "mir-eval", marker = "extra == 'eval'", specifier = ">=0.7" },

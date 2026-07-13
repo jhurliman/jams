@@ -26,19 +26,12 @@ class Settings(BaseSettings):
     parallel_stages: bool = True
 
     # --- Key detection ------------------------------------------------------
-    # "cnn" (default): our own 24-class key CNN (K10; MIT, weights bundled, uv worker
+    # Our own 24-class key CNN (K10; MIT, weights bundled, uv worker
     # src/jams/data/key_cnn_worker.py). GiantSteps Key honest protocol, one
     # pre-registered evaluation: weighted MIREX 0.832 / exact 0.780 — statistically
-    # indistinguishable from the strongest published system, and simpler than the
-    # fusion. "fusion": the previous edma + S-KEY two-head pipeline (0.812 / 0.757).
-    key_backend: Literal["cnn", "fusion"] = "cnn"
-    # Command used to launch the key CNN worker (absolute path if uv isn't on PATH).
+    # indistinguishable from the strongest published system. Command used to launch
+    # the worker (absolute path if uv isn't on PATH).
     key_cnn_uv: str = "uv"
-    # Within the "fusion" backend only: fuse edma with S-KEY (the honest-protocol
-    # fusion). Disabling falls back to the LEGACY mode-refinement model, which was
-    # trained on GiantSteps Key itself (contaminated — don't quote its numbers
-    # against the literature).
-    key_fusion: bool = True
 
     # --- Tempo detection ----------------------------------------------------
     # Our own 256-class tempo CNN (TP1; MIT, weights bundled, uv worker

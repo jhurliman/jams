@@ -1,8 +1,7 @@
 """jams — on-demand music-information-retrieval for DJ / electronic music.
 
 Per-track analysis (no silent fallbacks — failures raise):
-  - key    : our 24-class key CNN (MIT, bundled weights, uv worker); the legacy
-             edma + S-KEY fusion stays available via ``JAMS_KEY_BACKEND=fusion``
+  - key    : our 24-class key CNN (MIT, bundled weights, uv worker)
   - tempo  : our 256-class tempo CNN (MIT, bundled weights, uv worker)
              + genre-aware octave resolution
   - structure (optional) : All-In-One on-device (beats / downbeats / segments)

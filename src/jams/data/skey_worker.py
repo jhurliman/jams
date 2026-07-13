@@ -15,13 +15,13 @@
 
 Runs `deezer/skey <https://github.com/deezer/skey>`_ (Kong et al., ICASSP 2025; MIT, the
 checkpoint ships inside the package) and returns the softmaxed, mean-pooled 24-class key
-posterior. jams fuses this with Essentia's edma estimate — the two systems were trained on
-disjoint data with different objectives, so their errors decorrelate (see
-``jams.analysis.key``).
+posterior. The retired fusion pipeline combined this with the edma estimate — the two
+systems were trained on disjoint data with different objectives, so their errors
+decorrelate. This worker is now an EVAL artifact only (it banks the S-KEY features that
+``eval/stats_significance.py`` replays); the production key path is the key CNN.
 
-Kept in its own uv env because skey needs torch/nnAudio, which have no CPython 3.14 wheels
-(jams is pinned to 3.14 for essentia-tensorflow). Same resident-worker JSONL pattern as the
-stems/drums workers. The model is tiny; CPU inference is a few seconds per track.
+Kept in its own uv env because skey needs torch/nnAudio, which have no CPython 3.14 wheels.
+Same resident-worker JSONL pattern as the stems/drums workers. The model is tiny; CPU inference is a few seconds per track.
 
 Modes:
   single-shot:  skey_worker.py --audio FILE            -> prints one JSON object
