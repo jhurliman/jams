@@ -34,5 +34,18 @@ export const api = {
       body: JSON.stringify(ann),
     }).then(json<{ ok: boolean }>),
 
+  /** Upload + analyze an audio file; resolves to the new track id. Slow (full analysis) —
+   *  the server replies only once the jams backend has finished. */
+  importTrack: async (file: File): Promise<{ id: string }> => {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch('/api/import', { method: 'POST', body: form });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as { error?: string } | null;
+      throw new Error(body?.error ?? `${res.status} ${res.statusText}`);
+    }
+    return (await res.json()) as { id: string };
+  },
+
   audioUrl: (id: string): string => `/audio/${id}`,
 };

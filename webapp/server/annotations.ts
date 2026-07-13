@@ -12,6 +12,7 @@ import {
   type StemTranscription,
   type TrackListItem,
 } from '../shared/types.ts';
+import { loadImports } from './imports.ts';
 import {
   ANNOTATIONS_DIR,
   beatCsvPath,
@@ -52,8 +53,18 @@ function rawTracks(): Map<string, RawTrack> {
   return cache;
 }
 
+/** Dataset tracks + drag-and-drop imports. Imports are re-read every call (the file is
+ *  small and grows while the server runs); the dataset stays cached. */
+function allTracks(): Map<string, RawTrack> {
+  const imports = loadImports();
+  if (imports.length === 0) return rawTracks();
+  const merged = new Map(rawTracks());
+  for (const t of imports) merged.set(t.key, t);
+  return merged;
+}
+
 export function listTracks(): TrackListItem[] {
-  return [...rawTracks().values()]
+  return [...allTracks().values()]
     .filter((t) => hasAudio(t.key))
     .map((t) => ({
       id: t.key,
@@ -93,7 +104,7 @@ function scoreTrack(t: RawTrack): number | null {
 }
 
 export function trackMeta(id: string) {
-  const t = rawTracks().get(id);
+  const t = allTracks().get(id);
   if (!t) return null;
   return {
     id,
@@ -180,10 +191,15 @@ function segmentsFromRaw(t: RawTrack): Segment[] {
   return t.sections.map((s) => ({ start: s.start, end: s.end, label: coerceLabel(s.name) }));
 }
 
-/** Edited annotation if it exists, otherwise the source reference (beat CSV + segments.json). */
+/** Edited annotation if it exists, otherwise the source reference: beat CSV +
+ *  segments.json for dataset tracks, the imports.json row for imported tracks. */
 export function loadAnnotation(id: string): Annotation | null {
   if (existsSync(editedPath(id))) {
     return JSON.parse(readFileSync(editedPath(id), 'utf8')) as Annotation;
+  }
+  const imported = loadImports().find((t) => t.key === id);
+  if (imported) {
+    return { trackId: id, beats: imported.beats, segments: segmentsFromRaw(imported) };
   }
   const t = rawTracks().get(id);
   if (!t) return null;

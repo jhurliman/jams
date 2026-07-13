@@ -28,7 +28,10 @@ interface EditorState {
   view: ViewState;
   past: Annotation[];
   future: Annotation[];
+  /** Bumped when the track list changes server-side (e.g. after an import). */
+  tracksRev: number;
 
+  refreshTracks: () => void;
   loadTrack: (id: string) => Promise<void>;
   save: () => Promise<void>;
   toggleEval: () => void;
@@ -82,6 +85,9 @@ export const useEditor = create<EditorState>((set, get) => {
     view: { pxPerSec: 80, scrollLeft: 0, viewportWidth: 1000 },
     past: [],
     future: [],
+    tracksRev: 0,
+
+    refreshTracks: () => set({ tracksRev: get().tracksRev + 1 }),
 
     loadTrack: async (id) => {
       set({

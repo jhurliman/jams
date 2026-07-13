@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 
 import { api } from './api.ts';
+import { ImportDropZone } from './components/ImportDropZone.tsx';
 import { Inspector } from './components/Inspector.tsx';
 import { StemLanes } from './components/StemLanes.tsx';
 import { TrackList } from './components/TrackList.tsx';
@@ -59,11 +60,15 @@ export function App() {
 
   return (
     <div className="app">
+      <ImportDropZone />
       <TrackList />
       <main className="center">
         <Transport audio={audio} />
         {!trackId ? (
-          <div className="placeholder">Select a track to begin annotating.</div>
+          <div className="placeholder">
+            Select a track to begin annotating — or drop an audio file anywhere to analyze
+            &amp; import it.
+          </div>
         ) : (
           <>
             {error && <div className="error">Audio decode failed: {error}</div>}
