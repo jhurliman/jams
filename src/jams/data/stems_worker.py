@@ -15,8 +15,8 @@
 """Stem separation + pitched-stem transcription worker for jams.
 
 Self-contained uv script: ``uv run --script stems_worker.py ...`` resolves and caches its own
-environment. It runs in a *separate* interpreter from jams (jams is pinned to Python 3.14;
-demucs/basic-pitch have no 3.14 wheels). jams invokes it as a subprocess and never imports it.
+environment. It runs in a *separate* interpreter from jams (its pinned demucs/basic-pitch
+stack conflicts with jams' own env). jams invokes it as a subprocess and never imports it.
 Python is capped <3.12 because basic-pitch hard-depends on tensorflow on Linux, whose 2.15
 wheels stop at cp311 (inference still runs via ONNX; TF is just an install-time dependency).
 
