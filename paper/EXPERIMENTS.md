@@ -121,6 +121,10 @@ the decision rule. Substantively: a statistical dead heat with madmom.**
   [−0.0023, +0.0427] ns (58 W / 38 L). No superiority claim; the permissively-licensed
   frontier moves 0.8123 → 0.8321 and madmom's point edge over our best system shrinks
   from +0.0205 to +0.0007.
+- Genre slice of the K10 CNN (descriptive post-hoc on `cnn_gskey.jsonl`, n≥15):
+  Dubstep 0.900 · Electro House 0.894 · Techno 0.854 · Deep House 0.846 · Tech House
+  0.812 · D&B 0.804 · House 0.800 · Prog House 0.772 · Trance 0.763 · Electronica/
+  Downtempo 0.739. Techno — the fusion's weakest genre (0.746) — recovers to 0.854.
 - Cost: ~\$3 Lambda A10 (~2 h wall, instance terminated). Artifacts:
   `eval/data/gsmtg/cnn_gskey.jsonl` (+ S3 `k10/`), fold + final checkpoints and OOF
   posteriors at `s3://jams-mir-eval-usw2/k10/`, selection/eval scripts at

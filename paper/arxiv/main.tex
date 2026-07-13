@@ -193,7 +193,7 @@ full context, CIs, and caveats. SI-SDR values are drums/other/bass.}
 \toprule
 capability & method & headline result \\
 \midrule
-key & Essentia \texttt{edma} + S-KEY fusion (learned heads) & 0.812 MIREX / 0.757 exact \\
+key & 24-class key CNN (ours, MIT; \S\ref{sec:key}) & 0.832 MIREX / 0.780 exact \\
 tempo & TempoCNN~\citep{schreiber2018tempocnn} + octave resolution & 0.965 Acc1 (corrected labels) \\
 beats / structure & All-In-One EDM ensemble (on-device) & 0.978 beat-F / 0.755 HR@0.5 \\
 stems & SCNet~XL & SI-SDR 14.3 / 11.8 / 6.0 dB \\
@@ -208,9 +208,9 @@ inspection and correction tool behind our structure error analyses and as a
 demonstration client.
 
 \textbf{Licensing posture.} The learned components we ship carry no non-commercial
-terms: the fusion key heads are JSON coefficient files trainable from public data
-(ours, MIT), S-KEY weights are MIT, YourMT3+ weights Apache-2.0, and SCNet checkpoints
-come from the MIT-licensed MSST zoo. Two caveats we flag rather than bury: the core
+terms: the key CNN weights are ours (MIT, 0.45\,MB, trained from public data; the
+legacy fusion heads likewise ship as MIT JSON), S-KEY weights are MIT, YourMT3+ weights
+Apache-2.0, and SCNet checkpoints come from the MIT-licensed MSST zoo. Two caveats we flag rather than bury: the core
 service links Essentia (AGPL), and the ADTOF drum-transcription weights have no
 declared license (they run subprocess-isolated). The madmom key CNN (CC~BY-NC-SA
 weights) is used for \emph{evaluation only} and never shipped. The repository itself is
@@ -285,11 +285,9 @@ system & weighted [95\% CI] & exact & license \\
 \texttt{edma} template (no refinement) & 0.759 \ci{0.728}{0.789} & 0.688 & AGPL (Essentia) \\
 mode retrain & 0.810 \ci{0.780}{0.837} & 0.753 & ours (MIT) \\
 S-KEY~\citep{kong2025skey} & 0.817 \ci{0.789}{0.843} & 0.748 & MIT \\
-fusion (shipped) & 0.812 \ci{0.783}{0.840} & 0.757 & MIT \\
-\textbf{key CNN (ours; K10)} & \textbf{0.832} \ci{0.804}{0.859} & \textbf{0.780} & MIT \\
+fusion (prior system) & 0.812 \ci{0.783}{0.840} & 0.757 & MIT \\
+\textbf{key CNN (ours; shipped)} & \textbf{0.832} \ci{0.804}{0.859} & \textbf{0.780} & MIT \\
 madmom CNN~\citep{korzeniowski2018genre} & 0.833 \ci{0.806}{0.858} & 0.773 & CC BY-NC-SA \\
-\midrule
-oracle ceiling $\max$(refined, S-KEY) & 0.868 & --- & --- \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -305,16 +303,13 @@ between the five strongest systems.}
 \end{figure}
 
 \textbf{Systems.} The template row is Essentia's \texttt{edma} profile matcher,
-unmodified. \emph{Mode retrain} augments it with a mode (major/minor) logistic
-classifier over hand-crafted chroma cue features, fit on GS-MTG with its decision
-threshold chosen by 5-fold CV within the training split. \emph{S-KEY} is the
-self-supervised tonality estimator of Kong et al.~\citep{kong2025skey}, run from its
-released MIT checkpoint. The shipped \emph{fusion} adds two small logistic heads over 18
-chroma/agreement features: the mode head above, plus a rerank head that decides per
-track whether to emit the mode-refined template estimate or S-KEY's estimate (decision
-thresholds 0.70/0.60, both CV-selected on GS-MTG). All learned coefficients ship as JSON
-files in the repository; ``refined'' in the oracle row denotes the mode-refined template
-output. The madmom CNN baseline was run with its published weights and default
+unmodified. \emph{Mode retrain} and \emph{fusion} are the project's earlier learned
+refinements---small logistic heads over chroma cues and S-KEY posterior features, fit
+on GS-MTG with CV-selected thresholds (exact features and coefficients ship as JSON in
+the repository); they are retained in the table as context and as the systems the CNN
+superseded. \emph{S-KEY} is the self-supervised tonality estimator of Kong et
+al.~\citep{kong2025skey}, run from its released MIT checkpoint. The madmom CNN baseline
+was run with its published weights and default
 processor settings. \emph{Key CNN (K10)} is ours: a 24-class CNN in the Korzeniowski
 \& Widmer family (log-CQT input, ${\sim}0.1$\,M parameters, MIT), trained on the public
 Beatport corpus underlying GS-MTG (1{,}363 usable tracks; zero test-set overlap,
@@ -339,20 +334,15 @@ systems. The only valid rankings are same-subset paired tests.
 \begin{table}[t]
 \centering\small
 \caption{Paired per-track deltas (MIREX weighted), 10k-resample bootstrap. A CI
-excluding zero (\sig) is significant.}
+excluding zero (\sig) is significant. The full pairwise set regenerates via the
+repository's statistics script.}
 \label{tab:keypaired}
 \begin{tabular}{lc}
 \toprule
 comparison & $\Delta$ weighted [95\% CI] \\
 \midrule
-fusion $-$ \texttt{edma} raw & $+0.053$ \ci{+0.034}{+0.074}\sig \\
 S-KEY $-$ \texttt{edma} raw & $+0.058$ \ci{+0.031}{+0.086}\sig \\
 retrain $-$ \texttt{edma} raw & $+0.051$ \ci{+0.030}{+0.072}\sig \\
-fusion $-$ retrain & $+0.003$ \ci{-0.011}{+0.017} \\
-fusion $-$ S-KEY & $-0.004$ \ci{-0.025}{+0.017} \\
-fusion $-$ madmom CNN & $-0.021$ \ci{-0.044}{+0.003} \\
-S-KEY $-$ madmom CNN & $-0.016$ \ci{-0.039}{+0.007} \\
-\midrule
 key CNN $-$ fusion & $+0.020$ \ci{-0.002}{+0.043} \\
 key CNN $-$ S-KEY & $+0.015$ \ci{-0.008}{+0.039} \\
 key CNN $-$ madmom CNN & $-0.001$ \ci{-0.019}{+0.018} \\
@@ -368,13 +358,11 @@ statistical dead heat with the strongest published system, from a model trained 
 hours on public data. Under K10's pre-registered rule this is reported as a failure to
 establish \emph{superiority}; what it establishes instead is parity without the
 non-commercial restriction, plus the best exact accuracy measured (0.780 vs.\ madmom's
-0.773). Against the shipped fusion, the CNN gains $+0.020$ \ci{-0.002}{+0.043} (58
-wins / 38 losses), making it a strictly simpler drop-in candidate for the production
-key detector. Both learned selections were made by training-split cross-validation
-only (the fusion by rerank CV 0.732 vs.\ 0.700; the CNN over wider/fused variants by
-corpus CV), never by test scores. An
-oracle that picks the better of the two fused systems per track reaches 0.868, so
-headroom remains in fusion quality itself.
+0.773). Against the prior fusion system, the CNN gains $+0.020$ \ci{-0.002}{+0.043}
+(58 wins / 38 losses) while being strictly simpler---a single small model replaces the
+template stage plus two learned heads---so it ships as the production key detector.
+All selection was made by training-split cross-validation only (the CNN over wider and
+fusion-composed variants by corpus CV), never by test scores.
 
 \textbf{A note on leakage.} An earlier shipped version of the mode refinement had been
 fit on GiantSteps~Key itself (0.801 weighted); the strict retrain reported here (0.810)
@@ -382,15 +370,16 @@ replaced it before any comparison in this paper was run. The two scores happen t
 agree---leakage does not always inflate a number---but only the leakage-free protocol
 makes the number defensible.
 
-\textbf{Genre analysis.} Per-genre weighted scores of the shipped fusion range from
-0.868 (Electro House) to 0.734 (Trance), with Techno (0.746) and Trance weakest---both
-rich in sustained, modally ambiguous textures---and no genre collapses
-(Figure~\ref{fig:keygenre}).
+\textbf{Genre analysis.} Per-genre weighted scores of the shipped CNN range from 0.900
+(Dubstep) to 0.739 (Electronica/Downtempo), with Trance (0.763) also weak---sustained,
+modally ambiguous textures---and no genre collapses (Figure~\ref{fig:keygenre}).
+Notably, Techno, the prior fusion system's weakest genre (0.746), recovers to 0.854
+under the CNN.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.6\linewidth]{figs/fig_key_genre.pdf}
-\caption{Shipped fusion, MIREX weighted by genre ($n\geq15$ per genre shown).}
+\caption{Shipped key CNN (K10), MIREX weighted by genre ($n\geq15$ per genre shown).}
 \label{fig:keygenre}
 \end{figure}
 
