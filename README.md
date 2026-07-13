@@ -6,7 +6,7 @@ SOTA-on-GiantSteps methods benchmarked in the companion eval harness.
 
 | Analysis | Method | Accuracy (GiantSteps) |
 |----------|--------|-----------------------|
-| Key | **24-class key CNN (ours, MIT — K10)**; `JAMS_KEY_BACKEND=fusion` for the edma + S-KEY fusion | MIREX **0.832** / exact **0.780** (honest protocol) |
+| Key | **24-class key CNN (ours, MIT — K10)** | MIREX **0.832** / exact **0.780** (honest protocol) |
 | Tempo | **256-class tempo CNN (ours, MIT — TP1)** + genre-aware octave resolution | Acc1 **0.967** (corrected labels, n=458) |
 | Structure | **All-In-One EDM ensemble on-device** (Apple-Silicon/MPS) | Raveform held-out CV reproduces SOTA (see `eval/`) |
 | Stems → MIDI | **SCNet XL IHF** 4-stem split + per-stem transcription (**YourMT3+**; ADTOF drums → General MIDI) | Slakh test **e2e** (mix→MIDI): other **0.79** / bass 0.66 note-F, 14.3 dB drums SI-SDR (see `eval/`) |
@@ -14,26 +14,19 @@ SOTA-on-GiantSteps methods benchmarked in the companion eval harness.
 There are deliberately **no silent fallbacks**: a broken install raises a clear error
 instead of quietly degrading accuracy (the old librosa fallback cost ~19 pt MIREX on key
 and ~13 pt Acc1 on tempo). Key and tempo run our own bundled CNNs in self-contained uv
-workers; `essentia-tensorflow` (wheels for macOS arm64 and Linux x86_64 on CPython 3.14)
-is still required for the legacy `JAMS_KEY_BACKEND=fusion` key pipeline.
+workers.
 
 ## Requirements
 
-- **Python 3.14** — pinned in `.python-version`, so `uv` picks it automatically. This is
-  required: on macOS arm64 the `essentia-tensorflow` wheel ships **only** for CPython 3.14
-  (3.11/3.13 fail to resolve with a "no wheel for this platform" error). If you hit that,
-  check `python --version` / `.python-version`.
-- `uv` (https://docs.astral.sh/uv). First `uv sync` pulls `essentia-tensorflow` (~95 MB,
-  native) and TensorFlow — give it a minute.
+- **Python 3.14** — pinned in `.python-version`, so `uv` picks it automatically.
+- `uv` (https://docs.astral.sh/uv).
 - The key and tempo CNN weights are bundled (`src/jams/data/models/*.pt`); no download.
-- `ffmpeg` on PATH is needed to run key **mode refinement on mp3 inputs** (its chroma pass
-  uses librosa/audioread decoding to byte-match the training features; Essentia decodes mp3
-  natively everywhere else).
+- `ffmpeg` on PATH for mp3/m4a decoding (librosa/audioread in the workers).
 
 ## Quickstart
 
 ```sh
-uv sync                       # install (pulls essentia-tensorflow — heavy, native)
+uv sync                       # install
 uv run jams                   # serve on http://0.0.0.0:8000  (Swagger at /docs)
 ```
 
@@ -107,31 +100,27 @@ jungle resolve to **full tempo (~174)**, not half-time. `bpm_alt` always returns
 other octave so a client can flip it. With no hint, the raw value is returned unchanged
 (nothing is silently folded).
 
-## Key detection (edma + S-KEY fusion)
+## Key detection (our CNN)
 
-`edma` nails the *tonic* but over-calls **major** on minor tracks. The default pipeline
-fuses it with Deezer's **S-KEY** (self-supervised, MIT, trained on 1M songs with zero
-key labels — run as a uv worker, `src/jams/data/skey_worker.py`): a learned *mode head*
-refines major/minor from chroma cues + the S-KEY posterior, and a *rerank head* decides
-per-track whether to keep the refined edma key or S-KEY's key outright. Their errors
-decorrelate: edma is exact-hit-strong, S-KEY near-miss-strong.
+Key comes from our own **24-class key CNN** (K10 — MIT weights, ~0.1 M params, bundled at
+`src/jams/data/models/key_cnn_v1.pt`, run in the uv worker `src/jams/data/key_cnn_worker.py`).
+Log-CQT input, pitch-shift augmentation, trained on the public Beatport corpus underlying
+GiantSteps-MTG-Keys.
 
-**Honest protocol** (the literature standard): all learned heads train only on
-**GiantSteps-MTG-Keys** and are evaluated once on **GiantSteps Key**. An earlier mode
-model was inadvertently trained on the test set itself; it remains only behind
-`JAMS_KEY_FUSION=0` (legacy) and its numbers must not be compared to published results.
+**Honest protocol** (the literature standard): train only on **GiantSteps-MTG-Keys**-side
+data, evaluate once on **GiantSteps Key** — one pre-registered shot per system.
 
 | system | MIREX weighted | exact |
 |--------|---------------:|------:|
 | edma raw | 0.759 | 0.688 |
-| edma + honest mode retrain | 0.810 | 0.753 |
 | S-KEY standalone | 0.817 | 0.748 |
-| **production fusion** | **0.812** | **0.757** |
+| edma + S-KEY fusion (retired) | 0.812 | 0.757 |
+| **key CNN (shipped)** | **0.832** | **0.780** |
 
 Honest published SOTA on GiantSteps Key is ~0.76 weighted (Korzeniowski 74.6,
-InceptionKeyNet 75.7, KeyMyna 75.9) — every row above clears it. Fusion models ship at
-`src/jams/data/key_fusion.json`. Pass `detect_key(path, refine_mode=False)` to skip
-refinement entirely (plain edma, saves the chroma pass + worker round-trip).
+InceptionKeyNet 75.7, KeyMyna 75.9) — every row above clears it. The retired fusion
+system's heads remain at `src/jams/data/key_fusion.json` for reproducing the baseline
+rows via `eval/stats_significance.py`; it no longer runs in the service.
 
 ## Song structure (on-device)
 
