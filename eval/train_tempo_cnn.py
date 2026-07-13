@@ -75,7 +75,10 @@ def cmd_acquire(args) -> None:
             continue
         bpm = None
         for attr in ("tempo_v2", "tempo"):
-            v = getattr(t, attr, None)
+            try:
+                v = getattr(t, attr, None)
+            except ValueError:  # mirdata raises on empty annotation arrays
+                continue
             if v is None:
                 continue
             tempos = np.atleast_1d(getattr(v, "tempos", v)).astype(float)
