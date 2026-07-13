@@ -66,11 +66,34 @@ def test_local_backend_dispatches_to_worker(monkeypatch, cmajor_wav):
     captured = {}
 
     class FakeWorker:
-        def analyze(self, audio, target_bpm, model):
-            captured.update(audio=audio, target_bpm=target_bpm, model=model)
+        def analyze(self, audio, target_bpm, model, include_activations=False):
+            captured.update(
+                audio=audio, target_bpm=target_bpm, model=model,
+                include_activations=include_activations,
+            )
             return {"method": "fake"}
 
     monkeypatch.setattr(S, "_local_worker", lambda: FakeWorker())
     out = S.analyze_structure(cmajor_wav, target_bpm=174.0, model="harmonix-fold3")
     assert out["method"] == "fake"
-    assert captured == {"audio": cmajor_wav, "target_bpm": 174.0, "model": "harmonix-fold3"}
+    assert captured == {
+        "audio": cmajor_wav, "target_bpm": 174.0, "model": "harmonix-fold3",
+        "include_activations": False,
+    }
+
+
+def test_activations_flag_reaches_the_worker_protocol(monkeypatch):
+    """include_activations=True must land in the JSONL request as "activations": true."""
+    w = S._LocalWorker()
+    seen = {}
+
+    def rt(req):
+        seen.update(json.loads(req))
+        return _OK
+
+    monkeypatch.setattr(w, "_ensure_alive", lambda: None)
+    monkeypatch.setattr(w, "_round_trip", rt)
+    w.analyze("/a.wav", None, "all-all", include_activations=True)
+    assert seen["activations"] is True
+    w.analyze("/a.wav", None, "all-all")
+    assert seen["activations"] is False
