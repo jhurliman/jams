@@ -190,6 +190,27 @@ constant lr 1e-3, early stop on val Acc1 patience 20 (cap 150). Local sanity bef
 GPU: forward shape OK; 96-track memorization test converges loss 5.5 → 0.4 with
 accuracy 1.0 (v1 could not leave the floor). Gate and corpus unchanged.
 
+**TP1 verdict (2026-07-13, ONE test shot spent — PASS, non-inferior):** v2 CV
+cv_acc1_mean **0.9621** (folds 0.9795/0.9565/0.9565/0.9488/0.9692), median best epoch 36
+→ `final.pt` trained on the full corpus at that budget (A10, total GPU spend ≈\$5).
+Before the shot, the baseline arm was **regenerated with committed code**: the Jun-25
+`results_sota.json` tempo predictions are stale — 13 D&B/dubstep tracks now fold to
+full-tempo under the current manifest genre metadata — giving production TempoCNN
+**0.9258 raw / 0.9694 corrected** (n=458). This supersedes the previously reported
+0.921/0.965: raw traced to the stale artifact; 0.965 traced to an intermediate run whose
+per-track output was not preserved. Neither artifact+corrections combination in git
+history reproduces 0.965; the regenerated numbers are the reproducible ones (script in
+the gate artifacts). One-shot paired result, corrected labels primary (mechanics
+validated beforehand on training tracks only, 5/5): **CNN 0.9672 vs production 0.9694**;
+ΔAcc1(corrected) **−0.0022, 95% CI [−0.0153, +0.0109]** — CI lower bound > −0.02 →
+**non-inferior; ship**. Not superior (CI spans 0). Wins/losses/ties 4/5/449. Raw labels:
+CNN 0.9192 vs production 0.9258. Octave resolution: production `resolve_tempo_octave`
+imported verbatim in both arms — the gate isolates the model swap exactly. Artifacts:
+s3://jams-mir-eval-usw2/tp1/gate/ (per-track predictions both arms, gate JSON, one-shot
++ baseline scripts) and s3://jams-mir-eval-usw2/tp1/out_v2/ (checkpoints, CV histories).
+Decision per pre-registration: the CNN replaces TempoCNN weights + Essentia inference in
+production.
+
 ## Transcription (Slakh2100-redux test, n=151, GT stems = oracle)
 
 | # | date | commit | system | bass note-F | other note-F | drums onset-F | artifacts |
