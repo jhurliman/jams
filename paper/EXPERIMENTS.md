@@ -130,6 +130,39 @@ the decision rule. Substantively: a statistical dead heat with madmom.**
   posteriors at `s3://jams-mir-eval-usw2/k10/`, selection/eval scripts at
   `k10/scripts/`; trainer committed as `eval/train_key_cnn.py`.
 
+## Tempo (GiantSteps-Key tempo labels, n=458; Acc1 ±4%)
+
+### TP1 (pre-registered 2026-07-12, before any training) — MIT tempo CNN replacement
+
+**Motivation:** replace the production tempo stack (TempoCNN `deepsquare` weights +
+Essentia inference — both under licenses incompatible with an all-MIT runtime) with a
+model whose code and weights are ours. This is a **non-inferiority** experiment: the
+production system already scores Acc1 0.921 raw / 0.965 corrected on this protocol.
+
+**Training corpus (audited):** Raveform (1,332 tracks; `bpm_ref` derived from the
+dataset's expert beat annotations; MIT) + GiantSteps-Tempo v2 (664 tracks, **minus 42
+whose Beatport catalog ids appear in GiantSteps Key** — mandatory exclusion because
+(a) those tracks are in the eval set and (b) v2 labels on them informed our eval-label
+corrections; leaves 622). Raveform↔GS-Key song-level overlap is not auditable by id
+(different corpora/naming); documented residual risk, expected negligible for coarse
+global-tempo labels.
+
+**Design (fixed):** clean-room reimplementation of the Schreiber & Müller (ISMIR 2018)
+single-step tempo CNN family from the paper (no upstream code): log-mel input
+(sr 11,025, 40 mels, hop 512), temporal conv stack, 256-class softmax (30–285 BPM,
+1-BPM bins), sliding-window softmax averaging at inference. Augmentation: time-axis
+rescale (log-uniform ×0.7–1.4) with label rescaling. Selection by 5-fold CV within the
+training corpus only; simplest-within-noise. The production genre-aware octave
+resolution stays **outside** the model, unchanged, so the gate isolates the model swap.
+
+**Gate (decision rule fixed now):** ONE paired evaluation vs the production TempoCNN
+path on the identical n=458 protocol (both label variants reported; corrected is
+primary). Ship if paired ΔAcc1(corrected) 95% CI lower bound > −0.02 (non-inferiority
+margin). CI lower bound > 0 additionally permits a superiority note. Otherwise:
+negative result, TempoCNN stays, reported as-is.
+
+**Budget:** aleph0 4090 (\$0) preferred; ≤\$20 Lambda fallback.
+
 ## Transcription (Slakh2100-redux test, n=151, GT stems = oracle)
 
 | # | date | commit | system | bass note-F | other note-F | drums onset-F | artifacts |
