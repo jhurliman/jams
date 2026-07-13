@@ -145,17 +145,18 @@ def fig_structure_trade() -> None:
 
 # ------------------------------------------------------------- Figure 4: key by genre
 def fig_key_genre() -> None:
-    # Ledger K6 genre slice (n>=15 per genre), MIREX weighted
+    # K10 CNN genre slice (n>=15 per genre; descriptive post-hoc on cnn_gskey.jsonl)
     genres = [
-        ("Electro House", 0.868), ("Dubstep", 0.847), ("House", 0.841),
-        ("Tech House", 0.827), ("Deep House", 0.822), ("Drum & Bass", 0.800),
-        ("Prog. House", 0.767), ("Techno", 0.746), ("Trance", 0.734),
+        ("Dubstep", 0.900), ("Electro House", 0.894), ("Techno", 0.854),
+        ("Deep House", 0.846), ("Tech House", 0.812), ("Drum & Bass", 0.804),
+        ("House", 0.800), ("Prog. House", 0.772), ("Trance", 0.763),
+        ("Electronica", 0.739),
     ]
     fig, ax = plt.subplots(figsize=(4.6, 2.2))
     xs = range(len(genres))
     ax.bar(xs, [g[1] for g in genres], color=BLUE, width=0.65)
-    ax.axhline(0.8123, color=GREEN, ls="--", lw=1)
-    ax.text(len(genres) - 0.4, 0.8123, "overall 0.812", ha="right", va="bottom",
+    ax.axhline(0.8321, color=GREEN, ls="--", lw=1)
+    ax.text(len(genres) - 0.4, 0.8321, "overall 0.832", ha="right", va="bottom",
             fontsize=7.5, color=GREEN)
     ax.set_xticks(list(xs))
     ax.set_xticklabels([g[0] for g in genres], rotation=35, ha="right", fontsize=7.5)
