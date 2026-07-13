@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import type { TrackListItem } from '../../shared/types.ts';
 import { api } from '../api.ts';
+import { importStemsEnabled, setImportStems } from '../importPrefs.ts';
 import { useEditor } from '../store.ts';
 
 type Sort = 'track' | 'worst' | 'best';
@@ -17,6 +18,7 @@ export function TrackList() {
   const [query, setQuery] = useState('');
   const [genre, setGenre] = useState('all');
   const [sort, setSort] = useState<Sort>('track');
+  const [stemsOnImport, setStemsOnImport] = useState(importStemsEnabled);
   const { trackId, loadTrack, dirty, tracksRev } = useEditor();
 
   useEffect(() => {
@@ -92,6 +94,20 @@ export function TrackList() {
           </li>
         ))}
       </ul>
+      <label
+        className="import-pref dim"
+        title="Separate stems and transcribe them to per-stem MIDI on drag-and-drop import (the slowest analysis stage)"
+      >
+        <input
+          type="checkbox"
+          checked={stemsOnImport}
+          onChange={(e) => {
+            setStemsOnImport(e.target.checked);
+            setImportStems(e.target.checked);
+          }}
+        />
+        Transcribe stems on import
+      </label>
     </nav>
   );
 }
