@@ -6,11 +6,18 @@
  *  `imports.json` (IMPORTS_JSON) rather than the dataset's segments.json.
  */
 import { existsSync, readFileSync } from 'node:fs';
-import { mkdir, writeFile } from 'node:fs/promises';
-import { extname, resolve } from 'node:path';
+import { copyFile, mkdir, writeFile } from 'node:fs/promises';
+import { basename, extname, resolve } from 'node:path';
 
 import type { Beat, Segment } from '../shared/types.ts';
-import { ACTIVATIONS_DIR, activationsPath, AUDIO_DIR, IMPORTS_JSON } from './paths.ts';
+import {
+  ACTIVATIONS_DIR,
+  activationsPath,
+  AUDIO_DIR,
+  IMPORTS_JSON,
+  STEMS_DIR,
+  stemsPath,
+} from './paths.ts';
 
 /** Where the jams analysis API lives; scripts/dev.sh starts it on :8000. */
 const JAMS_API_URL = process.env.JAMS_API_URL ?? 'http://localhost:8000';
@@ -45,11 +52,23 @@ interface JamsStructure {
   segments: { start: number; end: number; label: string }[];
   activations?: JamsActivations | null;
 }
+
+/** Raw (snake_case) stems result from jams — persisted verbatim to data/stems/<id>.json
+ *  (the shape `annotations.ts loadStems` parses), with file paths rewritten to our copies. */
+interface JamsStemsResult {
+  stems: { stem_type: string; audio_path: string }[];
+  transcriptions: unknown[];
+  midi_paths: Record<string, string>;
+  method: string;
+  duration_sec: number | null;
+}
+
 interface JamsResponse {
   duration_sec: number | null;
   key: { key: string } | null;
   tempo: { bpm: number } | null;
   structure: JamsStructure | null;
+  stems?: JamsStemsResult | null;
 }
 
 export class ImportError extends Error {
@@ -125,6 +144,7 @@ const notReachable = () =>
 async function analyzeWithProgress(
   fileName: string,
   bytes: Uint8Array,
+  stems: boolean,
   onProgress?: (p: ImportProgress) => void,
 ): Promise<JamsResponse> {
   const form = new FormData();
@@ -133,6 +153,7 @@ async function analyzeWithProgress(
   form.append('tempo', 'true');
   form.append('structure', 'true');
   form.append('activations', 'true'); // cached per-track for the section-count slider
+  if (stems) form.append('stems', 'true');
   form.append('async', 'true');
 
   let res: Response;
@@ -177,6 +198,29 @@ async function analyzeWithProgress(
   }
 }
 
+/** Copy the stem wavs + MIDI files jams wrote (to a temp work dir we don't own) into
+ *  data/stems/<id>/ and write the raw result — paths rewritten to the durable copies —
+ *  to data/stems/<id>.json, where `annotations.ts loadStems` picks it up. */
+async function persistStems(id: string, raw: JamsStemsResult): Promise<void> {
+  const dir = resolve(STEMS_DIR, id);
+  await mkdir(dir, { recursive: true });
+  const keep = async (src: string): Promise<string> => {
+    const dest = resolve(dir, basename(src));
+    await copyFile(src, dest);
+    return dest;
+  };
+  const stems = [];
+  for (const s of raw.stems) stems.push({ ...s, audio_path: await keep(s.audio_path) });
+  const midi_paths: Record<string, string> = {};
+  for (const [stem, path] of Object.entries(raw.midi_paths)) midi_paths[stem] = await keep(path);
+  await writeFile(stemsPath(id), JSON.stringify({ ...raw, stems, midi_paths }, null, 2));
+}
+
+export interface ImportOptions {
+  /** Separate stems + transcribe them to per-stem MIDI (default true; much slower). */
+  stems?: boolean;
+}
+
 /** Run one uploaded file through jams and register it. Returns the new track id.
  *  `onProgress` (optional) receives concurrent stage transitions plus the final
  *  'importing' step; omitting it keeps the original blocking behavior. */
@@ -184,13 +228,15 @@ export async function importTrack(
   fileName: string,
   bytes: Uint8Array,
   onProgress?: (p: ImportProgress) => void,
+  opts: ImportOptions = {},
 ): Promise<string> {
   const ext = extname(fileName).toLowerCase();
   if (!IMPORT_EXTS.has(ext)) {
     throw new ImportError(422, `Unsupported audio format '${ext || fileName}'`);
   }
+  const wantStems = opts.stems ?? true;
 
-  const analysis = await analyzeWithProgress(fileName, bytes, onProgress);
+  const analysis = await analyzeWithProgress(fileName, bytes, wantStems, onProgress);
   onProgress?.({ running: ['importing'], done: [] });
   const structure = analysis.structure;
   if (!structure || structure.beats.length === 0) {
@@ -214,6 +260,18 @@ export async function importTrack(
 
   await mkdir(AUDIO_DIR, { recursive: true });
   await writeFile(resolve(AUDIO_DIR, `${id}${ext}`), bytes);
+
+  // Persist stems before registering the track: a copy failure aborts the import loudly
+  // instead of leaving a registered track that silently lost its transcriptions.
+  if (wantStems) {
+    if (!analysis.stems) {
+      throw new ImportError(
+        502,
+        'stems were requested but analysis returned none — is the stems backend configured?',
+      );
+    }
+    await persistStems(id, analysis.stems);
+  }
 
   const entry: ImportedTrack = {
     key: id,
