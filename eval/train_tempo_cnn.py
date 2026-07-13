@@ -76,8 +76,14 @@ def cmd_acquire(args) -> None:
         bpm = None
         for attr in ("tempo_v2", "tempo"):
             v = getattr(t, attr, None)
-            if v:
-                bpm = float(np.median(v)) if isinstance(v, (list, tuple)) else float(v)
+            if v is None:
+                continue
+            tempos = np.atleast_1d(getattr(v, "tempos", v)).astype(float)
+            conf = getattr(v, "confidence", None)
+            if tempos.size:
+                # v2 lists multiple tempi with salience: take the most salient
+                bpm = float(tempos[int(np.argmax(conf))] if conf is not None
+                            else tempos[0])
                 break
         cls = bpm_to_cls(bpm) if bpm else None
         if cls is None or not Path(t.audio_path).exists():
