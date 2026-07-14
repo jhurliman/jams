@@ -78,7 +78,7 @@ class StemTranscription(BaseModel):
     gm_program: int = Field(ge=0, le=127, description="General MIDI program (0-indexed)")
     is_drums: bool = Field(description="True => GM percussion on channel 10")
     notes: list[StemNote] = Field(default_factory=list)
-    method: str = Field(examples=["basic-pitch", "adtof"])
+    method: str = Field(examples=["basic-pitch", "drum-cnn-v1"])
 
 
 class StemAudio(BaseModel):
@@ -92,7 +92,7 @@ class StemsResult(BaseModel):
     midi_paths: dict[str, str] = Field(
         default_factory=dict, description="Per-stem + 'combined' MIDI file paths"
     )
-    method: str = Field(examples=["demucs-htdemucs+basic-pitch+adtof"])
+    method: str = Field(examples=["demucs-htdemucs+basic-pitch+drum-cnn-v1"])
     duration_sec: float | None = None
 
 

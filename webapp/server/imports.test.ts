@@ -82,11 +82,11 @@ function fakeStemsResult() {
         gm_program: 0,
         is_drums: true,
         notes: [{ onset: 0.5, offset: 0.6, pitch: 36, velocity: 100 }],
-        method: 'adtof',
+        method: 'drum-cnn-v1',
       },
     ],
     midi_paths: { drums: wav('drums.mid'), combined: wav('combined.mid') },
-    method: 'scnet_xl_ihf+yourmt3+adtof',
+    method: 'scnet_xl_ihf+yourmt3+drum-cnn-v1',
     duration_sec: 4,
   };
 }

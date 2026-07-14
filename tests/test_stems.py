@@ -1,6 +1,6 @@
 """Unit tests for the stems orchestration, worker protocol, and pure helpers.
 
-The two uv workers (demucs/basic-pitch + ADTOF drums) are mocked so nothing heavy runs.
+The two uv workers (demucs/basic-pitch + the drum CNN) are mocked so nothing heavy runs.
 The pure-python helpers in ``jams.analysis.gm`` (GM canon, quantize) and the worker's
 monophonic filter are tested directly.
 """
@@ -97,7 +97,7 @@ def test_analyze_stems_merges_pitched_and_drums(monkeypatch, tmp_path, cmajor_wa
     assert drums["is_drums"] and drums["notes"][0]["pitch"] == gm.GM_KICK  # 35 -> canon 36
     bass = out["transcriptions"][1]
     assert bass["notes"][0]["pitch"] == 52  # 40 + BASS_OCTAVE_SHIFT applied by orchestrator
-    assert out["method"] == "scnet_xl_ihf+basic-pitch+adtof"  # SCNet is the default separator
+    assert out["method"] == "scnet_xl_ihf+basic-pitch+drum-cnn-v1"  # SCNet default separator
     # basic-pitch selected -> stems_worker asked to transcribe
     assert stems_w.reqs[0]["transcribe"] is True
     # MIDI files written for each stem + combined
@@ -130,7 +130,7 @@ def test_analyze_stems_yourmt3_routing(monkeypatch, tmp_path, cmajor_wav):
     assert bass["method"] == "yourmt3"
     # mono-filter kept the louder overlapping note; orchestrator applied +12
     assert [n["pitch"] for n in bass["notes"]] == [45 + 12]
-    assert out["method"] == "scnet_xl_ihf+yourmt3+adtof"
+    assert out["method"] == "scnet_xl_ihf+yourmt3+drum-cnn-v1"
 
 
 def test_analyze_stems_oracle_mode(monkeypatch, tmp_path):
@@ -148,7 +148,7 @@ def test_analyze_stems_oracle_mode(monkeypatch, tmp_path):
     assert stems_w.reqs[0]["stems"] == {"bass": "/gt/bass.wav"}
     assert "audio" not in stems_w.reqs[0]
     assert drum_w.reqs == []  # no drums stem -> drum worker never called
-    assert out["method"] == "oracle-stems+basic-pitch"  # no adtof suffix
+    assert out["method"] == "oracle-stems+basic-pitch"  # no drum-cnn suffix
 
 
 def test_analyze_stems_requires_path_or_stems():

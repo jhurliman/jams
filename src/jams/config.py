@@ -60,8 +60,8 @@ class Settings(BaseSettings):
     replicate_api_token: str | None = None
 
     # --- Stem separation + MIDI transcription ------------------------------
-    # Demucs + basic-pitch + the ADTOF drum model run in self-contained uv workers
-    # (src/jams/data/stems_worker.py), same subprocess pattern as structure.
+    # Demucs + basic-pitch + our drum CNN run in self-contained uv workers
+    # (src/jams/data/stems_worker.py, drum_worker.py), same subprocess pattern as structure.
     stems_uv: str = "uv"
     # Separation model. "scnet_xl_ihf" (default) = vendored SCNet XL IHF, the Slakh-test
     # A/B winner (SI-SDR drums 14.3 vs htdemucs 11.6; bass note-F 0.596 -> 0.645).
