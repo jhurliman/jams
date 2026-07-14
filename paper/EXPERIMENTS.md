@@ -1048,3 +1048,24 @@ training).** The binding checkpoint fired with three catches and five sign-offs:
 - Execution note: the runner's permission layer denies box launches and S3 pushes
   from subagents; the orchestrator provisions boxes and relays artifacts directly
   (zero-credential box pattern retained).
+
+**Amendment (2026-07-14, PHASE1_READY review; declared before training launch).**
+(1) **Silence loss ratified as amended**: the ledgered "(energy + STFT-mag penalty)"
+on unused slots is replaced by the bounded relative-energy penalty
+`softplus(10·log10(E_est/E_mix) + 50)/10` — two pre-registered-form variants failed
+smokes (w=1 leaked −15.7 dB vs the −40 bar; w=5 collapsed training); redesign was
+evidence-driven during recovery, documented in RUNBOOK.md, validated by the T1 GPU
+smoke (empty-roll −50.3 dB) and T-blind smoke (unused slots −40.9…−48.2). (2)
+**K_max=8 ratified for T-blind-null** (supersedes the k≤6 in the 9ee436a text; the
+null must match the primary's slot budget; measured null: −8.63 dB → bar −5.63). (3)
+**Allocation amended on measured throughput**: A10-22GB feasible batches are T-blind
+4 (0.92 s/step) / T1 2 draws (0.50 s/step) — the ledgered 8–12 do not fit at 8-s
+crops; prior rule (T-blind full 150k + T1 floor 75k) exceeds the $75 cap at these
+rates. Adopted plan: **T-blind 120k + T1 100k steps ≈ $69.5 incl. $7.8 spent** —
+protects the primary's crop count (~480k) while keeping T1 meaningful. No
+grad-checkpointing or partition-cap changes post-smoke (no new moving parts). (4)
+T-blind fixture smoke recorded 13/14 with one 0.5 dB near-miss on an unused-slot
+silence bar (−39.5 vs −40.0, still descending); flag-flip rerun waived — the binding
+bar is evaluated on OV2-val after training, not on fixtures. (5) Blind full-track
+permutation-matched eval script to be written during training ($0; frozen before any
+T-blind eval).
