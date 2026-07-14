@@ -34,3 +34,9 @@ dist/
 eval/data/
 eval/models/
 .mt3_checkpoints/
+
+# Claude Code session state / worktrees (12+ GB of agent worktrees live here)
+.claude/
+
+# Annotator + training data at the repo root (large; user-owned or regenerable)
+/data/
