@@ -703,3 +703,99 @@ watchdog at $25. Also recorded: data source switched from the gated HF mirror to
 canonical Zenodo redux tarball (all 150 sampled tracks md5-verified against the
 canonical index), and the eval box holds zero credentials (artifacts relay
 box → local → S3).
+
+### OV2 (pre-registered 2026-07-13, before any training) — note-conditioned voice-lane extraction from `other` ("separate the audio of THESE notes")
+
+**Hypothesis.** Conditioning a separator on a target-voice piano roll extracts per-voice
+lanes from the `other` bucket that (H1) beat a training-free score-informed harmonic
+mask (Tier-0) by ≥ +3 dB mean per-voice SI-SDR under degraded (transcription-realistic)
+conditioning, and (H2) remain non-hallucinatory (empty/wrong roll → silence). Context:
+OV1 addresses *labels/notes* from `other`; OV2 addresses *audio lanes* — conditioning
+rolls come from user selection (webapp piano roll) or clustered transcription, and its
+value is independent of OV1's outcome.
+
+**Phase-0 findings (2026-07-13, recorded so outcomes can't be reframed).**
+(a) YourMT3+ on real EDM `other` stems does NOT emit usable voice programs: GM 80–103
+synth programs ≈ 4% of pitched notes (edm_demo) and misassigned (register 26–41);
+synths map to Strings/Chromatic-Perc/Pipe/Brass; D&B `other` stems transcribe as ~95%
+drum-channel notes with pitched recall collapse (dnb0030: 57 pitched notes vs 46%
+harmonic energy). Conditioning groups therefore come from user selection (primary) or
+co-onset feature clustering (forced k≈5 gives interpretable arp/pad/stab/FX lanes;
+silhouette auto-k under-segments; ARI vs GM programs 0.09–0.25) — never from GM
+programs. (b) Tier-0 null on babyslakh TRAIN (Tracks 1/2/6; GT rolls; 16 kHz): mean
+per-voice SI-SDR −3.0/−2.1/−4.4 dB clean (SI-SDRi +6.1/+8.3/+8.2), −3.7/−3.3/−5.1 dB
+with ±30 ms jitter + 10% dropout; dominant voices can lose energy to overlapping combs
+(worst voice −9.6 dB); a Wiener refinement iteration did not help. (c) Headless render
+feasibility PASS: DawDreamer 0.8.3 (GPL-3.0, offline tool only) rendered a 174 BPM
+poly-synth pattern on arm64. (d) Survey: no published deep model trains arbitrary
+polyphonic note-subset extraction from multi-timbral mixtures; nearest lineage =
+score-informed NMF (Ewert–Müller), Gover ISMIR'20 (choral, collapses on real audio),
+Jointist (fixed 39 classes, unlicensed), Tunturi EUSIPCO'25 (concat conditioning fails
+synth→real while score-only masks transfer). Mandatory eval-time baselines: Tier-0
+null, score-informed NMF, oracle IRM anchor.
+
+**Conditions.**
+- **T0 (null; ships as fallback regardless)**: harmonic comb mask + Wiener-style
+  normalization (24 harmonics, 1/h rolloff, ±50-cent bands, 30 ms onset allowance,
+  λ=0.05 residual).
+- **T1 (trained)**: bandsplit-RNN-small (~20 M params, 44.1 kHz stereo, STFT 2048/512),
+  roll raster (sustain/onset/velocity channels) → conv encoder → per-frame FiLM at
+  bandsplit blocks + roll concat input channels; loss = −SI-SDR + 0.5·multi-res STFT
+  L1; 10% negative-conditioning samples (5% empty roll, 5% wrong-track roll) trained
+  to silence (energy + STFT-mag penalty); mixture-consistency penalty on full-partition
+  samples; least-squares consistency projection offered at inference.
+  **Primary variant declared: FiLM+concat ("both").** One contingent ablation run
+  (FiLM-only) is permitted within cap ONLY if the primary fails ship gates or
+  negative-conditioning collapses; concat-only is not trained (Tunturi transfer risk)
+  unless that ablation motivates it. Weights trained from scratch → MIT.
+- **T1-deg / T0-deg**: same, evaluated under degraded conditioning (the headline).
+- Oracle anchors (diagnostic, never headline): IRM on target voice; clean-GT-roll T1.
+
+**Data/splits.** Train: Slakh2100-redux TRAIN minus a held-out carve **OV2-val = 60
+tracks, seed 4242, drawn and frozen before training**; mixtures = resampled subsets of
+4–10 other-bucket stems (recomposition augmentation); targets = single stems or unions
+of 1–3 stems (roll = union); per-stem gain ±6 dB, channel swap, shared sidechain-pump
+envelope pre-mix, light per-stem EQ. OV1's val subset (n=150, seed 1234) and the test
+split are NOT used — OV2-val is a train-split carve, legitimate because OV2 evaluates
+separation (SI-SDR has no YourMT3+-contamination concern; any note-based metric on
+OV2-val must not use YourMT3+ as scorer — it trained on Slakh train). babyslakh 16 kHz
+= prototypes only, never headline; **Tier-0 must be re-baselined at 44.1 kHz on OV2-val
+before any gating**. Conditioning degradation (train + deg eval): onset N(0, 20 ms)
+clipped ±60 ms, duration ×U(0.8, 1.25), dropout U(0, 0.30), insertions ≤15%
+register-local, 3% octave substitution, velocity noise — rates bracket house
+transcriber quality (0.849 oracle note-F; far worse on EDM per Phase-0). Tier-2 (only
+if T1 ships AND real-EDM listening shows timbre-transfer artifacts): DawDreamer-rendered
+EDM role corpus (~50 h mixtures; 300–500 GPL/CC0 patches; held-out patches AND patterns
+for val; per-patch provenance ledger; NO Vital factory presets/wavetables), fine-tune +
+re-eval on held-out renders.
+
+**Metrics.** Primary: mean per-voice SI-SDR on OV2-val under degraded conditioning,
+T1-deg vs T0-deg paired per voice, 10k bootstrap seed 0. Secondary: clean-roll SI-SDR;
+SI-SDRi; worst-decile voice SI-SDR (dominant-voice regression check); mixture
+consistency (Σ lanes + residual vs input); negative-conditioning output level (empty +
+wrong roll, dB rel. input); note-F ONLY in non-circular slices; role-label accuracy
+(Tier-2 renders only); s/track. **Circularity rule (binding):** re-transcribing an
+extracted lane and scoring against its conditioning notes is INVALID (a model that
+synthesizes its roll scores perfectly). Note-F is valid only for (i) recall of notes
+DELETED from the conditioning roll, scored vs GT; (ii) leakage = other voices' GT notes
+found in the lane (lower better); (iii) real-EDM lanes judged by a human, not a
+transcriber.
+
+**Decision criteria (declared before training).**
+- **Ship T1** into the stems pipeline iff on OV2-val: T1-deg vs T0-deg paired Δ ≥
+  +3 dB mean per-voice SI-SDR with 95% CI lower bound > 0, AND worst-decile voices do
+  not regress vs T0-deg, AND empty-roll output ≤ −40 dB rel. input, AND dropout-slice
+  recall ≥ 0.5, AND a 5-track real-EDM listening check (Raveform, webapp lanes) is not
+  vetoed by the user.
+- **Ship T0 alone** (training-free lane preview) if T1 fails but T0 lanes are judged
+  useful in the same listening check.
+- Otherwise: archive as negative result (survey + Phase-0 findings still feed the paper).
+
+**Process, budget, venue.** **Binding review checkpoint**: after data pipeline +
+OV2-val carve + 44.1 kHz Tier-0 re-baseline + trainer fixture-smoke, and BEFORE any
+training launch, the runner stops for orchestrator data review (house discipline —
+this checkpoint caught fatal bugs in TP1 and D1). Tier-1 cap **$45** (Lambda A10,
+incl. the contingent ablation), Tier-2 cap **$20** (renders on CPU ≈ free). Fresh box,
+zero credentials (artifacts relay box → local → S3, OV1 pattern). Artifacts →
+`s3://jams-mir-eval-usw2/ov2/` (frozen OV2-val list, seeds, scripts, checkpoint +
+data sha256s, license/provenance evidence). Never touches ov1/ or d1/ prefixes.
