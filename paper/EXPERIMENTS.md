@@ -352,6 +352,45 @@ in-domain superiority gate. ADTOF-pytorch is run alongside on identical tracks a
 paired reference arm wherever feasible (Linux box or existing banked outputs; no
 arm64 wheel locally).
 
+**Addendum results (2026-07-14) — external ADT diagnostics complete.** Scorer
+self-tested on synthetic fixtures (all protocols pass); cross-validation: measured
+ADTOF-port MDB full-mix 5-class pooled F 0.792 lands inside the published
+ADTOF-family zero-shot range 0.78–0.81, validating scorer + port together. Datasets:
+MDB-Drums (CC BY-NC-SA, 23 tracks) and IDMT-SMT-Drums V2 (CC BY-NC-ND, 95 mixtures)
+acquired and run; **RBMA13 blocked** — annotations acquired (27 tracks, 3-class) but
+audio is behind a $7 Bandcamp paywall (original free distribution defunct; harness
+staged and self-tested, ~15 min turnaround after purchase); **ENST skipped** (signed
+license agreement required = registration friction per protocol). Reference arm:
+ADTOF-pytorch on aleph0 4090 (same cached env as the banked pre-D1 baseline;
+upstream commit unpinned — provenance caveat if the paper needs it). Headline
+protocol-matched comparison (MDB all-23 full mixes, zero-shot, 5-class KD/SD/HH/TT/CY,
+50 ms, pooled F): published ADTOF-family 0.78–0.81 (Zehren 2023 0.81; Weber/STAR
+2025 0.78–0.79); paired port run 0.7915; **ours deployment-config (mix → shipped
+SCNet → CNN) 0.7684**; ours raw-mix (out-of-contract input) 0.5374. Paired deltas
+vs port (house 50 ms trackmacro, 10k bootstrap seed 0): MDB drum-only 3-cl −0.0493
+[−0.0930, −0.0040], 5-cl −0.0641 [−0.1105, −0.0177]; MDB mix→SCNet arm 3-cl −0.0301
+[−0.0704, +0.0128], 5-cl −0.0352 [−0.0764, +0.0087]; IDMT 3-cl −0.0413 [−0.0596,
+−0.0232]. At Vogl's stricter 20 ms tolerance on IDMT the gap vanishes (0.8828 vs
+0.8825) — our onsets are more precisely timed (plausibly E-GMD's 2 ms-aligned
+labels; ADTOF's crowd-sourced annotations cost it timing precision). The
+within-dataset-trained 2017 SOTA (CBGRU 0.952 @ 20 ms, 3-fold CV on the same 95
+loops) stays ~7 pts above both zero-shot systems. Notable positive: the shipped
+separator recovers most of the raw-mix deficit on real music (0.537 → 0.768 5-class
+pooled) — mix-then-separate is what makes a stem-trained model viable on real mixes.
+**Read: exactly the recorded prior — the shipped CNN trails ADTOF-family models by
+3–6 F points on real acoustic-kit benchmarks (significant on 3 of 4 primary paired
+arms; the deployment-config arm's CI spans 0), while the in-domain gate result
+stands untouched. Claim domain confirmed as bounded: "superior in the EDM/production
+pipeline", not field-wide.** Citation fix for the paper: the "ADTOF ≈0.45 on E-GMD"
+prior's primary source is Yeung et al., ICASSP 2026 (arXiv:2509.21739), Table 1
+(7→5-class remap, full E-GMD test); our banked 0.6449 was the n=500 subset under
+house protocol — both agree E-GMD is ADTOF's weak domain, magnitude differs with
+protocol. Also flagged: Wu et al. 2018's review contains NO MDB/RBMA13 benchmark
+results (IDMT + ENST only) — a common misattribution the paper must not repeat.
+Artifacts: scratch `d1ext/` (consolidated summary JSON, scorer + passing self-tests,
+manifests, predictions ×8, per-protocol scores ×18, paired CIs, SCNet stems) →
+s3://jams-mir-eval-usw2/d1/external/.
+
 ## Transcription (Slakh2100-redux test, n=151, GT stems = oracle)
 
 | # | date | commit | system | bass note-F | other note-F | drums onset-F | artifacts |
