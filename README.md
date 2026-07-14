@@ -18,10 +18,10 @@ workers.
 
 ## Requirements
 
-- **Python 3.14** — pinned in `.python-version`, so `uv` picks it automatically.
+- **Python 3.13** — pinned in `.python-version`, so `uv` picks it automatically.
 - `uv` (https://docs.astral.sh/uv).
 - The key and tempo CNN weights are bundled (`src/jams/data/models/*.pt`); no download.
-- `ffmpeg` on PATH for mp3/m4a decoding (librosa/audioread in the workers).
+- `ffmpeg` on PATH for mp3/m4a decoding (librosa/audioread).
 
 ## Quickstart
 
@@ -103,7 +103,7 @@ other octave so a client can flip it. With no hint, the raw value is returned un
 ## Key detection (our CNN)
 
 Key comes from our own **24-class key CNN** (K10 — MIT weights, ~0.1 M params, bundled at
-`src/jams/data/models/key_cnn_v1.pt`, run in the uv worker `src/jams/data/key_cnn_worker.py`).
+`src/jams/data/models/key_cnn_v1.pt`, run in-process — `src/jams/analysis/key_cnn.py`).
 Log-CQT input, pitch-shift augmentation, trained on the public Beatport corpus underlying
 GiantSteps-MTG-Keys.
 
@@ -128,8 +128,8 @@ Structure (beats / downbeats / **functional segments** — intro/buildup/drop/br
 from **All-In-One** (Kim & Nam, WASPAA 2023). By default it runs the **EDM-trained `all-all`
 8-fold ensemble locally on Apple Silicon** via PyTorch-MPS — no Replicate, no network, no
 per-call cost. The EDM weights live on the same HuggingFace repo as the stock model and load via
-a state-dict remap (no retraining). Because All-In-One needs torch/natten/demucs (which have no
-Python 3.14 wheels and so can't share jams' env), the worker `src/jams/data/structure_worker.py`
+a state-dict remap (no retraining). Because All-In-One's pinned torch/natten/demucs stack
+conflicts with jams' env, the worker `src/jams/data/structure_worker.py`
 is a **self-contained `uv` script** that bootstraps its own environment; jams launches it once
 and keeps the models resident. **Requirement:** `uv` on PATH and an Apple-Silicon Mac. Structure
 is opt-in per request (`structure=true`).
@@ -170,8 +170,8 @@ Output is one `.mid` per stem plus a combined Type-1 multitrack `.mid`, and inli
 Beat-grid quantization (`JAMS_STEMS_QUANTIZE`, default on) is a *stylistic* choice for
 DAW-ready MIDI, not an accuracy feature — a ground-truth-beats ablation measured it at
 −0.3 to −2.5 pt note-F versus raw model timing, so the eval harness scores unquantized.
-Like structure, the heavy models run in self-contained `uv` workers (no Python 3.14 wheels for
-demucs/basic-pitch/torch), kept resident: `src/jams/data/stems_worker.py` (separation +
+Like structure, the heavy models run in self-contained `uv` workers (their pinned
+demucs/basic-pitch stacks conflict with jams' env), kept resident: `src/jams/data/stems_worker.py` (separation +
 pitched) and `drum_worker.py` (drums, isolated so its git-sourced model dependency never
 touches jams' own env). The orchestrator (`analysis/stems.py` + `analysis/gm.py`) merges them
 and assembles the MIDI.
@@ -275,10 +275,10 @@ open http://localhost:5566        # local port 5566 — macOS AirPlay squats on 
 ```
 src/jams/
   analysis/   key.py · tempo.py · structure.py · audio.py   (the MIR core)
+  analysis/   key_cnn.py · tempo_cnn.py                     (in-process CNN inference)
   api/        app.py · routes.py                            (FastAPI)
   models.py   pydantic schemas
   config.py   settings
   data/models/key_cnn_v1.pt · tempo_cnn_v1.pt                (bundled CNN weights, MIT)
-  data/key_cnn_worker.py · tempo_cnn_worker.py               (self-contained uv workers)
   data/structure_worker.py                                   (self-contained uv worker: All-In-One)
 ```

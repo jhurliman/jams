@@ -25,26 +25,10 @@ class Settings(BaseSettings):
     # Set JAMS_PARALLEL_STAGES=0 to force the sequential order.
     parallel_stages: bool = True
 
-    # --- Key detection ------------------------------------------------------
-    # Our own 24-class key CNN (K10; MIT, weights bundled, uv worker
-    # src/jams/data/key_cnn_worker.py). GiantSteps Key honest protocol, one
-    # pre-registered evaluation: weighted MIREX 0.832 / exact 0.780 — statistically
-    # indistinguishable from the strongest published system. Command used to launch
-    # the worker (absolute path if uv isn't on PATH).
-    key_cnn_uv: str = "uv"
-
-    # --- Tempo detection ----------------------------------------------------
-    # Our own 256-class tempo CNN (TP1; MIT, weights bundled, uv worker
-    # src/jams/data/tempo_cnn_worker.py). GiantSteps Key tempo protocol, one
-    # pre-registered evaluation: Acc1 0.967 (corrected labels, n=458) — statistically
-    # non-inferior to the previous production system. Command used to launch the
-    # worker (absolute path if uv isn't on PATH).
-    tempo_cnn_uv: str = "uv"
-
     # --- Song structure (All-In-One) ---------------------------------------
     # "local": run All-In-One on-device. The worker is a self-contained uv script
-    # (all-in-one-mps), so it can't share jams' Python 3.14 env (no torch wheel) —
-    # jams launches it via `uv run --script` as a subprocess. "replicate": call
+    # (all-in-one-mps) whose pinned torch/natten/demucs stack conflicts with jams'
+    # own env — jams launches it via `uv run --script` as a subprocess. "replicate": call
     # the hosted model (needs a token).
     structure_backend: Literal["local", "replicate"] = "local"
     # Command used to launch the self-contained worker script. Override if `uv`
