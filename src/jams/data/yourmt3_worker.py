@@ -42,11 +42,18 @@ Notes are emitted at SOUNDING pitch; the orchestrator (``jams.analysis.gm``) app
 written-pitch bass convention (+12) and the monophonic post-filter uniformly across
 transcribers.
 
+YourMT3+ emits one MIDI track per detected instrument (GM program). We keep that
+information (OV1 A-lab, paper/EXPERIMENTS.md): every note carries its ``program`` and the
+response includes a compact per-program ``instruments`` summary. The flat ``notes`` list is
+unchanged otherwise — additive fields only.
+
 Modes:
   single-shot:  yourmt3_worker.py --audio FILE           -> prints one JSON object
   serve (JSONL): yourmt3_worker.py --serve
      request:  {"audio": "stem.wav"}
-     response: {"ok":true,"result":{"notes":[{"onset","offset","pitch","velocity"},...]}}
+     response: {"ok":true,"result":{
+                  "notes":[{"onset","offset","pitch","velocity","program"},...],
+                  "instruments":[{"program","name","n_notes"},...]}}
                | {"ok":false,"error":"..."}
 """
 from __future__ import annotations
@@ -86,8 +93,14 @@ def _warn_if_cpu_with_gpu() -> None:
         )
 
 
-def transcribe_pitched(wav: str) -> list[dict]:
-    """Transcribe one stem with YourMT3+; flat (instrument-agnostic) non-drum notes."""
+def transcribe_pitched(wav: str) -> dict:
+    """Transcribe one stem with YourMT3+.
+
+    Returns ``{"notes": [...], "instruments": [...]}``: a flat onset-sorted non-drum note
+    list where each note carries the GM ``program`` of its source instrument track, plus a
+    per-program summary (``program``/``name``/``n_notes``). Instrument-labeling quality of
+    these retained programs is measured in the experiment ledger (OV1 A-lab).
+    """
     import librosa
     import pretty_midi
     from mt3_infer import transcribe
@@ -108,13 +121,25 @@ def transcribe_pitched(wav: str) -> list[dict]:
         p = os.path.join(td, "t.mid")
         midi.save(p)
         pm = pretty_midi.PrettyMIDI(p)
-    notes = [
-        {"onset": round(float(n.start), 4), "offset": round(float(n.end), 4),
-         "pitch": int(n.pitch), "velocity": int(n.velocity)}
-        for inst in pm.instruments if not inst.is_drum for n in inst.notes
-    ]
+    # RETAIN the per-instrument MIDI tracks (programs) — previously discarded here.
+    notes: list[dict] = []
+    note_counts: dict[int, int] = {}
+    for inst in pm.instruments:
+        if inst.is_drum or not inst.notes:
+            continue
+        program = int(inst.program)
+        note_counts[program] = note_counts.get(program, 0) + len(inst.notes)
+        notes.extend(
+            {"onset": round(float(n.start), 4), "offset": round(float(n.end), 4),
+             "pitch": int(n.pitch), "velocity": int(n.velocity), "program": program}
+            for n in inst.notes
+        )
     notes.sort(key=lambda x: x["onset"])
-    return notes
+    instruments = [
+        {"program": p, "name": pretty_midi.program_to_instrument_name(p), "n_notes": c}
+        for p, c in sorted(note_counts.items())
+    ]
+    return {"notes": notes, "instruments": instruments}
 
 
 def _serve() -> None:
@@ -126,8 +151,8 @@ def _serve() -> None:
             req = json.loads(line)
             # Keep protocol stdout clean: model-load prints go to stderr.
             with contextlib.redirect_stdout(sys.stderr):
-                notes = transcribe_pitched(req["audio"])
-            out = {"ok": True, "result": {"notes": notes}}
+                result = transcribe_pitched(req["audio"])
+            out = {"ok": True, "result": result}
         except Exception as exc:  # noqa: BLE001 - report any failure to the caller
             out = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
         sys.stdout.write(json.dumps(out) + "\n")
@@ -145,8 +170,8 @@ def main() -> None:
     if not args.audio:
         ap.error("provide --audio FILE or --serve")
     with contextlib.redirect_stdout(sys.stderr):  # model-load prints must not precede JSON
-        notes = transcribe_pitched(args.audio)
-    print(json.dumps({"notes": notes}, indent=2))
+        result = transcribe_pitched(args.audio)
+    print(json.dumps(result, indent=2))
 
 
 if __name__ == "__main__":
