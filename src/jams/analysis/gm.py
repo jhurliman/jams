@@ -120,10 +120,9 @@ def quantize_notes(notes: list[dict], beats: list[float], subdivisions: int = 4)
         dt = grid[snapped] - n["onset"]
         out.append(
             {
+                **n,  # keep additive fields (e.g. YourMT3+ per-note "program")
                 "onset": grid[snapped],
                 "offset": max(grid[snapped] + 1e-3, n["offset"] + dt),
-                "pitch": n["pitch"],
-                "velocity": n["velocity"],
             }
         )
     return out

@@ -164,7 +164,10 @@ transcribe each to MIDI —
   not used). Slakh-test oracle note-F: bass **0.849**, other **0.849** vs basic-pitch's
   0.789 / 0.490; full **mix→MIDI e2e**: other **0.788** / bass 0.661 — the e2e system beats
   basic-pitch's ground-truth-stem ceiling on polyphonic accompaniment.
-  `JAMS_STEMS_TRANSCRIBER=basic-pitch` selects the lighter transcriber.
+  Pitched transcriptions also carry YourMT3+'s per-instrument GM labels (a `program` per
+  note plus a per-stem `instruments` summary; labeling accuracy measured in the experiment
+  ledger). `JAMS_STEMS_TRANSCRIBER=basic-pitch` selects the lighter transcriber (no
+  instrument labels).
   Bass/vocals get a shared monophonic post-filter; bass is shifted +12 to the written-MIDI
   convention in the orchestrator (validated for both transcribers). **First-run
   requirement: `git-lfs`** (the YourMT3 checkpoint clones from Hugging Face, ~536 MB).
