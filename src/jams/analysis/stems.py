@@ -1,17 +1,16 @@
 """Stem separation + per-stem MIDI transcription, orchestrated across two uv workers.
 
 Splits a track into 4 stems (drums/bass/other/vocals) with Demucs, then transcribes each to
-MIDI (pitched stems via basic-pitch; drums to General MIDI percussion via the ADTOF Frame_RNN
-model, torch port). The heavy models have no Python 3.14 wheels and can't live in jams' env,
-so they run in self-contained uv worker scripts launched via ``uv run --script`` and kept
+MIDI (pitched stems via basic-pitch; drums to General MIDI percussion via our own drum CRNN —
+D1, MIT weights bundled). The heavy models have no Python 3.14 wheels and can't live in jams'
+env, so they run in self-contained uv worker scripts launched via ``uv run --script`` and kept
 resident, served over JSON-lines pipes — the same pattern as the structure backend.
 
-Two workers, so the pipeline pieces stay independently replaceable and the drum model's
-licensing stays subprocess-isolated (see ``drum_worker.py``):
+Separate workers, so the pipeline pieces stay independently replaceable:
 
   * ``data/stems_worker.py``   — separation (SCNet / Demucs) + basic-pitch transcription.
   * ``data/yourmt3_worker.py`` — YourMT3+ pitched transcription (default transcriber).
-  * ``data/drum_worker.py``    — ADTOF (torch) drum transcription. Cross-platform, incl. arm64.
+  * ``data/drum_worker.py``    — drum CRNN transcription. Cross-platform, incl. arm64.
 
 This module coordinates them and owns the cheap parts (GM canonicalisation, beat-grid
 quantization, MIDI assembly — see ``jams.analysis.gm``), which run in jams' own env.
@@ -59,9 +58,8 @@ def analyze_stems(
     (jams' resolved grid) enables onset quantization when ``quantize``.
 
     ``transcribe_drums=False`` skips the drum worker entirely (drums are still separated, just
-    not transcribed). This is an explicit caller opt-out — e.g. on Apple Silicon, where the OaF
-    drum env can't build — NOT a silent fallback; when True and the drum worker fails, the
-    error propagates.
+    not transcribed). This is an explicit caller opt-out — NOT a silent fallback; when True
+    and the drum worker fails, the error propagates.
     """
     if stems is None:
         if path is None:
@@ -121,7 +119,7 @@ def analyze_stems(
                 "gm_program": 0,
                 "is_drums": True,
                 "notes": gm.canon_drum_notes(raw),
-                "method": "adtof",
+                "method": "drum-cnn-v1",
             }
         )
     transcriptions.sort(key=lambda t: _STEM_SORT.get(t["stem_type"], 9))
@@ -147,7 +145,7 @@ def analyze_stems(
         sep_method = model  # vendored SCNet backend, e.g. "scnet_xl_ihf"
     else:
         sep_method = f"demucs-{model}"
-    method = "+".join([sep_method, transcriber, *(["adtof"] if drums_done else [])])
+    method = "+".join([sep_method, transcriber, *(["drum-cnn-v1"] if drums_done else [])])
     return {
         "stems": sres["stems"],
         "transcriptions": transcriptions,

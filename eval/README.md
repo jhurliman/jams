@@ -206,15 +206,20 @@ a local copy). E-GMD's ~100 GB audio is served only as one zip → download+extr
 `--data-home` (individual-file HTTP fetch 404s). MedleyDB audio is gated → obtain it manually,
 place under `--data-home`; the script drops-all-and-exits with instructions otherwise.
 
-**Drum model.** `drum_worker.py` uses **ADTOF-pytorch** (torch port of the ADTOF Frame_RNN,
-parity-validated against the original: F 88.5 vs 88.7 on MDBDrums++) — torch/librosa only, so
-drum transcription runs on Apple Silicon, Linux, and CI identically. It emits the 5-class
-vocabulary above with fixed velocity. (An earlier Magenta/OaF E-GMD integration was dropped:
-its pinned `tensorflow==2.9.1` has no arm64 wheel.)
+**Drum model.** `drum_worker.py` runs **our own 5-class drum CRNN** (D1 — MIT weights,
+~1.5 M params, bundled `drum_cnn_v1.pt`; trained on E-GMD + Slakh-redux train-split drum
+stems, both oracle and separator-processed) — torch/librosa only, so drum transcription runs
+on Apple Silicon, Linux, and CI identically. It emits the 5-class vocabulary above with a
+real per-hit velocity head (0–127). It replaced the earlier **ADTOF-pytorch** port after the
+pre-registered D1 one-shot gate passed with superiority on both arms: Slakh-test oracle
+macro onset-F **0.767 vs 0.638** (Δ +0.129, 95% CI [+0.106, +0.152], n=151) and E-GMD test
+**0.818 vs 0.645** (Δ +0.173, 95% CI [+0.155, +0.191], n=500). (A still-earlier Magenta/OaF
+E-GMD integration was dropped: its pinned `tensorflow==2.9.1` has no arm64 wheel.)
 
 ### Headline results — Slakh2100-redux **test split** (151 tracks, 44.1 kHz)
 
-Shipped pipeline (SCNet XL IHF separation, YourMT3+ pitched, ADTOF drums):
+Launch-era pipeline (SCNet XL IHF separation, YourMT3+ pitched, ADTOF drums — the drums rows
+below predate the D1 drum CNN, which scores **0.767** on the same Slakh-test oracle protocol):
 
 | Metric | oracle (GT stems) | **e2e (mix → separate → transcribe)** |
 |--------|------------------:|--------------------------------------:|
@@ -229,9 +234,10 @@ the separation A/B below.) Separation costs YourMT3+ only 6.1 pt on `other`; e2e
 **exceeds basic-pitch's oracle 0.490** — the full system beats the lightweight
 transcriber's ground-truth-stem ceiling on polyphonic accompaniment.
 
-0 failures either mode. **E-GMD** (500 test tracks, isolated e-kit recordings): drums
+0 failures either mode. **E-GMD** (500 test tracks, isolated e-kit recordings): ADTOF drums
 onset-F **0.645** — lower than ADTOF's ~0.85 on real music because E-GMD's Roland TD-17
-timbres are out of the model's crowdsourced-real-music training domain.
+timbres were out of that model's crowdsourced-real-music training domain. The shipped D1
+drum CNN trains on E-GMD and scores **0.818** on the same 500-track protocol.
 
 **Transcriber A/B (Slakh test, 151 tracks, ground-truth stems).** YourMT3+ (YPTF.MoE+Multi
 via `mt3-infer`) vs basic-pitch, identical scoring (onset+pitch F, 50 ms / 50 cents, offsets
@@ -259,9 +265,9 @@ separated stems, same oracle-mode protocol for all):
 
 SCNet XL IHF wins SDR and pitched note-F decisively and ships as the default
 (`JAMS_STEMS_MODEL=scnet_xl_ihf`, vendored MIT code + ZFTurbo checkpoint,
-download-on-first-use). Notably drums *transcription* mildly prefers Demucs/BS-Roformer
-stems despite SCNet's higher drum SDR — ADTOF is sensitive to transient character, not
-just separation quality; a per-stem hybrid is future work.
+download-on-first-use). Notably drums *transcription* mildly preferred Demucs/BS-Roformer
+stems despite SCNet's higher drum SDR in this (ADTOF-era) A/B — the drum model is sensitive
+to transient character, not just separation quality; a per-stem hybrid is future work.
 **Do not use `htdemucs_6s`** with the current 4-stem contract: it splits guitar/piano
 into stems the pipeline drops, cratering `other` (note-F 0.421 → 0.222, SDR −1.2 dB);
 supporting it would require mapping its extra stems back into `other` first.
@@ -279,8 +285,8 @@ default (grid-locked, DAW-editable MIDI is the point for DJ/EDM workflows) but i
 stylistic transform; the eval always scores raw timing.
 
 Context for the numbers: Slakh is synthetic (sample-rendered MIDI) and its `other` bucket
-mixes many polyphonic instruments — the hardest case for basic-pitch. The drum worker
-scores a perfect 1.0 macro-F on ADTOF-pytorch's own 44.1 kHz reference clip. (Operational
+mixes many polyphonic instruments — the hardest case for basic-pitch. (The ADTOF-era drum
+worker scored a perfect 1.0 macro-F on ADTOF-pytorch's own 44.1 kHz reference clip.) (Operational
 note: the redux tarball's entries are not grouped per track, so a byte-truncated streaming
 download yields almost no complete tracks — pull the whole 104 GB.)
 

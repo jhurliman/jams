@@ -9,7 +9,7 @@ SOTA-on-GiantSteps methods benchmarked in the companion eval harness.
 | Key | **24-class key CNN (ours, MIT — K10)** | MIREX **0.832** / exact **0.780** (honest protocol) |
 | Tempo | **256-class tempo CNN (ours, MIT — TP1)** + genre-aware octave resolution | Acc1 **0.967** (corrected labels, n=458) |
 | Structure | **All-In-One EDM ensemble on-device** (Apple-Silicon/MPS) | Raveform held-out CV reproduces SOTA (see `eval/`) |
-| Stems → MIDI | **SCNet XL IHF** 4-stem split + per-stem transcription (**YourMT3+**; ADTOF drums → General MIDI) | Slakh test **e2e** (mix→MIDI): other **0.79** / bass 0.66 note-F, 14.3 dB drums SI-SDR (see `eval/`) |
+| Stems → MIDI | **SCNet XL IHF** 4-stem split + per-stem transcription (**YourMT3+**; **our drum CRNN, MIT — D1** → General MIDI) | Slakh test **e2e** (mix→MIDI): other **0.79** / bass 0.66 note-F, 14.3 dB drums SI-SDR; drums onset-F **0.767** Slakh-oracle / **0.818** E-GMD (see `eval/`) |
 
 There are deliberately **no silent fallbacks**: a broken install raises a clear error
 instead of quietly degrading accuracy (the old librosa fallback cost ~19 pt MIREX on key
@@ -20,7 +20,7 @@ workers.
 
 - **Python 3.13** — pinned in `.python-version`, so `uv` picks it automatically.
 - `uv` (https://docs.astral.sh/uv).
-- The key and tempo CNN weights are bundled (`src/jams/data/models/*.pt`); no download.
+- The key, tempo, and drum CNN weights are bundled (`src/jams/data/models/*.pt`); no download.
 - `ffmpeg` on PATH for mp3/m4a decoding (librosa/audioread).
 
 ## Quickstart
@@ -56,7 +56,7 @@ Full analysis runs on-device; expect roughly 30–90 s per track on Apple Silico
 
 Stem separation + per-stem MIDI transcription (the piano-roll lanes under the waveform)
 runs by default and is by far the slowest stage — the first import additionally downloads
-model checkpoints (YourMT3+ clones via git-lfs; the SCNet and ADTOF worker envs resolve
+model checkpoints (YourMT3+ clones via git-lfs; the SCNet and drum-CNN worker envs resolve
 through uv), so budget several minutes the first time. The **Transcribe stems on import**
 checkbox at the bottom of the track list skips it.
 
@@ -162,9 +162,12 @@ transcribe each to MIDI —
   Bass/vocals get a shared monophonic post-filter; bass is shifted +12 to the written-MIDI
   convention in the orchestrator (validated for both transcribers). **First-run
   requirement: `git-lfs`** (the YourMT3 checkpoint clones from Hugging Face, ~536 MB).
-- **drums** → **ADTOF Frame_RNN** (torch port of Zehren et al.'s crowdsourced-data CRNN;
-  F 88.5 vs the original's 88.7 on MDBDrums++) → General MIDI percussion on channel 10
-  (36 kick, 38 snare, 42 hats, 47 toms, 49 cymbals), quantized to jams' beat grid
+- **drums** → **our own 5-class drum CRNN** (D1 — MIT weights, ~1.5 M params, bundled at
+  `src/jams/data/models/drum_cnn_v1.pt`; trained on E-GMD + Slakh oracle/separated drum
+  stems, with a real per-hit velocity head) → General MIDI percussion on channel 10
+  (36 kick, 38 snare, 42 hats, 47 toms, 49 cymbals), quantized to jams' beat grid.
+  One-shot gate vs the previous ADTOF-pytorch port (both arms superior): Slakh-test
+  oracle macro onset-F **0.767** vs 0.638, E-GMD test **0.818** vs 0.645.
 
 Output is one `.mid` per stem plus a combined Type-1 multitrack `.mid`, and inline note arrays.
 Beat-grid quantization (`JAMS_STEMS_QUANTIZE`, default on) is a *stylistic* choice for
@@ -172,9 +175,8 @@ DAW-ready MIDI, not an accuracy feature — a ground-truth-beats ablation measur
 −0.3 to −2.5 pt note-F versus raw model timing, so the eval harness scores unquantized.
 Like structure, the heavy models run in self-contained `uv` workers (their pinned
 demucs/basic-pitch stacks conflict with jams' env), kept resident: `src/jams/data/stems_worker.py` (separation +
-pitched) and `drum_worker.py` (drums, isolated so its git-sourced model dependency never
-touches jams' own env). The orchestrator (`analysis/stems.py` + `analysis/gm.py`) merges them
-and assembles the MIDI.
+pitched) and `drum_worker.py` (drums, our own bundled CNN weights). The orchestrator
+(`analysis/stems.py` + `analysis/gm.py`) merges them and assembles the MIDI.
 
 **Separation backend** (`JAMS_STEMS_MODEL`, default `scnet_xl_ihf`) — A/B on the Slakh
 test split (151 tracks, through-separation scoring):
@@ -185,8 +187,9 @@ test split (151 tracks, through-separation scoring):
 | htdemucs | 11.6 / 10.1 / 4.6 | 0.596 | 0.459 | 0.585 |
 | BS Roformer 4-stem | 13.1 / 8.6 / 5.7 | 0.628 | 0.468 | **0.596** |
 
-`htdemucs` / `htdemucs_ft` remain selectable. Drums transcription slightly prefers the
-Demucs-family stems — a per-stem hybrid (SCNet pitched + htdemucs drums) is future work.
+`htdemucs` / `htdemucs_ft` remain selectable. Drums transcription slightly preferred the
+Demucs-family stems in that A/B (measured with the previous ADTOF port) — a per-stem hybrid
+(SCNet pitched + htdemucs drums) is future work.
 
 **Platform:** fully cross-platform — separation auto-selects cuda → mps → cpu, and both
 transcribers are torch/ONNX, so the whole pipeline (drums included) runs on Apple-Silicon
@@ -279,6 +282,7 @@ src/jams/
   api/        app.py · routes.py                            (FastAPI)
   models.py   pydantic schemas
   config.py   settings
-  data/models/key_cnn_v1.pt · tempo_cnn_v1.pt                (bundled CNN weights, MIT)
+  data/models/key_cnn_v1.pt · tempo_cnn_v1.pt · drum_cnn_v1.pt  (bundled CNN weights, MIT)
+  data/stems_worker.py · drum_worker.py                      (self-contained uv workers: stems→MIDI)
   data/structure_worker.py                                   (self-contained uv worker: All-In-One)
 ```

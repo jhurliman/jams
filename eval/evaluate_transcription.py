@@ -162,9 +162,10 @@ def drum_prf(ref: list[dict], est: list[dict], classes: str = "adtof5") -> dict:
     """Per-drum-class onset F (50 ms window), macro-averaged over classes present.
 
     ``classes='adtof5'`` (default) scores in the standard 5-class ADT vocabulary
-    (kick/snare/hats/toms/cymbals — the ADTOF model's output space); ``'gm10'`` scores the
-    full canonical GM set (penalises the model for distinctions it cannot make, e.g.
-    open vs closed hat).
+    (kick/snare/hats/toms/cymbals — the drum CNN's output space; the flag name predates
+    it, from the retired ADTOF port, and is kept for artifact/CLI compatibility);
+    ``'gm10'`` scores the full canonical GM set (penalises the model for distinctions
+    it cannot make, e.g. open vs closed hat).
     """
     if classes == "adtof5":
         ref = [{**n, "pitch": gm.reduce_drum_pitch_5(n["pitch"])} for n in ref]
@@ -273,8 +274,8 @@ def main() -> None:
     ap.add_argument("--manifest", type=Path, default=MANIFEST)
     ap.add_argument("--mode", choices=["oracle", "e2e"], default="oracle")
     ap.add_argument("--no-drums", action="store_true",
-                    help="skip drum transcription (e.g. on Apple Silicon, where the OaF drum "
-                         "env can't build); still scores pitched stems + separation SDR")
+                    help="skip drum transcription; still scores pitched stems + "
+                         "separation SDR")
     ap.add_argument("--drum-classes", choices=["adtof5", "gm10"], default="adtof5",
                     help="drum scoring vocabulary: 5-class kick/snare/hats/toms/cymbals "
                          "(standard ADT eval, default) or the full 10-class GM set")

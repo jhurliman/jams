@@ -74,7 +74,7 @@ def canon_drum_pitch(pitch: int) -> int:
 
 
 # 5-class reduction (kick / snare / hats / toms / cymbals) — the standard ADT eval vocabulary
-# and exactly what the ADTOF drum model emits. Maps canonical GM pitches onto one
+# and exactly what our drum CNN (drum_worker.py) emits. Maps canonical GM pitches onto one
 # representative per class: 36 kick, 38 snare, 42 hats, 47 toms, 49 cymbals.
 DRUM_5CLASS = {
     GM_KICK: GM_KICK,
