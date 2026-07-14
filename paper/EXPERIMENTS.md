@@ -690,3 +690,16 @@ stated upfront: B-yl conditions the query set on A's detections, so it cannot re
 instrument YourMT3+ misses entirely (if a class has < 5 A-lab notes it is never
 queried) — it tests decomposition as a refinement cascade, not as an independent recall
 path. Decision bars: identical to B.
+
+**Amendment (2026-07-13, declared before any val metrics existed) — budget cap $20 →
+$25.** The phase-2 runner triggered the pre-registered stop-and-report rule: measured
+smoke timings (3 TRAIN tracks, mechanics only) project 386 s/track serial ≈ $24 all-in,
+dominated by condition B's per-sub-stem YourMT3+ passes (165.9 s/track mean, ±35% with
+note density). Resolution: cap raised to $25 under the standing compute authorization;
+a scheduling-only B-bp CPU/GPU overlap patch (byte-identical outputs, disclosed) brings
+the projection to ≈ $19.8. A proposed AudioSep query-batching optimization was DECLINED
+to keep the ledgered condition-B implementation untouched. Hard stop-sync-report
+watchdog at $25. Also recorded: data source switched from the gated HF mirror to the
+canonical Zenodo redux tarball (all 150 sampled tracks md5-verified against the
+canonical index), and the eval box holds zero credentials (artifacts relay
+box → local → S3).
