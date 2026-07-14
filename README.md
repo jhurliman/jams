@@ -197,10 +197,18 @@ test split (151 tracks, through-separation scoring):
 Demucs-family stems in that A/B (measured with the previous ADTOF port) — a per-stem hybrid
 (SCNet pitched + htdemucs drums) is future work.
 
+**Two-pass separation** (`JAMS_STEMS_TWO_PASS=1`, default **off**) — experimental
+vocals-first pipeline in the MDX23-winning pattern: pass 1 extracts vocals with the
+vendored **Kim Mel-Band RoFormer** (MSST model code + `KimberleyJSN/melbandroformer`
+checkpoint, both MIT), pass 2 runs SCNet on the instrumental (mix − vocals) for
+drums/bass/other. The 4-stem output contract is unchanged. Off by default pending its
+pre-registered A/B gate — no quality numbers are claimed yet.
+
 **Platform:** fully cross-platform — separation auto-selects cuda → mps → cpu, and both
 transcribers are torch/ONNX, so the whole pipeline (drums included) runs on Apple-Silicon
-Macs, Linux, and CI identically. Config: `JAMS_STEMS_MODEL`, `JAMS_STEMS_TRANSCRIBER`, `JAMS_STEMS_QUANTIZE`,
-`JAMS_STEMS_OUT_DIR`, `JAMS_STEMS_UV`. See `eval/README.md` for the transcription benchmark.
+Macs, Linux, and CI identically. Config: `JAMS_STEMS_MODEL`, `JAMS_STEMS_TWO_PASS`,
+`JAMS_STEMS_TRANSCRIBER`, `JAMS_STEMS_QUANTIZE`, `JAMS_STEMS_OUT_DIR`, `JAMS_STEMS_UV`.
+See `eval/README.md` for the transcription benchmark.
 
 ## Endpoints
 

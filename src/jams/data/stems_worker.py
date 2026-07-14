@@ -10,6 +10,10 @@
 #   "numpy>=1.23,<2",
 #   "librosa>=0.10",
 #   "pyyaml>=6.0",
+#   "einops>=0.8",
+#   "rotary-embedding-torch>=0.6",
+#   "beartype>=0.18",
+#   "packaging>=23",
 # ]
 # ///
 """Stem separation + pitched-stem transcription worker for jams.
@@ -32,6 +36,10 @@ Pipeline:
      ZFTurbo's MUSDB18 checkpoint, downloaded to ~/.cache/jams/scnet on first use. Won our
      Slakh-test A/B: SI-SDR drums 14.3 dB (htdemucs 11.6), bass note-F 0.596 -> 0.645.
    - ``htdemucs*``: Demucs via the stable 4.0.x APIs (kept for speed / comparison).
+   With ``two_pass`` (request flag / ``--two-pass``, default off; SCNet models only),
+   vocals are extracted FIRST by the vendored Kim Mel-Band RoFormer (see ``melroformer/``)
+   and SCNet runs on the instrumental (mix - vocals) for drums/bass/other — the
+   MDX23-winning vocals-first pattern. The 4-stem output contract is unchanged.
 2. Transcribe the pitched stems (bass/other/vocals) with basic-pitch: bass/vocals get a
    monophonic post-filter; ``other`` stays polyphonic. The drums stem wav is written but NOT
    transcribed here (the orchestrator hands it to drum_worker).
@@ -39,7 +47,7 @@ Pipeline:
 Modes:
   single-shot:  stems_worker.py --audio FILE [--out-dir DIR]  -> prints one JSON object
   serve (JSONL): stems_worker.py --serve
-     request:  {"audio": "mix.wav", "out_dir": "..."}                 # separate + pitched
+     request:  {"audio": "mix.wav", "out_dir": "...", "two_pass": false}  # separate + pitched
            or: {"stems": {"bass": "b.wav", ...}, "out_dir": "..."}    # oracle: transcribe given
      response: {"ok": true, "result": {...}} | {"ok": false, "error": "..."}
 
@@ -182,6 +190,21 @@ _SCNET_FILES = {
     "weights": (f"{_SCNET_BASE}/v1.0.15/model_scnet_ep_36_sdr_10.0891.ckpt", 200_000_000),
 }
 
+# Kim Mel-Band RoFormer vocals model for the two-pass path. Weights: HF repo
+# KimberleyJSN/melbandroformer (MIT, public, ungated), pinned to revision ac9b0614;
+# sha256 87201f4d31afb5bc79993230fc49446918425574db48c01c405e44f365c7559e (913,106,900 B).
+# Config: ZFTurbo's MSST repo at the same commit the vendored model code came from;
+# sha256 f63f38eb1e6e40a7db0dade714a5ae257555dd8748f4e774eae8679275a81926.
+_MSST_RAW = ("https://raw.githubusercontent.com/ZFTurbo/Music-Source-Separation-Training/"
+             "ccc011abf7f89dd7922bb2888d48493b575c0289")
+_MELROFO_FILES = {
+    "config": (f"{_MSST_RAW}/configs/KimberleyJensen/config_vocals_mel_band_roformer_kj.yaml",
+               1_000),
+    "weights": ("https://huggingface.co/KimberleyJSN/melbandroformer/resolve/"
+                "ac9b0614ab3cd7f77219e18ba494dfd93956c348/MelBandRoformer.ckpt",
+                900_000_000),
+}
+
 
 def _is_scnet(model: str) -> bool:
     return model.lower().startswith("scnet")
@@ -198,28 +221,28 @@ class _AttrDict(dict):
         return _AttrDict(v) if isinstance(v, dict) else v
 
 
-def _scnet_cache_dir() -> Path:
+def _cache_dir(sub: str) -> Path:
     import os
 
-    return Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "jams" / "scnet"
+    return Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "jams" / sub
 
 
-def _download_scnet_file(kind: str) -> Path:
+def _download_file(tag: str, kind: str, files: dict, cache_sub: str) -> Path:
     """Fetch config/weights on first use; verify size so a truncated download can't ship."""
     import urllib.request
 
-    url, min_bytes = _SCNET_FILES[kind]
-    dest = _scnet_cache_dir() / url.rsplit("/", 1)[-1]
+    url, min_bytes = files[kind]
+    dest = _cache_dir(cache_sub) / url.rsplit("/", 1)[-1]
     if dest.exists() and dest.stat().st_size >= min_bytes:
         return dest
     dest.parent.mkdir(parents=True, exist_ok=True)
-    print(f"[stems] downloading SCNet {kind} -> {dest}", file=sys.stderr, flush=True)
+    print(f"[stems] downloading {tag} {kind} -> {dest}", file=sys.stderr, flush=True)
     urllib.request.urlretrieve(url, dest)  # noqa: S310 - pinned release URL
     if not dest.exists() or dest.stat().st_size < min_bytes:
         size = dest.stat().st_size if dest.exists() else 0
         dest.unlink(missing_ok=True)
         raise RuntimeError(
-            f"SCNet {kind} download truncated ({size} bytes < {min_bytes}); retry."
+            f"{tag} {kind} download truncated ({size} bytes < {min_bytes}); retry."
         )
     return dest
 
@@ -248,8 +271,8 @@ def _get_scnet():
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     from scnet import SCNet
 
-    cfg_path = _download_scnet_file("config")
-    ckpt_path = _download_scnet_file("weights")
+    cfg_path = _download_file("SCNet", "config", _SCNET_FILES, "scnet")
+    ckpt_path = _download_file("SCNet", "weights", _SCNET_FILES, "scnet")
     cfg = _AttrDict(yaml.load(cfg_path.read_text(), Loader=yaml.FullLoader))
     model = SCNet(**cfg["model"])
     state = torch.load(ckpt_path, map_location="cpu", weights_only=False)
@@ -277,35 +300,40 @@ def _get_scnet():
     raise RuntimeError("unreachable")
 
 
-def _separate_scnet(audio: str, out_dir: Path) -> dict[str, str]:
-    """Split ``audio`` into 4 stems with the vendored SCNet XL IHF."""
+def _load_mix(audio: str, sr: int):
+    """Load ``audio`` as a float32 (2, samples) array at ``sr``."""
     import librosa
     import numpy as np
-    import soundfile as sf
-    from scnet.demix import demix  # sys.path set up by _get_scnet
 
-    model, cfg, device = _get_scnet()
-    sr = cfg["audio"]["sample_rate"]
     y, _ = librosa.load(audio, sr=sr, mono=False)
     if y.ndim == 1:
         y = np.stack([y, y])
-    if device.type != "cuda":
-        # The 11 s x batch-4 chunks OOM 32 GB unified memory on MPS; batch 1 fits and is
-        # numerically identical (chunk windowing is per-chunk).
-        cfg["inference"]["batch_size"] = 1
+    return y
+
+
+def _demix_retry_cpu(tag: str, cfg, model, y, device):
+    """Chunked overlap-add demix with an explicit OOM downgrade to cpu. Output is
+    identical on any device — a device downgrade, never a quality change. Returns
+    (sources, device actually used); the caller updates its device global."""
+    from scnet.demix import demix  # sys.path set up by the model loader
+
     try:
-        sources = demix(cfg, model, y, device)  # {instrument: (channels, samples)}
+        return demix(cfg, model, y, device), device  # {instrument: (channels, samples)}
     except RuntimeError as exc:
         if "out of memory" not in str(exc).lower() or device.type == "cpu":
             raise
-        # Same output on any device — an explicit device downgrade, never a quality change.
-        print(f"[stems] SCNet {device.type} OOM; retrying on cpu", file=sys.stderr, flush=True)
+        print(f"[stems] {tag} {device.type} OOM; retrying on cpu", file=sys.stderr, flush=True)
         import torch
+
         if device.type == "mps":
             torch.mps.empty_cache()
         model.to("cpu")
-        _set_scnet_device(torch.device("cpu"))
-        sources = demix(cfg, model, y, torch.device("cpu"))
+        return demix(cfg, model, y, torch.device("cpu")), torch.device("cpu")
+
+
+def _write_stems(sources: dict, out_dir: Path, sr: int) -> dict[str, str]:
+    """Write {stem: (channels, samples)} arrays as wavs; return {stem: path}."""
+    import soundfile as sf
 
     out_dir.mkdir(parents=True, exist_ok=True)
     paths: dict[str, str] = {}
@@ -318,8 +346,123 @@ def _separate_scnet(audio: str, out_dir: Path) -> dict[str, str]:
     return paths
 
 
-def separate_stems(audio: str, out_dir: Path, model: str) -> dict[str, str]:
+def _separate_scnet(audio: str, out_dir: Path) -> dict[str, str]:
+    """Split ``audio`` into 4 stems with the vendored SCNet XL IHF."""
+    model, cfg, device = _get_scnet()
+    sr = cfg["audio"]["sample_rate"]
+    y = _load_mix(audio, sr)
+    if device.type != "cuda":
+        # The 11 s x batch-4 chunks OOM 32 GB unified memory on MPS; batch 1 fits and is
+        # numerically identical (chunk windowing is per-chunk).
+        cfg["inference"]["batch_size"] = 1
+    sources, device = _demix_retry_cpu("SCNet", cfg, model, y, device)
+    _set_scnet_device(device)
+    return _write_stems(sources, out_dir, sr)
+
+
+# --- Two-pass separation (vocals-first, MDX23-style) -------------------------
+# Pass 1 extracts vocals with the vendored Kim Mel-Band RoFormer (see ``melroformer/``,
+# ZFTurbo MSST model code, MIT; KimberleyJSN/melbandroformer checkpoint, MIT). The
+# instrumental is the sample-aligned difference mix - vocals (demix output length ==
+# input length), and pass 2 runs the existing SCNet XL IHF on it for drums/bass/other.
+# The 4-stem contract is unchanged: vocals come from pass 1; SCNet's (near-silent)
+# vocals estimate of the instrumental is discarded.
+
+_melrofo_model = None
+_melrofo_cfg = None
+_melrofo_device = None
+
+
+def _get_melrofo():
+    """Load (once) the vendored Mel-Band RoFormer + the Kim vocals checkpoint; probe the
+    device with a tiny forward pass and fall back cuda -> mps -> cpu on op gaps (explicit
+    log — output is identical across devices, only speed differs). Known gap: MPS lacks
+    complex scatter_add as of torch 2.8, so this model runs on cpu on Macs while SCNet
+    stays on mps."""
+    global _melrofo_model, _melrofo_cfg, _melrofo_device
+    if _melrofo_model is not None:
+        return _melrofo_model, _melrofo_cfg, _melrofo_device
+
+    import torch
+    import yaml
+
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from melroformer import MelBandRoformer
+
+    cfg_path = _download_file("MelRoFormer", "config", _MELROFO_FILES, "melroformer")
+    ckpt_path = _download_file("MelRoFormer", "weights", _MELROFO_FILES, "melroformer")
+    cfg = _AttrDict(yaml.load(cfg_path.read_text(), Loader=yaml.FullLoader))
+    # Single-target checkpoint: the model emits only training.target_instrument (vocals),
+    # not the full training.instruments list (same as MSST's prefer_target_instrument).
+    target = cfg["training"].get("target_instrument")
+    if target:
+        cfg["training"]["instruments"] = [target]
+    model = MelBandRoformer(**cfg["model"])
+    state = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+    if "state" in state:
+        state = state["state"]
+    if "state_dict" in state:
+        state = state["state_dict"]
+    model.load_state_dict(state)
+    model.eval()
+
+    channels = 2 if cfg["model"]["stereo"] else 1
+    for dev in (_select_device(), "cpu"):
+        try:
+            device = torch.device(dev)
+            model.to(device)
+            with torch.inference_mode():
+                model(torch.zeros(1, channels, 44100, device=device))
+            print(f"[stems] MelRoFormer ready on {dev}", file=sys.stderr, flush=True)
+            _melrofo_model, _melrofo_cfg, _melrofo_device = model, cfg, device
+            return model, cfg, device
+        except Exception as exc:  # noqa: BLE001 - op-gap probe; fall through to cpu
+            if dev == "cpu":
+                raise
+            print(f"[stems] MelRoFormer probe failed on {dev} ({exc}); using cpu",
+                  file=sys.stderr, flush=True)
+    raise RuntimeError("unreachable")
+
+
+def _extract_vocals(y, sr: int):
+    """Pass 1: Mel-Band RoFormer vocals for a (channels, samples) mix at ``sr``."""
+    global _melrofo_device
+    model, cfg, device = _get_melrofo()
+    if cfg["audio"]["sample_rate"] != sr:
+        raise RuntimeError(
+            f"Mel-Band RoFormer sample rate {cfg['audio']['sample_rate']} != pass-2's {sr}"
+        )
+    if device.type != "cuda":
+        cfg["inference"]["batch_size"] = 1  # bounded memory off-GPU; numerically identical
+    sources, device = _demix_retry_cpu("MelRoFormer", cfg, model, y, device)
+    _melrofo_device = device
+    return sources["vocals"]
+
+
+def _separate_two_pass(audio: str, out_dir: Path) -> dict[str, str]:
+    """Vocals first (Mel-Band RoFormer), then SCNet on the instrumental (mix - vocals)."""
+    scnet_model, scnet_cfg, scnet_device = _get_scnet()
+    sr = scnet_cfg["audio"]["sample_rate"]
+    y = _load_mix(audio, sr)
+    vocals = _extract_vocals(y, sr)
+    instrumental = y - vocals  # sample-aligned: same length and samplerate as the mix
+    if scnet_device.type != "cuda":
+        scnet_cfg["inference"]["batch_size"] = 1
+    sources, scnet_device = _demix_retry_cpu(
+        "SCNet", scnet_cfg, scnet_model, instrumental, scnet_device
+    )
+    _set_scnet_device(scnet_device)
+    sources = {k: v for k, v in sources.items() if k != "vocals"}
+    sources["vocals"] = vocals
+    return _write_stems(sources, out_dir, sr)
+
+
+def separate_stems(audio: str, out_dir: Path, model: str, two_pass: bool = False) -> dict[str, str]:
     """Split ``audio`` into 4 stems, write wavs into ``out_dir``, return {stem: path}."""
+    if two_pass:
+        if not _is_scnet(model):
+            raise ValueError(f"two-pass separation needs an SCNet pass-2 model, got {model!r}")
+        return _separate_two_pass(audio, out_dir)
     if _is_scnet(model):
         return _separate_scnet(audio, out_dir)
     return _separate_demucs(audio, out_dir, model)
@@ -393,7 +536,10 @@ def analyze(req: dict) -> dict:
     if req.get("stems"):  # oracle: caller supplies ground-truth stems; skip separation
         stem_paths: dict[str, str] = {k: v for k, v in req["stems"].items() if v}
     else:
-        stem_paths = separate_stems(req["audio"], out_dir, req.get("model", "htdemucs"))
+        stem_paths = separate_stems(
+            req["audio"], out_dir, req.get("model", "htdemucs"),
+            two_pass=bool(req.get("two_pass", False)),
+        )
 
     transcriptions: list[dict] = []
     # The orchestrator can skip basic-pitch when another transcriber handles pitched stems.
@@ -464,6 +610,8 @@ def main() -> None:
     ap.add_argument("--audio", help="Mix file to separate + transcribe (single-shot)")
     ap.add_argument("--out-dir")
     ap.add_argument("--model", default="htdemucs")
+    ap.add_argument("--two-pass", action="store_true",
+                    help="vocals-first two-pass separation (Mel-Band RoFormer -> SCNet)")
     args = ap.parse_args()
 
     if args.serve:
@@ -471,7 +619,8 @@ def main() -> None:
         return
     if not args.audio:
         ap.error("provide --audio FILE or --serve")
-    print(json.dumps(analyze({"audio": args.audio, "out_dir": args.out_dir, "model": args.model}),
+    print(json.dumps(analyze({"audio": args.audio, "out_dir": args.out_dir,
+                              "model": args.model, "two_pass": args.two_pass}),
                      indent=2))
 
 

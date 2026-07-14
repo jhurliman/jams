@@ -156,6 +156,52 @@ def test_analyze_stems_requires_path_or_stems():
         S.analyze_stems(None)
 
 
+# --- two-pass separation (vocals-first) -------------------------------------
+
+
+def test_analyze_stems_two_pass_default_off(monkeypatch, tmp_path, cmajor_wav):
+    """Without the setting, the worker is asked for single-pass and the method is bare."""
+    monkeypatch.setattr(S, "get_settings",
+                        lambda: Settings(stems_transcriber="basic-pitch"))
+    stems_w = _FakeWorker(_STEMS_RESULT)
+    monkeypatch.setattr(S, "_stems_worker", lambda: stems_w)
+    monkeypatch.setattr(S, "_drum_worker", lambda: _FakeWorker(_DRUM_RESULT))
+    out = S.analyze_stems(cmajor_wav, out_dir=str(tmp_path), quantize=False)
+    assert stems_w.reqs[0]["two_pass"] is False
+    assert out["method"] == "scnet_xl_ihf+basic-pitch+drum-cnn-v1"
+
+
+def test_analyze_stems_two_pass_setting_threads_to_worker(monkeypatch, tmp_path, cmajor_wav):
+    """JAMS_STEMS_TWO_PASS flows into the worker request and the method string."""
+    monkeypatch.setattr(S, "get_settings",
+                        lambda: Settings(stems_two_pass=True, stems_transcriber="basic-pitch"))
+    stems_w = _FakeWorker(_STEMS_RESULT)
+    monkeypatch.setattr(S, "_stems_worker", lambda: stems_w)
+    monkeypatch.setattr(S, "_drum_worker", lambda: _FakeWorker(_DRUM_RESULT))
+    out = S.analyze_stems(cmajor_wav, out_dir=str(tmp_path), quantize=False)
+    assert stems_w.reqs[0]["two_pass"] is True
+    assert out["method"] == "melrofo>scnet_xl_ihf+basic-pitch+drum-cnn-v1"
+
+
+def test_analyze_stems_two_pass_param_overrides_setting(monkeypatch, tmp_path, cmajor_wav):
+    """Explicit two_pass=True wins over the (off) setting — used by A/B eval callers."""
+    monkeypatch.setattr(S, "get_settings",
+                        lambda: Settings(stems_transcriber="basic-pitch"))
+    stems_w = _FakeWorker(_STEMS_RESULT)
+    monkeypatch.setattr(S, "_stems_worker", lambda: stems_w)
+    monkeypatch.setattr(S, "_drum_worker", lambda: _FakeWorker(_DRUM_RESULT))
+    out = S.analyze_stems(cmajor_wav, out_dir=str(tmp_path), quantize=False, two_pass=True)
+    assert stems_w.reqs[0]["two_pass"] is True
+    assert out["method"].startswith("melrofo>scnet_xl_ihf")
+
+
+def test_worker_two_pass_requires_scnet():
+    """The worker rejects two-pass with a non-SCNet pass-2 model (no silent fallback)."""
+    m = _load_worker()
+    with pytest.raises(ValueError, match="SCNet"):
+        m.separate_stems("/a.wav", Path("/t"), "htdemucs", two_pass=True)
+
+
 # --- pure helpers (jams.analysis.gm) ---------------------------------------
 
 

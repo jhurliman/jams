@@ -45,6 +45,7 @@ def analyze_stems(
     path: str | None,
     *,
     model: str | None = None,
+    two_pass: bool | None = None,
     stems: dict[str, str] | None = None,
     beats: list[float] | None = None,
     quantize: bool = True,
@@ -55,7 +56,9 @@ def analyze_stems(
 
     Normally pass ``path`` (a mix) and Demucs separates it. For eval against ground-truth
     stems, pass ``stems={stem_type: wav_path}`` instead (separation is skipped). ``beats``
-    (jams' resolved grid) enables onset quantization when ``quantize``.
+    (jams' resolved grid) enables onset quantization when ``quantize``. ``two_pass``
+    (default: the ``stems_two_pass`` setting, OFF) separates vocals first with the
+    Mel-Band RoFormer and runs SCNet on the instrumental for drums/bass/other.
 
     ``transcribe_drums=False`` skips the drum worker entirely (drums are still separated, just
     not transcribed). This is an explicit caller opt-out — NOT a silent fallback; when True
@@ -67,13 +70,15 @@ def analyze_stems(
         validate_audio_path(path)
     settings = get_settings()
     model = model or settings.stems_model
+    if two_pass is None:
+        two_pass = settings.stems_two_pass
     work_dir = Path(out_dir or _default_out_dir(path, stems, settings))
     work_dir.mkdir(parents=True, exist_ok=True)
 
     transcriber = settings.stems_transcriber
 
     # 1. Separation (stems_worker); basic-pitch transcription rides along only when selected.
-    sreq: dict = {"out_dir": str(work_dir), "model": model,
+    sreq: dict = {"out_dir": str(work_dir), "model": model, "two_pass": bool(two_pass),
                   "transcribe": transcriber == "basic-pitch"}
     if stems is not None:
         sreq["stems"] = stems
@@ -141,6 +146,8 @@ def analyze_stems(
 
     if stems is not None:
         sep_method = "oracle-stems"
+    elif two_pass:
+        sep_method = f"melrofo>{model}"  # vocals-first two-pass (RoFormer, then SCNet)
     elif model.lower().startswith("scnet"):
         sep_method = model  # vendored SCNet backend, e.g. "scnet_xl_ihf"
     else:

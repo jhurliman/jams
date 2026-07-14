@@ -51,6 +51,11 @@ class Settings(BaseSettings):
     # A/B winner (SI-SDR drums 14.3 vs htdemucs 11.6; bass note-F 0.596 -> 0.645).
     # "htdemucs" / "htdemucs_ft" select Demucs (faster / legacy comparison).
     stems_model: str = "scnet_xl_ihf"
+    # Vocals-first two-pass separation (MDX23-winning pattern): pass 1 extracts vocals
+    # with the vendored Kim Mel-Band RoFormer, pass 2 runs SCNet on the instrumental
+    # (mix - vocals) for drums/bass/other. Requires an SCNet stems_model. OFF by default
+    # until the pre-registered A/B gate passes. JAMS_STEMS_TWO_PASS=1 to enable.
+    stems_two_pass: bool = False
     # Pitched-stem transcriber. "yourmt3" (default) = YourMT3+ via mt3-infer — Slakh-test
     # oracle note-F bass 0.849 / other 0.849 vs basic-pitch 0.789 / 0.490. Needs git-lfs on
     # first run (checkpoint clone). "basic-pitch" = lighter/faster, no git-lfs.
