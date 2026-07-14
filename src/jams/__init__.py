@@ -1,8 +1,8 @@
 """jams — on-demand music-information-retrieval for DJ / electronic music.
 
 Per-track analysis (no silent fallbacks — failures raise):
-  - key    : our 24-class key CNN (MIT, bundled weights, uv worker)
-  - tempo  : our 256-class tempo CNN (MIT, bundled weights, uv worker)
+  - key    : our 24-class key CNN (MIT, bundled weights, in-process)
+  - tempo  : our 256-class tempo CNN (MIT, bundled weights, in-process)
              + genre-aware octave resolution
   - structure (optional) : All-In-One on-device (beats / downbeats / segments)
   - stems (optional)     : Demucs 4-stem split + per-stem MIDI transcription

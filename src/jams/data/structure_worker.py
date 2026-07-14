@@ -7,8 +7,8 @@
 
 Self-contained uv script: ``uv run --script structure_worker.py ...`` resolves and
 caches its own environment from the inline metadata above. It runs in a *separate*
-interpreter from jams itself (jams runs CPython 3.14, while All-In-One needs
-torch/natten-mps/demucs, which have no 3.14 wheels). jams invokes
+interpreter from jams itself (All-In-One's pinned torch/natten-mps/demucs stack
+conflicts with jams' own env). jams invokes
 it as a subprocess via ``uv run`` and never imports it. Two modes:
 
   single-shot:  structure_worker.py --audio FILE [--target-bpm F] [--model NAME]

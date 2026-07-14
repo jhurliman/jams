@@ -1,7 +1,7 @@
 """Musical-key detection.
 
 The pipeline is our own 24-class key CNN (K10; MIT, ~0.1 M params, weights bundled at
-``data/models/key_cnn_v1.pt``, run in a uv worker — ``data/key_cnn_worker.py``). Trained
+``data/models/key_cnn_v1.pt``, run in-process — ``jams.analysis.key_cnn``). Trained
 on the public Beatport corpus underlying GiantSteps-MTG-Keys with pitch-shift
 augmentation; GiantSteps Key honest protocol, one pre-registered evaluation: weighted
 MIREX **0.832** / exact **0.780** — statistically indistinguishable from the strongest
@@ -21,8 +21,6 @@ from __future__ import annotations
 
 import logging
 import math
-import threading
-from pathlib import Path
 
 from jams.analysis.audio import validate_audio_path
 
@@ -33,7 +31,6 @@ FLAT_TO_SHARP = {
     "Db": "C#", "Eb": "D#", "Gb": "F#", "Ab": "G#", "Bb": "A#",
     "Cb": "B", "Fb": "E", "E#": "F", "B#": "C",
 }
-_KEY_CNN_WORKER_PATH = Path(__file__).resolve().parent.parent / "data" / "key_cnn_worker.py"
 
 
 def _normalize(tonic: str, scale: str) -> tuple[str, str]:
@@ -42,27 +39,11 @@ def _normalize(tonic: str, scale: str) -> tuple[str, str]:
     return tonic, mode
 
 
-_key_cnn_singleton = None
-_key_cnn_singleton_lock = threading.Lock()
-
-
-def _key_cnn_worker():
-    """Resident key-CNN uv worker (same subprocess pattern as the stems workers)."""
-    global _key_cnn_singleton
-    if _key_cnn_singleton is None:
-        with _key_cnn_singleton_lock:
-            if _key_cnn_singleton is None:
-                from jams.analysis.stems import _Worker
-
-                _key_cnn_singleton = _Worker(
-                    _KEY_CNN_WORKER_PATH, "key-cnn", uv_setting="key_cnn_uv"
-                )
-    return _key_cnn_singleton
-
-
 def _detect_cnn(path: str) -> dict:
-    """Run the K10 key CNN worker; failures raise (no fallback by design)."""
-    res = _key_cnn_worker().analyze({"audio": path})
+    """Run the K10 key CNN in-process; failures raise (no fallback by design)."""
+    from jams.analysis import key_cnn
+
+    res = key_cnn.analyze(path)
     return {
         "key": res["key"],
         "tonic": res["tonic"],
@@ -75,7 +56,7 @@ def _detect_cnn(path: str) -> dict:
 def detect_key(path: str) -> dict:
     """Detect the musical key. Returns key, tonic, mode, confidence, method.
 
-    Runs the bundled K10 CNN in its uv worker. Failures raise — there is no silent
+    Runs the bundled K10 CNN in-process. Failures raise — there is no silent
     fallback detector (see module docstring).
     """
     validate_audio_path(path)
