@@ -675,3 +675,18 @@ is labels (H2), where it must beat A-lab.
 tracks (mechanics only, results discarded) permitted before the val run. Artifacts →
 `s3://jams-mir-eval-usw2/ov1/` (per-track JSONL, summary JSON, scripts, license
 evidence). Box terminated on completion.
+
+**Amendment (2026-07-13, declared before any val-split results existed) — condition
+B-yl, detected-label queries.** User-proposed cascade: reuse condition A's YourMT3+ pass
+to select the AudioSep query subset per track. Q_track = {q ∈ Q : the class q maps to
+(inverse of the ledgered label→class map; a detected Guitar activates BOTH guitar
+queries) has ≥ 5 notes in the track's A-lab output}. Downstream identical to B (energy
+gate, per-sub-stem YourMT3+, dedup); no new query strings — Q_track ⊆ Q, so cost ≤ B.
+Motivation: phase-1's worst failure channel was hallucinated content on
+absent-instrument queries (64–97% non-silent audio from empty queries); detection-gated
+queries close that channel WITHOUT GT leakage — production-legal, unlike the
+oracle-query diagnostic, which remains a separate labeled upper bound. Accepted trade,
+stated upfront: B-yl conditions the query set on A's detections, so it cannot recover an
+instrument YourMT3+ misses entirely (if a class has < 5 A-lab notes it is never
+queried) — it tests decomposition as a refinement cascade, not as an independent recall
+path. Decision bars: identical to B.
