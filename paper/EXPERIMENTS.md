@@ -850,3 +850,35 @@ and the active-slot-count-vs-GT-stem-count metric is scored on this rule. PIT ma
 uses Hungarian assignment (K=8 is trivially tractable). If A10 memory forces a
 batch-size reduction below 8 at K=8, the runner reports at the review checkpoint
 rather than silently shrinking crops.
+
+**Amendment (2026-07-14, data-review checkpoint outcomes; declared before any
+training).** The binding checkpoint fired with three catches and five sign-offs:
+- **Negative-conditioning loss redesigned on fixture-smoke evidence**: the ledgered
+  energy+STFT-mag silence penalty at w=1 left empty-roll output at −15.7 dB rel input
+  (bar: ≤ −40); w=5 collapsed training (silence term dominated gradients, gating
+  broke). Replacement (declared): bounded relative-energy penalty
+  softplus(10·log10(E_est/E_mix) + 50 dB)/10 — saturates once output ≤ −50 dB rel
+  input so it cannot compete with SI-SDR on positives; both failed variants recorded
+  in RUNBOOK.md. The conditioning-gating smoke itself PASSED decisively (7/7
+  same-mixture/different-roll pairs extract the correct stem: +4.4…+13.7 dB vs own
+  stem, −18.8…−54.9 dB vs the other).
+- **Blind mixture-size distribution reweighted**: ≥30% of T-blind draws now use 9–10
+  stems so the residual slot trains on nonsilent targets (uniform 4–10 left it silent
+  in 94% of draws).
+- **Price correction + cap**: gpu_1x_a10 is $1.29/hr (design assumed $0.75), so two
+  full 150k-step runs project $62–107 — over the $60 cap; the stop-rule fired
+  pre-spend. Cap **$60 → $75**, with a declared allocation rule: phase-1 on-box
+  (~$10) → real s/step from throughput probes → T-blind (primary) trains the full
+  150k; T1 gets min(100k, what fits under cap) with a 75k floor; if the floor doesn't
+  fit, stop-and-report. Cumulative Lambda projection stays ≤ ~$137 of the $150
+  authorization; Tier-2 remains separately gated.
+- Sign-offs: T-blind-null clustering k ≤ 6 → **k ≤ 8** (symmetry with K_max=8);
+  T-blind at 26.55 M params accepted under "same backbone family" (trunk = the
+  ledgered 19.6 M; slot head 9×); T0 eval STFT 4096/1024 declared (T0-specific; T1
+  keeps 2048/512); contamination note accepted (YourMT3+ optimistic on OV2-val →
+  biases *against* T-blind at the bar; basic-pitch is the uncontaminated lane
+  transcriber); OV2-val carve frozen (60 IDs, seed 4242, sha256₁₆ b85c4cd21d99e297,
+  ineligible-tracks-excluded-never-replaced rule embedded).
+- Execution note: the runner's permission layer denies box launches and S3 pushes
+  from subagents; the orchestrator provisions boxes and relays artifacts directly
+  (zero-credential box pattern retained).
