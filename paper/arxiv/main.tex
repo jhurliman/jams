@@ -40,15 +40,15 @@ We present \jams{}, an open-source MIR service for electronic dance music---key,
 beats, structure, separation, and per-stem MIDI---where every number regenerates from
 committed code. Four findings. (1)~Calibration: the strongest published GiantSteps~Key
 system gains $+0.087$ weighted on our $n{=}567$ usable-track subset---six times the
-field's claimed progress since 2018---so only same-subset paired tests rank systems.
-Under such tests our pre-registered key CNN matches it statistically
-($\Delta{=}-0.001$ \ci{-0.019}{+0.018}), carries no non-commercial license, and has
-the best exact accuracy measured (0.780). (2)~The full mix$\to$MIDI system reaches
-0.788 note-F on polyphonic accompaniment---\emph{above a widely used lightweight
-transcriber's ground-truth-stem ceiling} (0.490). (3)~A $+2.7$\,dB SI-SDR separation
-improvement \emph{reduces} drum-transcription accuracy. (4)~Three pre-registered
-structure-training variants failed their gates; the binding constraint is the training
-signal. All code, per-track artifacts, and analyses are public.
+field's claimed progress---so only same-subset paired tests rank systems. Our
+pre-registered key CNN matches it ($\Delta{=}-0.001$) with no non-commercial license
+and the best exact accuracy (0.780). (2)~Transcription: the full mix$\to$MIDI system
+reaches 0.788 note-F on polyphonic accompaniment---\emph{above a popular lightweight
+transcriber's ground-truth-stem ceiling} (0.490)---and our MIT drum CNN beats the
+non-commercial port it replaces by $+0.13$/$+0.17$ macro onset-F (Slakh/E-GMD).
+(3)~A $+2.7$\,dB SI-SDR separation improvement \emph{reduces} drum-transcription
+accuracy. (4)~Three pre-registered structure-training variants failed their gates; the
+binding constraint is the training signal. All code and artifacts are public.
 \end{abstract}
 
 \section{Introduction}
