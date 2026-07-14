@@ -16,6 +16,12 @@ instead of quietly degrading accuracy (the old librosa fallback cost ~19 pt MIRE
 and ~13 pt Acc1 on tempo). Key and tempo run our own bundled CNNs in self-contained uv
 workers.
 
+Everything the API produces is inspectable in the bundled annotator webapp:
+
+<p align="center">
+  <img src="docs/annotator.png" width="880" alt="jams annotator: track library, waveform with structure segments and beat grid, per-stem drum lanes and piano rolls">
+</p>
+
 ## Requirements
 
 - **Python 3.13** — pinned in `.python-version`, so `uv` picks it automatically.
