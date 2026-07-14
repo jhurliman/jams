@@ -154,7 +154,11 @@ beats, downbeats, boundaries, and functional labels with neighborhood attention 
 demixed audio, trained on the Harmonix Set~\citep{nieto2019harmonix}; Raveform
 \citep{kim2026raveform} is the same group's EDM structure corpus, with released
 EDM-trained per-fold models that our structure stack runs on-device
-(\S\ref{sec:structure}).
+(\S\ref{sec:structure}). Dedicated beat trackers form a parallel line, from
+multi-task TCNs with DBN decoding~\citep{bock2020deconstruct} to DBN-free
+transformers~\citep{foscarin2024beatthis}; \jams{} uses no separate tracker---its
+beats and downbeats come from the structure model's beat head, so one ensemble
+supplies both the grid and the segments.
 
 \textbf{Evaluation hygiene.} We rely on \texttt{mir\_eval}~\citep{raffel2014mireval}
 and \texttt{mirdata}~\citep{bittner2019mirdata} for metrics and dataset handling. Tempo

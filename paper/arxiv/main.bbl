@@ -1,4 +1,4 @@
-\begin{thebibliography}{30}
+\begin{thebibliography}{32}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
@@ -142,6 +142,16 @@ Taejun Kim, Jongsoo Kim, Hyungyu Kim, and Juhan Nam.
 \newblock Raveform: A dataset of metrical and functional structure annotations for {EDM} tracks in {DJ} mixes.
 \newblock \emph{Transactions of the International Society for Music Information Retrieval}, 9\penalty0 (1):\penalty0 131--143, 2026.
 \newblock \doi{10.5334/tismir.288}.
+
+\bibitem[B{\"o}ck and Davies(2020)]{bock2020deconstruct}
+Sebastian B{\"o}ck and Matthew E.~P. Davies.
+\newblock Deconstruct, analyse, reconstruct: How to improve tempo, beat, and downbeat estimation.
+\newblock In \emph{Proceedings of the 21st International Society for Music Information Retrieval Conference (ISMIR)}, Montr{\'e}al, Canada, 2020.
+
+\bibitem[Foscarin et~al.(2024)Foscarin, Schl{\"u}ter, and Widmer]{foscarin2024beatthis}
+Francesco Foscarin, Jan Schl{\"u}ter, and Gerhard Widmer.
+\newblock Beat this! {A}ccurate beat tracking without {DBN} postprocessing.
+\newblock In \emph{Proceedings of the 25th International Society for Music Information Retrieval Conference (ISMIR)}, San Francisco, USA, 2024.
 
 \bibitem[Bittner et~al.(2019)Bittner, Fuentes, Rubinstein, Jansson, Choi, and Kell]{bittner2019mirdata}
 Rachel~M. Bittner, Magdalena Fuentes, David Rubinstein, Andreas Jansson, Keunwoo Choi, and Thor Kell.
