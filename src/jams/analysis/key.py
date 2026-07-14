@@ -26,6 +26,9 @@ from jams.analysis.audio import validate_audio_path
 
 logger = logging.getLogger(__name__)
 
+# NOTE: NOTES / FLAT_TO_SHARP / _normalize have no production callers left — the CNN
+# path (key_cnn.py) keeps its own note table. They are retained for the eval-replay
+# helpers below; eval/stats_significance.py imports NOTES directly.
 NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 FLAT_TO_SHARP = {
     "Db": "C#", "Eb": "D#", "Gb": "F#", "Ab": "G#", "Bb": "A#",
@@ -63,10 +66,13 @@ def detect_key(path: str) -> dict:
     return _detect_cnn(path)
 
 
-# --- archived-fusion replay helpers ------------------------------------------------
-# Pure functions retained for eval/stats_significance.py, which replays the retired
-# edma + S-KEY fusion heads (data/key_fusion.json) from banked per-track features to
-# reproduce the paper's baseline rows. Nothing below runs in production.
+# --- EVAL-REPLAY ONLY — retired edma + S-KEY fusion helpers -------------------------
+# Nothing below runs on the production path (that is detect_key -> key_cnn above).
+# These pure functions exist so eval/stats_significance.py can replay the retired
+# fusion heads (data/key_fusion.json) from banked per-track features and regenerate
+# the paper's K4/K6 baseline CIs (paper/EXPERIMENTS.md ledger; the paper claims every
+# CI regenerates from committed code). Do not delete while the paper reports those
+# rows. Guarded by tests/test_key_replay_helpers.py; see also src/jams/data/README.md.
 
 # S-KEY's 24-class posterior ordering (majors 0-11, minors 12-23) — must match the
 # key_map in deezer/skey and the ordering baked into key_fusion.json at export time.
