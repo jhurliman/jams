@@ -433,6 +433,51 @@ its own subset, so the ranking is unaffected; noted for completeness.
 Caveat for S4: drums onset-F dips ~1 pt vs htdemucs despite +2.7 dB SDR (transcriber
 sensitivity to separator transient character); per-stem hybrid listed as future work.
 
+### S7 (pre-registered 2026-07-14, before any gate results) — vocals-first two-pass separation gate
+
+**Context.** ES1: user-reported jump-up D&B failure (Octo Glo: SCNet allocation
+collapse — drums stem −1.6 dB rel mix holding ~71% of sub+bass-band and 77% of high
+energy; bass stem −9.8 dB → 16 transcribed notes). User adopted the vocals-first
+two-pass as the base architecture for future separation work (incl. the planned EDM
+fine-tune). PR #24 (`feat/two-pass-separation`, OFF by default) implements it; its
+recorded Octo Glo diagnostic already shows two-pass does NOT fix the allocation
+collapse (band signature unchanged; vocals stem differs materially) — the gate
+therefore tests non-inferiority on Slakh + vocals superiority on real vocal music,
+not an EDM fix claim.
+
+**Systems.** A = shipped single-pass SCNet XL IHF (as S4/T10). B = two-pass
+(`JAMS_STEMS_TWO_PASS=1`, PR #24): Kim Mel-Band RoFormer vocals (HF
+`KimberleyJSN/melbandroformer` @ `ac9b0614`, sha256 `87201f4d…559e`, MIT) →
+instrumental = mix − vocals → same SCNet XL IHF for drums/bass/other. Everything
+downstream frozen and identical in both arms: YourMT3+ pitched transcription (frozen
+worker), drum CNN v1 drums, quantization off (per T5), same worker commit, same
+device per arm (aleph0 RTX 4090).
+
+**Data.** Arm 1 (non-inferiority): Slakh2100-redux test, n=151 (same tracklist as
+S1–S5/T10; mixes from the md5-verified d1gate copy, GT stems+MIDI from the OV1
+conf-test staging on aleph0). Slakh has no vocals stems, so the Slakh arm cannot
+measure vocals quality; it additionally reports the two-pass vocals-stem energy
+(RMS dB rel mix) as a hallucination check — pass 1 on vocal-free mixes should
+extract ≈silence. Arm 2 (vocals superiority): MedleyDB V2 (aleph0, CC BY-NC-SA —
+EVAL-ONLY per house rules), all tracks whose metadata lists ≥1 vocal-tagged stem;
+mix = provided MIX; reference vocals = sum of vocal-tagged stems; both arms' vocals
+estimates scored against it. No test-split tuning in either arm; the only pre-launch
+evidence is the PR #24 Octo Glo diagnostic.
+
+**Metrics.** (1) per-stem SI-SDR drums/bass/other on Slakh (S4 scorer); (2)
+downstream bass/other note-F (YourMT3+) + drums macro onset-F (drum CNN v1) on
+Slakh; (3) vocals SI-SDR on MedleyDB; paired per-track Δ(B−A), bootstrap 10,000
+resamples seed 0, 95% percentile CIs.
+
+**Ship bars (binding).** Non-inferiority, all must hold (Slakh): bass note-F, other
+note-F, drums onset-F Δ CI lower bound > −0.01; drums/bass/other SI-SDR Δ CI lower
+bound > −0.5 dB. Superiority (MedleyDB): vocals SI-SDR Δ > 0 with CI excluding 0.
+Qualitative non-regress: Octo Glo band signature vs the PR #24 tables (drums
+sub-share, bass RMS) — regression triggers investigation before any default flip.
+Decision rule: flip `stems_two_pass` default ON iff ALL bars pass; else stay OFF and
+record. ONE run per arm; infra retries per track allowed, no parameter iteration.
+Cost: $0 cloud (aleph0). Runtime reported per arm.
+
 ## Structure (Raveform, pre-registered — training in progress)
 
 Protocol: v1 All-In-One trainer, 11-class Raveform head, true folds from metadata (not
