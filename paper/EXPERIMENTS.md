@@ -807,6 +807,24 @@ any public claim quotes the 0.88. Wall-clock/cost: run ≈ 15.5 h A10 ≈ $20 + 
 $4.6, within the amended $25 cap. Artifacts: s3://jams-mir-eval-usw2/ov1/ (summary,
 per-track JSONLs, scripts, GT buckets + A-lab MIDI, checkpoint hashes).
 
+**Confirmatory test-split run (2026-07-14, ONE shot as pre-registered) — 0.88
+CONFIRMS.** n=151 Slakh redux test, zero failures. **A-lab label accuracy 0.8793
+(val 0.8802)**; macro class-F 0.7566 (val 0.8139; Synth is the test-side weak class
+at 0.5927 vs val 0.7119); hallucination 0.36%; pooled note-F 0.8488 / onset-F 0.8930.
+External consistency check: the confirmatory's pooled note-F on test equals banked T2
+(YourMT3+ oracle other, same split) to 4 dp — 0.8488 — independent implementations,
+identical number. Infrastructure (all disclosed): OV1 box terminated pre-run
+(~$24.6/$25 cap); run executed FREE on aleph0 (RTX 4090) via `ov1_conf.py`, a driver
+importing the frozen `ov1_run`/`ov1_score` functions verbatim, restricted to the
+winning A-lab condition per pre-reg (non-winning conditions not re-run); exact
+checkpoint staged from the box archive (`.mt3_checkpoints`, hashes on file); plumbing
+smoke on 2 VAL tracks reproduced banked per-track label_acc to full float precision
+(0.8815055762081785 / 0.9054393305439331) before the single test invocation; GT built
+by frozen `ov1_gt.py` for all 151 (0 failures); one crash-resume mechanism available,
+unused. Public claim now supported: **"YourMT3+ per-instrument labels: 0.88 labeling
+accuracy (val 0.8802 / test 0.8793, Slakh other-bucket)"**. Artifacts:
+s3://jams-mir-eval-usw2/ov1/conf_test/ (summary, per-track scores, A-lab MIDI, log).
+
 ### OV2 (pre-registered 2026-07-13, before any training) — note-conditioned voice-lane extraction from `other` ("separate the audio of THESE notes")
 
 **Hypothesis.** Conditioning a separator on a target-voice piano roll extracts per-voice
