@@ -685,8 +685,10 @@ The repository (\url{https://github.com/jhurliman/jams}, MIT) contains the servi
 acquisition and evaluation scripts, the experiments ledger every claim traces to, the
 statistics script that regenerates every CI in this paper, per-track result artifacts,
 and the figure-generation script for this paper. The key CNN is fully specified by its
-training script (\texttt{eval/train\_key\_cnn.py}) and shipped worker
-(\texttt{src/jams/data/key\_cnn\_worker.py}). Datasets are fetched by committed
+training script (\texttt{eval/train\_key\_cnn.py}) and shipped in-process inference
+module (\texttt{src/jams/analysis/key\_cnn.py}); the drum CNN likewise by
+\texttt{eval/train\_drum\_cnn.py} and \texttt{src/jams/data/drum\_worker.py}. Datasets
+are fetched by committed
 scripts (audio is not redistributed). Environment pins that materially affect
 reproduction are documented in the ledger.
 
