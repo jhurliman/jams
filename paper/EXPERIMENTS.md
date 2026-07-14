@@ -583,3 +583,95 @@ bridge "+0.200" are **not significant** at the track level (bridge rests on n=4 
 so v4's ledger-quoted gains overstate it slightly — the FAIL verdict is unchanged and
 strengthened. These CIs are the ones used in `paper/arxiv/` (Table/Fig "structure
 trade").
+
+### OV1 (pre-registered 2026-07-13, before any evaluation) — open-vocabulary decomposition of `other` vs monolithic YourMT3+
+
+**Hypothesis.** Decomposing the `other` stem into labeled instrument sub-stems with a
+text-queried separator, then transcribing each sub-stem, (H1) improves pooled
+instrument-agnostic note-F over the production single-pass YourMT3+ on `other`, and/or
+(H2) yields usably-accurate per-instrument labels that the production path discards.
+
+**Phase-1 survey (2026-07-13, subagent; license evidence archived with artifacts).**
+Candidates license-checked code + weights separately. Shippable: AudioSep base (MIT code;
+official ckpt in MIT-tagged HF space `Audio-AGI/AudioSep`; CLAP encoder from LAION's
+CC0-1.0 release), AudioSep-hive (Apache-2.0 code+weights; demo showed it LESS
+instrument-selective than base → alternate only), htdemucs_6s (MIT code; weights MIT
+since 2026-07-11 via v4.1.0 re-host at `hf.co/adefossez/HTDemucs-6s` — supersedes the
+2022 research-only statement in adefossez/demucs#327; both cited). Eval-only: Banquet
+(MIT code, CC-BY-NC-SA weights — best published fine-grained numbers, MoisesDB piano
+2.5 dB), MoisesDB (CC-BY-NC-SA, no MIDI). Rejected: ZFTurbo zoo fine-grained ckpts (no
+stated weight licenses, undisclosed data), USS (music SDRi ≈ −0.5), generative LASS wave
+(hallucination = wrong failure mode for MIDI), TUSS (license), CLAPSep (unlicensed).
+Deferred: Meta SAM Audio (gated weights; may be added as condition B-sam under this same
+protocol ONLY if declared before execution).
+
+**Conditions (all consume the same GT `other` bucket wav per track).**
+- **A (production)**: `other.wav` → YourMT3+ (YPTF.MoE+Multi via mt3-infer, the shipped
+  `yourmt3_worker.py` checkpoint) single pass → flat note stream. Exactly the shipped path.
+- **A-lab (cheap labels)**: identical run keeping mt3-infer's per-instrument MIDI programs
+  (the current worker discards them at `yourmt3_worker.py:111–115`; patched in scratch,
+  not in the tracked worker). Zero extra compute; contributes labeling metrics only —
+  the honest null for H2.
+- **B (open-vocab)**: `other.wav` → AudioSep base (official ckpt
+  `audiosep_base_4M_steps.ckpt` + LAION CLAP, 32 kHz mono, chunked 5 s inference) with
+  FIXED query bank Q → energy gate (drop sub-stems with non-silent frame fraction < 0.02
+  at −40 dBFS/100 ms) → YourMT3+ per surviving sub-stem → merged + deduplicated.
+  Sub-variant **B-bp**: basic-pitch (house thresholds 0.6/0.25) per sub-stem.
+  Q (fixed before seeing any val results): ["piano", "electric guitar",
+  "acoustic guitar", "synthesizer", "strings", "organ", "brass", "saxophone", "flute",
+  "mallet percussion"]. A per-track oracle-query variant (queries = the track's true
+  inst_classes) may run as a diagnostic UPPER BOUND, reported separately, never headline.
+- **C (fixed finer vocab)**: `other.wav` → htdemucs_6s keeping {piano, guitar, other}
+  heads (drums/bass/vocals energy logged, discarded) → YourMT3+ per head → merged +
+  deduplicated.
+
+**Data.** Slakh2100-redux **validation split**, fixed random subset **n=150, seed 1234**
+(declared now, before running: condition B is ~10 YourMT3+ passes/track, full n=375 is
+compute-bloat without inferential need). Rationale: test (n=151) stays reserved — one
+confirmatory run of the winning condition only; train is contaminated (YourMT3+ trained
+on Slakh train; never evaluate on train). GT `other` bucket per track: audio = sum of all
+stems with `is_drum == false` and not Bass (program 32–39 / inst_class "Bass"); GT notes
+= union of those stems' MIDI. 44.1 kHz redux only (babyslakh 16 kHz banned for headline
+numbers, per T7). GT class grouping and the fixed sub-stem-label→class map are archived
+with the artifacts (Synth Lead/Pad→Synth; htdemucs_6s residual head unlabeled: excluded
+from labeling accuracy, included in pooled notes).
+
+**Metrics (mir_eval, house protocol).** Primary: pooled instrument-agnostic
+onset+pitch note-F (50 ms / 50 cents, offsets ignored) = `evaluate_transcription.note_prf`;
+onset-only F as co-primary robustness check. **Merge rule (pre-registered)**: pooled
+estimate = union of sub-stem notes; dedup collapses same-pitch notes with |Δonset| ≤ 50 ms
+across sub-stems (keep higher velocity; ties → longer). Applied to B/C only; note counts
+reported before/after. Secondary: per-class note-F (classes in ≥20 tracks, macro);
+labeling accuracy = fraction of matched GT↔estimate pairs with equal class (B, C, A-lab);
+negative-control hallucination (energy + transcribed notes from queries absent in GT);
+sub-stem survival counts; wall-clock s/track. Optional e2e tier (mix → SCNet XL IHF →
+estimated `other` → each condition) is secondary and may be skipped for budget — if
+skipped, said so.
+
+**Decision criteria (declared before running).**
+- **Adopt B (or C)**: pooled onset+pitch note-F paired Δ vs A ≥ +0.02 with 95% bootstrap
+  CI (10k, seed 0, per-track) excluding 0, AND median wall-clock ≤ 4× A, AND
+  negative-control hallucinated notes < 5% of pooled estimate.
+- **Adopt for labels at parity**: pooled Δ CI includes 0 within −0.01, AND labeling
+  accuracy ≥ 0.70, AND beats A-lab's labeling accuracy by ≥ +0.10 (paired CI excluding
+  0) — decomposition must beat the free alternative, not merely exist.
+- **Adopt A-lab alone** if it reaches ≥ 0.70 labeling accuracy and B/C fail their bars
+  (ship = small worker change exposing labels).
+- Otherwise: no integration; archive as negative result.
+- Winning condition gets ONE confirmatory test-split run (n=151); no test iteration.
+
+**Priors from phase-1 feasibility (babyslakh Track00001, TRAIN split — recorded so the
+outcome can't be quietly reframed).** AudioSep-family decomposition is LEAKY on dense
+synthetic music: every query in Q returned −23..−29 dB RMS against a −22.2 dB mixture;
+absent-instrument queries returned 64–97% non-silent audio; one query's basic-pitch
+transcription alone exceeded the whole bucket's GT note count (2,459 vs 1,659).
+htdemucs_6s heads are cleaner (drums/bass at −74 dB on other-only input) but mislabeled
+the demo track (its "guitar" head best matched GT Organ+Harmonica, SI-SDR −2.9 vs −10.3
+for GT Guitar). Stated prior: A likely keeps the best pooled note-F; B's value, if any,
+is labels (H2), where it must beat A-lab.
+
+**Budget & venue.** Fresh Lambda A10 instance (separate from the D1 box), OV1 cap **$20**
+(within the standing cumulative authorization). Implementation smoke on ≤3 TRAIN-split
+tracks (mechanics only, results discarded) permitted before the val run. Artifacts →
+`s3://jams-mir-eval-usw2/ov1/` (per-track JSONL, summary JSON, scripts, license
+evidence). Box terminated on completion.
