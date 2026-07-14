@@ -296,6 +296,18 @@ val, Slakh val oracle stems, Slakh val separated stems — equally weighted (dep
 input is separated). Architecture revisions at CV stage remain allowed but must be
 ledgered here before retraining (TP1 discipline).
 
+**Phase-2 implementation clarifications (2026-07-14, recorded at training launch):**
+model as ledgered, 1,487,786 params. Choices the recipe did not pin: raw log1p-mel
+input, no per-crop normalization (per-crop norm would cancel the gain augmentation;
+first BatchNorm adapts); velocity loss = masked MSE at exact-onset frames, weight 0.5;
+per-class pos_weight = frames/(3·count) capped [1, 30]; per-epoch selection uses a
+coarse 4-point threshold grid with the full 0.10–0.90 grid applied once on the selected
+checkpoint; E-GMD train n=9,999 (one sampled row had no mappable events); mir_eval
+added to trainer deps so selection matching is byte-identical to the gate scorer.
+30-fixture overfit smoke passed pre-launch (loss 0.77→0.05, selection 1.000, sane
+velocities). Corpus on box verified: 13,756 tracks (E-GMD 9,999+1,500 / Slakh 1,557 /
+separated 700), 2,040 validation, all 43 kits, CORPUS_OK assertion.
+
 ## Transcription (Slakh2100-redux test, n=151, GT stems = oracle)
 
 | # | date | commit | system | bass note-F | other note-F | drums onset-F | artifacts |
