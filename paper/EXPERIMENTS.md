@@ -308,6 +308,30 @@ added to trainer deps so selection matching is byte-identical to the gate scorer
 velocities). Corpus on box verified: 13,756 tracks (E-GMD 9,999+1,500 / Slakh 1,557 /
 separated 700), 2,040 validation, all 43 kits, CORPUS_OK assertion.
 
+**Verdict (2026-07-14): SHIP — SUPERIOR on both arms (one-shot, as pre-registered).**
+Training: 80-epoch cap reached (~23.5 h A10), best epoch 75 by the selection metric
+(mean macro onset-F over the three val pools); fine threshold grid → [0.9, 0.85, 0.7,
+0.9, 0.75], selection 0.8074 (egmd_val 0.8898 / slakh_val_oracle 0.8212 /
+slakh_val_sep 0.7112), velocity MAE 0.106; late-epoch val was noisy and ep75 is a
+spike — noted pre-gate, expected test regression materialized but did not threaten the
+margin. Gate (single scoring pass, `score_gate.py`, paired per track, 10k bootstrap
+seed 0, positional pairing on the banked baseline order): **Slakh oracle primary
+n=151: ours 0.7671 vs ADTOF 0.6383, Δ +0.1287 [+0.1058, +0.1521], win-rate 83% —
+non-inferior PASS, CI lb > 0 ⇒ SUPERIOR. E-GMD secondary n=500: ours 0.8179 vs ADTOF
+0.6449, Δ +0.1730 [+0.1550, +0.1910], win-rate 90% — PASS, SUPERIOR.** Both
+pre-registered ship conditions met with superiority, so the ADTOF-port replacement
+claim is supported on both of its weak-domain protocols. Execution notes: D1 box
+terminated post-training (~$40 of the $50 cap); checkpoint↔repo-trainer identity
+verified tensor-for-tensor (62/62, strict load, 1,487,786 params) before inference;
+Slakh test audio fetched per-file from the gated HF mirror and md5-verified
+bit-identical to the canonical CC BY index (Zenodo 14009687); E-GMD test files (500)
+range-extracted from the 96 GB archive; test inference local MPS (2.2 s/track E-GMD,
+33.9 s/track Slakh). MDB-Drums/RBMA13 external diagnostics not yet run (non-gating;
+may follow). Artifacts: s3://jams-mir-eval-usw2/d1/gate/ (verdict + per-track scores +
+predictions + manifests + frozen scripts); model `best.pt` → production as
+`drum_cnn_v1.pt` (swap PR follows). Trainer PR #17 pending merge — the shipped
+checkpoint matches exactly that code.
+
 ## Transcription (Slakh2100-redux test, n=151, GT stems = oracle)
 
 | # | date | commit | system | bass note-F | other note-F | drums onset-F | artifacts |
