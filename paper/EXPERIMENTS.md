@@ -836,3 +836,17 @@ and NO annotation:
   separate approval): MixIT-style unsupervised fine-tune of T-blind on real EDM
   `other` stems (label-free training admits real in-domain audio — the strongest
   hedge against the synth→real cliff).
+
+**Amendment (2026-07-13, declared before any training) — variable lane count,
+K_max = 8.** User clarification: the decomposition count is per-track and discovered,
+not fixed — one track may yield 3 lanes, another 8, under some maximum. The slot
+mechanism already provides this (unused slots trained to silence); this amendment makes
+it binding and raises headroom: **K_max = 6 → 8** slots + residual (Slakh other-buckets
+average ~9 constituent stems; babyslakh range 5–15). GT targets = energy-top-8 stems
+(fewer → silence slots), remainder → residual. **Active-lane rule (declared)**: at
+inference a slot is a "found sound" iff its output energy > −40 dB rel. the input
+mixture (same threshold as the silence bars); the product reports only active lanes,
+and the active-slot-count-vs-GT-stem-count metric is scored on this rule. PIT matching
+uses Hungarian assignment (K=8 is trivially tractable). If A10 memory forces a
+batch-size reduction below 8 at K=8, the runner reports at the review checkpoint
+rather than silently shrinking crops.
