@@ -200,7 +200,7 @@ key & 24-class key CNN (ours, MIT; \S\ref{sec:key}) & 0.832 MIREX / 0.780 exact 
 tempo & 256-class tempo CNN (ours, MIT) + octave resolution & 0.967 Acc1 (corrected labels) \\
 beats / structure & All-In-One EDM ensemble (on-device) & 0.978 beat-F / 0.755 HR@0.5 \\
 stems & SCNet~XL & SI-SDR 14.3 / 11.8 / 6.0 dB \\
-stems $\to$ MIDI & YourMT3+ (pitched), ADTOF (drums), GM assembly & 0.788 note-F mix$\to$MIDI (other) \\
+stems $\to$ MIDI & YourMT3+ (pitched), drum CNN (ours, MIT) & 0.788 note-F (other); 0.767 drums \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -222,16 +222,26 @@ ties---so the shipped stack replaces third-party tempo weights with our own at n
 measured cost. Genre-aware octave resolution is shared by both systems and sits outside
 the model.
 
-\textbf{Licensing posture.} With one exception, the learned components we ship carry no
-non-commercial terms: the key and tempo CNN weights are ours (MIT, 0.45\,MB and 12\,MB,
-trained from public data; the legacy fusion heads likewise ship as MIT JSON), S-KEY
-weights are MIT, YourMT3+ weights Apache-2.0, and SCNet checkpoints come from the
-MIT-licensed MSST zoo. The exception, flagged rather than buried: the drum-transcription
-weights are a torch conversion of the ADTOF originals, which are CC~BY-NC-SA~4.0---the
-port itself declares no license. They run subprocess-isolated, and replacing them with
-permissively-licensed weights of our own is registered future work in the experiment
-ledger. The madmom key CNN (CC~BY-NC-SA weights) is used for \emph{evaluation only} and
-never shipped. The repository itself is MIT-licensed.
+\textbf{Drum system.} Drums are transcribed by our own convolutional-recurrent network
+(1.5M parameters, MIT weights): a 96-band log-mel front end, three convolutional
+blocks, a bidirectional GRU, five per-class onset heads (kick/snare/hi-hat/tom/cymbal),
+and a velocity regression head, trained on E-GMD plus Slakh oracle and
+separation-processed drum stems. It replaces a torch port of the ADTOF weights
+(CC~BY-NC-SA~4.0 originals; the port itself declared no license). The pre-registered
+one-shot gate found the replacement \emph{superior} on both protocols: Slakh-oracle
+macro onset-F $0.767$ vs $0.638$ (paired $\Delta$ $+0.129$ \ci{+0.106}{+0.152},
+$n{=}151$) and E-GMD $0.818$ vs $0.645$ ($+0.173$ \ci{+0.155}{+0.191}, $n{=}500$).
+The transcription and separation experiment tables later in the paper predate this
+swap and report ADTOF in the drum lane where marked.
+
+\textbf{Licensing posture.} The learned components we ship carry no non-commercial
+terms: the key, tempo, and drum CNN weights are ours (MIT; 0.45\,MB, 12\,MB, and
+6\,MB, trained from public data; the legacy fusion heads likewise ship as MIT JSON),
+S-KEY weights are MIT, YourMT3+ weights Apache-2.0, and SCNet checkpoints come from the
+MIT-licensed MSST zoo. The one prior exception---the ADTOF drum port---was retired by
+the superiority gate above rather than relicensed around. The madmom key CNN
+(CC~BY-NC-SA weights) is used for \emph{evaluation only} and never shipped. The
+repository itself is MIT-licensed.
 
 \section{Evaluation protocol}
 \label{sec:protocol}
