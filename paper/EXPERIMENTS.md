@@ -332,6 +332,26 @@ predictions + manifests + frozen scripts); model `best.pt` → production as
 `drum_cnn_v1.pt` (swap PR follows). Trainer PR #17 pending merge — the shipped
 checkpoint matches exactly that code.
 
+**Addendum (2026-07-14, declared before any external-benchmark results) — external ADT
+diagnostics (non-gating, as pre-registered).** Purpose: position the shipped drum CNN
+against the ADT literature on ITS benchmarks — boundary-mapping, not a gate; no model,
+threshold, or peak-picking changes permitted. Datasets: MDB-Drums and RBMA13 (both
+named in the pre-registration; licenses verified before use, NC = eval-only);
+IDMT-SMT-Drums / ENST optional if licenses permit. Rules, binding: (a) mirror each
+published comparison's scoring protocol exactly (class vocabulary — 3-class KD/SD/HH
+where the literature reports it, our 5-class where comparable; 50 ms onset tolerance;
+per-track vs pooled averaging as in the cited work — protocol per cited number recorded
+with the result); (b) published numbers are quoted only with citations and only where
+the underlying track set matches ours exactly (the subset-calibration lesson); (c) ALL
+attempted datasets are reported, including failures — no silent drops; (d) prior
+recorded upfront: the model trained on e-kit (E-GMD) + synthetic (Slakh) sources;
+transfer to real acoustic-kit multi-genre recordings is untested and may regress vs
+ADTOF-family models trained on real-music annotations. A loss there BOUNDS the claim
+domain ("superior in the EDM/production pipeline") — it does not affect the shipped
+in-domain superiority gate. ADTOF-pytorch is run alongside on identical tracks as the
+paired reference arm wherever feasible (Linux box or existing banked outputs; no
+arm64 wheel locally).
+
 ## Transcription (Slakh2100-redux test, n=151, GT stems = oracle)
 
 | # | date | commit | system | bass note-F | other note-F | drums onset-F | artifacts |
