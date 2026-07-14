@@ -20,10 +20,10 @@ head, not post-hoc RMS), and the weights are MIT like the rest of jams — no
 subprocess-isolated licensing required anymore.
 
 Inference must reproduce the trainer exactly — ``eval/train_drum_cnn.py``
-(branch ``d1-phase2``, blob 2d7f9e9d) is the source of truth for the
-architecture, feature geometry, chunked sliding inference, and peak-picking
-copied below. The gate was run with this exact pipeline (librosa decode
-included), so nothing here may drift from it.
+(in-repo; blob 2d7f9e9d, the exact code that trained the shipped checkpoint)
+is the source of truth for the architecture, feature geometry, chunked
+sliding inference, and peak-picking copied below. The gate was run with this
+exact pipeline (librosa decode included), so nothing here may drift from it.
 
 The model emits 5 drum classes at the canonical GM representatives used across
 jams (``jams.analysis.gm``) — 36 kick, 38 snare, 42 hi-hat, 47 tom, 49 cymbal —
