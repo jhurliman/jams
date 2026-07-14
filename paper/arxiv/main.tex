@@ -222,6 +222,13 @@ separation-processed drum stems. It replaces a torch port of the ADTOF weights
 one-shot gate found the replacement \emph{superior} on both protocols: Slakh-oracle
 macro onset-F $0.767$ vs $0.638$ (paired $\Delta$ $+0.129$ \ci{+0.106}{+0.152},
 $n{=}151$) and E-GMD $0.818$ vs $0.645$ ($+0.173$ \ci{+0.155}{+0.191}, $n{=}500$).
+The claim is domain-bounded, not field-wide: on real acoustic-kit benchmarks the same
+frozen model \emph{trails} the ADTOF family by 3--6 F points zero-shot (MDB-Drums
+pooled 5-class $0.768$ through our full mix$\to$separate$\to$transcribe pipeline vs
+$0.78$--$0.81$ published~\citep{zehren2023adtof} and $0.792$ for the paired port on
+identical tracks), while matching it at IDMT-SMT's stricter 20\,ms tolerance
+($0.883$ vs $0.883$) --- e-kit-plus-synthetic training buys onset timing precision
+and electronic-domain accuracy, not acoustic-kit generality.
 The transcription and separation experiment tables later in the paper predate this
 swap and report ADTOF in the drum lane where marked.
 

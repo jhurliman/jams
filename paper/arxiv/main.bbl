@@ -1,4 +1,4 @@
-\begin{thebibliography}{32}
+\begin{thebibliography}{33}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
@@ -168,5 +168,10 @@ Hendrik Schreiber and Meinard M{\"u}ller.
 Hendrik Schreiber and Meinard M{\"u}ller.
 \newblock A single-step approach to musical tempo estimation using a convolutional neural network.
 \newblock In \emph{Proceedings of the 19th International Society for Music Information Retrieval Conference (ISMIR)}, Paris, France, 2018{\natexlab{b}}.
+
+\bibitem[Zehren et~al.(2023)Zehren, Alunno, and Bientinesi]{zehren2023adtof}
+Mickael Zehren, Marco Alunno, and Paolo Bientinesi.
+\newblock High-quality and reproducible automatic drum transcription from crowdsourced data.
+\newblock \emph{Signals}, 4\penalty0 (4):\penalty0 768--787, 2023.
 
 \end{thebibliography}
