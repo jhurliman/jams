@@ -748,6 +748,26 @@ canonical Zenodo redux tarball (all 150 sampled tracks md5-verified against the
 canonical index), and the eval box holds zero credentials (artifacts relay
 box → local → S3).
 
+**Verdict (2026-07-14): decomposition-by-separation FAILS all adoption bars; ADOPT
+A-lab ALONE (pre-registered fallback).** n=150 Slakh val, all six conditions, bars
+evaluated verbatim. Pooled onset+pitch note-F: **A 0.8956** (onset-F 0.9197) ·
+B 0.5742 (Δ −0.3214 [−0.3357, −0.3077]; hallucinated notes 42.5%; 233 s/track = 14×A)
+· B-bp 0.3967 (Δ −0.4989) · **B-yl 0.6595** (Δ −0.2361 [−0.2502, −0.2220];
+hallucination 1.6% — the detected-query amendment achieved its purpose; best
+decomposition variant) · C 0.5767 (Δ −0.3189; label acc 0.605 but only 2 labeled
+heads). The pre-registered energy gate was inert against AudioSep (10/10 sub-stems
+survived on every track — leakage floods every query with audible content). Labeling:
+**A-lab 0.8802 accuracy** (macro class-F 0.8139; Piano 0.9248 / Guitar 0.9122 / Synth
+0.7119 / Pipe 0.6586), hallucination 0.15%, zero extra compute → clears the ≥0.70
+adopt-A-lab-alone bar decisively; B/B-yl/C label accuracies (0.21/0.32/0.60) all lose
+to A-lab by ≥ 0.27 (paired CIs exclude 0). Decision per pre-registration: NO
+decomposition integration (negative result, archived); SHIP A-lab = expose YourMT3+'s
+per-instrument tracks (worker change at the ledgered discard site). Confirmatory
+test-split run (n=151, ONE shot, A-lab labeling accuracy only) to be executed before
+any public claim quotes the 0.88. Wall-clock/cost: run ≈ 15.5 h A10 ≈ $20 + staging ≈
+$4.6, within the amended $25 cap. Artifacts: s3://jams-mir-eval-usw2/ov1/ (summary,
+per-track JSONLs, scripts, GT buckets + A-lab MIDI, checkpoint hashes).
+
 ### OV2 (pre-registered 2026-07-13, before any training) — note-conditioned voice-lane extraction from `other` ("separate the audio of THESE notes")
 
 **Hypothesis.** Conditioning a separator on a target-voice piano roll extracts per-voice
