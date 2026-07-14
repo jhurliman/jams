@@ -3,6 +3,7 @@
 # requires-python = ">=3.10,<3.13"
 # dependencies = [
 #   "mirdata>=0.3.8",
+#   "mir_eval>=0.7",
 #   "librosa>=0.10",
 #   "numpy>=1.26,<2.3",
 #   "pretty_midi>=0.2.10",
@@ -42,9 +43,14 @@ Stages:
   separate  drive stems_worker.py --serve over Slakh train/val mixes -> separated
             drum stems (mono flac), added to labels.json as sep.* entries.
   features  parallel log-mel extraction -> features/<tid>.npy (skips existing).
-  train     SKELETON this phase (CRNN + dataset + loop wired; finalized and ledgered
-            in the training phase — selection on validation splits only).
-  infer     stub; finalized alongside the one-shot gate phase.
+  train     ledgered recipe (EXPERIMENTS.md D1 2026-07-14): CRNN 32/64/96 conv blocks
+            (freq-pool 2 each) -> BiGRU 2x128 -> 5-class onset + velocity heads;
+            Adam 1e-3, batch 48 x 10 s crops, gain/SpecAugment aug, patience 15 on
+            the selection metric = mean macro onset-F(50 ms, mir_eval matching) over
+            {egmd_val, slakh_val_oracle, slakh_val_sep}; per-class thresholds
+            grid-searched on validation (coarse per epoch, fine on the best ckpt).
+  infer     audio -> [[time_s, gm_pitch, velocity_0_127], ...] JSONL, using best.pt
+            + the thresholds chosen on validation.
 """
 
 from __future__ import annotations
@@ -115,43 +121,103 @@ def midi_drum_events(midi_path: str | Path) -> list[list[float]]:
 
 
 # --------------------------------------------------------------------------- acquire
+EGMD_TRAIN_TARGET = 10_000   # stratified subset size (ledgered 2026-07-14)
+EGMD_VAL_CAP = 1_500
+
+
+def _stratified_rows(rows: list[dict], target: int, rng) -> list[dict]:
+    """Round-robin over (kit, style) groups until `target` rows: every group
+    contributes before any group contributes twice, so all kits appear; row order
+    within a group is a seeded shuffle (deterministic)."""
+    groups: dict[tuple[str, str], list[dict]] = {}
+    for r in rows:
+        key = (r.get("kit_name") or "?", r.get("style") or "?")
+        groups.setdefault(key, []).append(r)
+    for key in groups:
+        groups[key].sort(key=lambda r: r["audio_filename"])
+        rng.shuffle(groups[key])
+    ordered = sorted(groups)
+    picked: list[dict] = []
+    rank = 0
+    while len(picked) < target:
+        took = 0
+        for key in ordered:
+            if rank < len(groups[key]):
+                picked.append(groups[key][rank])
+                took += 1
+                if len(picked) >= target:
+                    break
+        if not took:
+            break
+        rank += 1
+    return picked
+
+
 def _acquire_egmd(egmd_home: Path, limit: int) -> tuple[dict, dict]:
-    """E-GMD train+validation rows from an extracted e-gmd dir. Returns (entries, stats)."""
+    """E-GMD train+validation rows from an extracted e-gmd dir. Returns (entries, stats).
+
+    Keys are the full relative audio path (drummer/session/file, kit suffix included) —
+    E-GMD's `id` column repeats across the 43 kits, which silently collapsed the corpus
+    to ~936 tracks in phase 1 (ledgered 2026-07-14). Train rows are a seeded stratified
+    subset (~EGMD_TRAIN_TARGET across kit×style so all kits appear); validation rows are
+    kept up to EGMD_VAL_CAP with the same stratification.
+    """
     import csv as csvmod
+    import random as pyrandom
 
     csv_path = egmd_home / "e-gmd-v1.0.0.csv"
     if not csv_path.exists():
         sys.exit(f"missing {csv_path} — not an extracted E-GMD dir")
     rows = list(csvmod.DictReader(csv_path.read_text().splitlines()))
-    test_ids = {str(r.get("id") or Path(r["audio_filename"]).stem)
-                for r in rows if r.get("split") == "test"}
-    entries: dict = {}
-    kept = {"train": 0, "validation": 0}
+    test_paths = {r["audio_filename"] for r in rows
+                  if r.get("split") == "test" and r.get("audio_filename")}
+
+    eligible: dict[str, list[dict]] = {"train": [], "validation": []}
     dropped = 0
     for r in rows:
         split = r.get("split")
         if split not in ("train", "validation"):
             continue
-        if limit and kept["train"] + kept["validation"] >= limit:
-            break
         af, mf = r.get("audio_filename"), r.get("midi_filename")
-        tid = str(r.get("id") or (Path(af).stem if af else ""))
         if not af or not mf or not (egmd_home / af).exists() or not (egmd_home / mf).exists():
             dropped += 1
             continue
+        eligible[split].append(r)
+
+    rng = pyrandom.Random(SEED)
+    train_target = limit or EGMD_TRAIN_TARGET
+    sel = (_stratified_rows(eligible["train"], train_target, rng)
+           + _stratified_rows(eligible["validation"], EGMD_VAL_CAP, rng))
+
+    entries: dict = {}
+    kept = {"train": 0, "validation": 0}
+    hours = 0.0
+    kits: dict[str, int] = {}
+    for r in sel:
+        af, mf = r["audio_filename"], r["midi_filename"]
+        assert af not in test_paths, f"E-GMD test-split leakage: {af}"
         events = midi_drum_events(egmd_home / mf)
         if not events:
             dropped += 1
             continue
-        entries[f"egmd.{sanitize(tid)}"] = {
-            "source": "egmd", "split": split,
+        key = f"egmd.{sanitize(Path(af).with_suffix('').as_posix())}"
+        entries[key] = {
+            "source": "egmd", "split": r["split"],
             "audio": str(egmd_home / af), "events": events,
         }
-        kept[split] += 1
-    overlap = {k for k in entries if k.split(".", 1)[1] in {sanitize(t) for t in test_ids}}
-    assert not overlap, f"E-GMD test-split leakage: {sorted(overlap)[:5]}"
+        kept[r["split"]] += 1
+        hours += float(r.get("duration") or 0.0) / 3600.0
+        kit = r.get("kit_name") or "?"
+        kits[kit] = kits.get(kit, 0) + 1
+    # Collision guard: uniqueness must hold row-for-row (phase-1 bug regression check).
+    assert len(entries) == kept["train"] + kept["validation"], (
+        f"E-GMD key collision: {len(entries)} entries != {kept} kept")
     stats = {"egmd_train": kept["train"], "egmd_val": kept["validation"],
-             "egmd_dropped": dropped, "egmd_test_excluded": len(test_ids)}
+             "egmd_dropped": dropped, "egmd_test_excluded": len(test_paths),
+             "egmd_pool_train": len(eligible["train"]),
+             "egmd_pool_val": len(eligible["validation"]),
+             "egmd_hours": round(hours, 1), "egmd_kits": len(kits),
+             "egmd_per_kit": dict(sorted(kits.items()))}
     return entries, stats
 
 
@@ -228,23 +294,30 @@ def _acquire_slakh(slakh_home: Path, out_root: Path, limit: int) -> tuple[dict, 
 
 
 def cmd_acquire(args) -> None:
+    """Per-source re-acquire: existing labels.json entries survive unless their source
+    is being re-acquired (egmd.* replaced when --egmd-home given; slakh.* when
+    --slakh-home). sep.* entries are owned by `separate` and never touched here."""
     args.data_home.mkdir(parents=True, exist_ok=True)
-    entries: dict = {}
-    stats: dict = {}
+    labels_path = args.data_home / "labels.json"
+    stats_path = args.data_home / "acquire_stats.json"
+    entries: dict = _json_load(labels_path) if labels_path.exists() else {}
+    stats: dict = _json_load(stats_path) if stats_path.exists() else {}
     if args.egmd_home:
+        entries = {k: v for k, v in entries.items() if not k.startswith("egmd.")}
         e, s = _acquire_egmd(args.egmd_home, args.egmd_limit)
         entries.update(e)
         stats.update(s)
     if args.slakh_home:
+        entries = {k: v for k, v in entries.items() if not k.startswith("slakh.")}
         e, s = _acquire_slakh(args.slakh_home, args.data_home, args.slakh_limit)
         entries.update(e)
         stats.update(s)
     if not entries:
         sys.exit("acquire produced no entries (pass --egmd-home and/or --slakh-home)")
-    _json_dump(entries, args.data_home / "labels.json")
-    _json_dump(stats, args.data_home / "acquire_stats.json", indent=1)
-    print(json.dumps(stats, indent=1))
-    print(f"total usable: {len(entries)} -> {args.data_home}/labels.json")
+    _json_dump(entries, labels_path)
+    _json_dump(stats, stats_path, indent=1)
+    print(json.dumps({k: v for k, v in stats.items() if k != "egmd_per_kit"}, indent=1))
+    print(f"total usable: {len(entries)} -> {labels_path}")
 
 
 # -------------------------------------------------------------------------- separate
@@ -364,34 +437,31 @@ def cmd_features(args) -> None:
     print(f"features complete -> {fdir}")
 
 
-# ---------------------------------------------------------------- model (SKELETON)
+# ------------------------------------------------------------------------------ model
 def build_model():
-    """CRNN onset+velocity model — SKELETON; finalized (and ledgered) in the training
-    phase. Conv over (mel, time) -> BiGRU over time -> per-frame 5x onset sigmoid +
-    5x velocity."""
+    """CRNN per the ledgered recipe (EXPERIMENTS.md D1, 2026-07-14): 3 conv blocks
+    (32/64/96, two 3x3 convs each + BN + ReLU, freq-pool 2) -> freq-flatten ->
+    2-layer BiGRU 128 -> 5-class onset logits + 5-class velocity head."""
     import torch.nn as nn
 
+    def block(cin, cout):
+        return [nn.Conv2d(cin, cout, 3, padding=1), nn.BatchNorm2d(cout), nn.ReLU(),
+                nn.Conv2d(cout, cout, 3, padding=1), nn.BatchNorm2d(cout), nn.ReLU(),
+                nn.MaxPool2d((2, 1))]
+
     class CRNN(nn.Module):
-        def __init__(self, n_mels=N_MELS, hidden=64):
+        def __init__(self, n_mels=N_MELS, hidden=128):
             super().__init__()
-            self.conv = nn.Sequential(
-                nn.Conv2d(1, 16, 3, padding=1), nn.BatchNorm2d(16), nn.ELU(),
-                nn.MaxPool2d((3, 1)),
-                nn.Conv2d(16, 32, 3, padding=1), nn.BatchNorm2d(32), nn.ELU(),
-                nn.MaxPool2d((3, 1)),
-                nn.Conv2d(32, 48, 3, padding=1), nn.BatchNorm2d(48), nn.ELU(),
-                nn.MaxPool2d((2, 1)),
-                nn.Dropout2d(0.1),
-            )
-            feat = 48 * (n_mels // 3 // 3 // 2)
+            self.conv = nn.Sequential(*block(1, 32), *block(32, 64), *block(64, 96))
+            feat = 96 * (n_mels // 8)                      # 96 mels -> 12 bands
             self.rnn = nn.GRU(feat, hidden, num_layers=2, batch_first=True,
-                              bidirectional=True, dropout=0.1)
+                              bidirectional=True)
             self.onset = nn.Linear(2 * hidden, len(CLASSES))
             self.velocity = nn.Linear(2 * hidden, len(CLASSES))
 
         def forward(self, x):            # x: (B, 1, mels, T)
-            h = self.conv(x)             # (B, C, mels', T)
-            h = h.permute(0, 3, 1, 2).flatten(2)   # (B, T, C*mels')
+            h = self.conv(x)             # (B, 96, mels/8, T)
+            h = h.permute(0, 3, 1, 2).flatten(2)   # (B, T, 96*mels/8)
             h, _ = self.rnn(h)
             return self.onset(h), self.velocity(h)  # (B, T, 5) logits, (B, T, 5)
 
@@ -416,13 +486,319 @@ def rasterize(events: list[list[float]], n_frames: int) -> tuple[np.ndarray, np.
     return on, vel
 
 
-def cmd_train(args) -> None:  # noqa: ARG001 — wired next phase
-    sys.exit("train is a SKELETON this phase — finalized and pre-reg-ledgered in the "
-             "training phase (selection on validation splits only; see EXPERIMENTS.md D1)")
+CROP_FRAMES = 1000           # 10 s at ~100 fps
+FPS = SR / HOP
 
 
-def cmd_infer(args) -> None:  # noqa: ARG001
-    sys.exit("infer lands with the one-shot gate phase (see EXPERIMENTS.md D1)")
+class DrumDataset:
+    """One random 10 s crop per track per epoch. Gain aug ±6 dB (exact, in the power
+    domain via expm1/log1p) + light SpecAugment (<=2 freq masks <=8 bins, <=1 time
+    mask <=20 frames). Raw log1p-mel goes to the model — the first BatchNorm adapts,
+    and per-crop normalization would cancel the gain augmentation."""
+
+    def __init__(self, items, fdir, train: bool):
+        self.items, self.fdir, self.train = items, fdir, train
+
+    def __len__(self):
+        return len(self.items)
+
+    def __getitem__(self, i):
+        import random as pyrandom
+
+        import torch
+
+        tid, events = self.items[i]
+        X = np.load(self.fdir / f"{sanitize(tid)}.npy").astype(np.float32)
+        T = X.shape[1]
+        s = pyrandom.randint(0, T - CROP_FRAMES) if self.train and T > CROP_FRAMES else 0
+        X = X[:, s:s + CROP_FRAMES]
+        if X.shape[1] < CROP_FRAMES:
+            X = np.pad(X, ((0, 0), (0, CROP_FRAMES - X.shape[1])))
+        t0 = s / FPS
+        local = [[t - t0, c, v] for t, c, v in events
+                 if t0 <= t < t0 + CROP_FRAMES / FPS]
+        on, vel = rasterize(local, CROP_FRAMES)
+        if self.train:
+            db = pyrandom.uniform(-6.0, 6.0)
+            X = np.log1p(np.expm1(X) * 10.0 ** (db / 10.0))   # power-domain gain
+            for _ in range(pyrandom.randint(0, 2)):           # freq masks
+                w = pyrandom.randint(1, 8)
+                f0 = pyrandom.randint(0, N_MELS - w)
+                X[f0:f0 + w, :] = 0.0
+            if pyrandom.random() < 0.5:                       # time mask
+                w = pyrandom.randint(1, 20)
+                s0 = pyrandom.randint(0, CROP_FRAMES - w)
+                X[:, s0:s0 + w] = 0.0
+        return (torch.from_numpy(X)[None], torch.from_numpy(on), torch.from_numpy(vel))
+
+
+def _local_max_mask(p: np.ndarray) -> np.ndarray:
+    """Vectorized: True where p[f] is the max of its ±2-frame window."""
+    m = p.copy()
+    for shift in (-2, -1, 1, 2):
+        s = np.roll(p, shift)
+        if shift > 0:
+            s[:shift] = -1.0
+        else:
+            s[shift:] = -1.0
+        m = np.maximum(m, s)
+    return p >= m - 1e-9
+
+
+def _pick_events(prob: np.ndarray, vel: np.ndarray, thresholds: np.ndarray
+                 ) -> list[list[float]]:
+    """Per-class peak-picking: threshold + local max over ±2 frames + 50 ms min gap.
+    Returns [time_s, class_idx, velocity 0..1] sorted by time."""
+    events: list[list[float]] = []
+    min_gap = int(round(0.05 * FPS))
+    for c in range(prob.shape[1]):
+        p = prob[:, c]
+        peaks = np.where(_local_max_mask(p) & (p >= thresholds[c]))[0]
+        last = -10_000
+        for f in peaks:
+            if f - last < min_gap:
+                continue
+            last = f
+            events.append([f / FPS, c, float(np.clip(vel[f, c], 0.0, 1.0))])
+    events.sort(key=lambda e: e[0])
+    return events
+
+
+def _predict_probs(model, X: np.ndarray, dev, chunk: int = 8000, overlap: int = 200):
+    """Full-track frame probabilities + velocities, chunked with center-stitching."""
+    import torch
+
+    T = X.shape[1]
+    on = np.zeros((T, len(CLASSES)), dtype=np.float32)
+    vl = np.zeros((T, len(CLASSES)), dtype=np.float32)
+    s = 0
+    with torch.no_grad():
+        while s < T:
+            e = min(T, s + chunk)
+            xw = torch.from_numpy(X[:, s:e].astype(np.float32))[None, None].to(dev)
+            lo_t, ve_t = model(xw)
+            po = torch.sigmoid(lo_t)[0].cpu().numpy()
+            pv = ve_t[0].cpu().numpy()
+            a = s + (overlap if s > 0 else 0)
+            on[a:e] = po[a - s:e - s]
+            vl[a:e] = pv[a - s:e - s]
+            if e == T:
+                break
+            s = e - 2 * overlap
+    return on, vl
+
+
+THRESH_GRID = np.round(np.arange(0.10, 0.91, 0.05), 2)     # final search (best ckpt)
+EPOCH_GRID = np.array([0.20, 0.35, 0.50, 0.65])            # coarse per-epoch selection
+
+
+def _f_stats(ref: list, est: list, window: float = 0.05) -> tuple[int, int, int]:
+    """mir_eval-equivalent onset matching (maximum bipartite via mir_eval)."""
+    import mir_eval
+
+    if not ref and not est:
+        return 0, 0, 0
+    if not ref:
+        return 0, len(est), 0
+    if not est:
+        return 0, 0, len(ref)
+    matches = mir_eval.util.match_events(np.array(ref), np.array(est), window)
+    tp = len(matches)
+    return tp, len(est) - tp, len(ref) - tp
+
+
+def _evaluate_pools(model, pools: dict, fdir: Path, dev,
+                    thresholds: np.ndarray | None = None,
+                    grid: np.ndarray | None = None):
+    """Macro onset-F per pool at the best (or given) per-class thresholds.
+
+    Accumulates TP/FP/FN per (pool, class, threshold) over full-track predictions,
+    then picks per-class thresholds maximizing GLOBAL (all-pool) F when not given.
+    Returns (selection_metric, report_dict, chosen_thresholds).
+    """
+    model.eval()
+    grid = (EPOCH_GRID if grid is None else grid) if thresholds is None else None
+    n_th = len(grid) if grid is not None else 1
+    stats = {p: np.zeros((n_th, len(CLASSES), 3)) for p in pools}   # tp, fp, fn
+    vel_err, vel_n = 0.0, 0
+    for pool, items in pools.items():
+        for tid, events in items:
+            X = np.load(fdir / f"{sanitize(tid)}.npy").astype(np.float32)
+            prob, vel = _predict_probs(model, X, dev)
+            ref_by_c = {c: [e[0] for e in events if e[1] == c] for c in range(5)}
+            for ti in range(n_th):
+                th = (grid[[ti] * 5] if grid is not None else thresholds)
+                est = _pick_events(prob, vel, th)
+                est_by_c: dict[int, list[float]] = {c: [] for c in range(5)}
+                for t, c, _v in est:
+                    est_by_c[int(c)].append(t)
+                for c in range(5):
+                    stats[pool][ti, c] += _f_stats(ref_by_c[c], est_by_c[c])
+            # Velocity MAE at matched reference onsets (threshold-independent enough:
+            # read the velocity head at the reference frame).
+            for t, c, v in events:
+                f = int(round(t * FPS))
+                if 0 <= f < vel.shape[0]:
+                    vel_err += abs(float(vel[f, int(c)]) - v)
+                    vel_n += 1
+
+    def f_of(row) -> float:
+        tp, fp, fn = row
+        return 2 * tp / (2 * tp + fp + fn) if (2 * tp + fp + fn) else 0.0
+
+    if grid is not None:
+        # Per-class threshold = argmax of pooled-over-all-pools F for that class.
+        total = sum(stats.values())                       # (n_th, 5, 3)
+        best_ti = [int(np.argmax([f_of(total[ti, c]) for ti in range(n_th)]))
+                   for c in range(5)]
+        chosen = np.array([grid[i] for i in best_ti])
+    else:
+        best_ti = [0] * 5
+        chosen = thresholds
+    report: dict = {"pools": {}, "thresholds": [float(t) for t in chosen]}
+    per_pool_macro = []
+    for pool in pools:
+        per_class = [f_of(stats[pool][best_ti[c], c]) for c in range(5)]
+        macro = float(np.mean(per_class))
+        per_pool_macro.append(macro)
+        report["pools"][pool] = {
+            "macro_f": round(macro, 4),
+            "per_class_f": {CLASS_NAMES[c]: round(per_class[c], 4) for c in range(5)},
+            "n_tracks": len(pools[pool]),
+        }
+    report["velocity_mae"] = round(vel_err / vel_n, 4) if vel_n else None
+    sel = float(np.mean(per_pool_macro))
+    report["selection_metric"] = round(sel, 4)
+    return sel, report, chosen
+
+
+VAL_POOLS = {"egmd_val": ("egmd",), "slakh_val_oracle": ("slakh_oracle",),
+             "slakh_val_sep": ("slakh_sep",)}
+
+
+def _build_pools(labels: dict) -> dict:
+    pools: dict = {p: [] for p in VAL_POOLS}
+    for tid, rec in labels.items():
+        if rec["split"] != "validation":
+            continue
+        for pool, sources in VAL_POOLS.items():
+            if rec["source"] in sources:
+                pools[pool].append((tid, rec["events"]))
+    return pools
+
+
+def cmd_train(args) -> None:
+    import torch
+    from torch.utils.data import DataLoader
+
+    torch.manual_seed(SEED)
+    np.random.seed(SEED)
+    import random as pyrandom
+
+    pyrandom.seed(SEED)
+    dev = ("cuda" if torch.cuda.is_available()
+           else "mps" if torch.backends.mps.is_available() else "cpu")
+    print(f"device={dev}")
+
+    labels = _json_load(args.data_home / "labels.json")
+    fdir = args.data_home / "features"
+    train_items = [(tid, rec["events"]) for tid, rec in labels.items()
+                   if rec["split"] == "train"]
+    pools = _build_pools(labels)
+    print(f"train tracks: {len(train_items)}; val pools: "
+          f"{ {p: len(v) for p, v in pools.items()} }")
+    for pool, items in pools.items():
+        if not items:
+            sys.exit(f"validation pool {pool} is empty — selection metric undefined")
+
+    # Per-class pos_weight from event counts vs total frames (widened x3), capped.
+    counts = np.zeros(len(CLASSES))
+    frames = 0.0
+    for _tid, events in train_items:
+        for _t, c, _v in events:
+            counts[int(c)] += 1
+        frames += (max(e[0] for e in events) if events else 0) * FPS
+    pos_w = np.clip(frames / np.maximum(counts * 3.0, 1.0), 1.0, 30.0)
+    print(f"pos_weight: { {CLASS_NAMES[c]: round(float(pos_w[c]), 1) for c in range(5)} }")
+
+    dl = DataLoader(DrumDataset(train_items, fdir, True), batch_size=args.batch,
+                    shuffle=True, num_workers=args.workers, drop_last=True,
+                    persistent_workers=args.workers > 0)
+    model = build_model().to(dev)
+    n_par = sum(p.numel() for p in model.parameters())
+    print(f"params: {n_par}")
+    opt = torch.optim.Adam(model.parameters(), lr=args.lr)
+    pw_t = torch.tensor(pos_w, dtype=torch.float32, device=dev)
+    best = (0.0, 0)
+    hist = []
+    args.out.mkdir(parents=True, exist_ok=True)
+    for ep in range(1, args.epochs + 1):
+        model.train()
+        tot = n = 0
+        for X, on, vel in dl:
+            X, on, vel = X.to(dev), on.to(dev), vel.to(dev)
+            lo, ve = model(X)
+            loss_on = torch.nn.functional.binary_cross_entropy_with_logits(
+                lo, on, pos_weight=pw_t)
+            mask = (on >= 1.0).float()
+            loss_vel = (((ve - vel) ** 2) * mask).sum() / mask.sum().clamp(min=1.0)
+            loss = loss_on + 0.5 * loss_vel
+            opt.zero_grad()
+            loss.backward()
+            opt.step()
+            tot += float(loss.detach()) * X.shape[0]
+            n += X.shape[0]
+        sel, report, chosen = _evaluate_pools(model, pools, fdir, dev)
+        hist.append({"epoch": ep, "train_loss": tot / n, "selection": sel,
+                     "report": report})
+        print(f"ep{ep:02d} loss={tot / n:.4f} sel={sel:.4f} "
+              f"pools={ {p: report['pools'][p]['macro_f'] for p in report['pools']} }",
+              flush=True)
+        _json_dump({"history": hist}, args.out / "history.json", indent=1)
+        if sel > best[0]:
+            best = (sel, ep)
+            torch.save(model.state_dict(), args.out / "best.pt")
+            _json_dump(report, args.out / "val_report.json", indent=1)
+        elif ep - best[1] >= args.patience:
+            print(f"early stop at ep{ep} (best sel={best[0]:.4f} @ ep{best[1]})")
+            break
+    # Final fine threshold search on the selected checkpoint (ledger: grid-searched).
+    model.load_state_dict(torch.load(args.out / "best.pt", map_location="cpu"))
+    model.to(dev)
+    sel, report, chosen = _evaluate_pools(model, pools, fdir, dev, grid=THRESH_GRID)
+    report["best_epoch"] = best[1]
+    report["coarse_selection_at_best"] = best[0]
+    _json_dump(report, args.out / "val_report.json", indent=1)
+    print(f"train done: coarse-best sel={best[0]:.4f} @ ep{best[1]}; "
+          f"fine-grid sel={sel:.4f}, thresholds={[float(t) for t in chosen]} -> "
+          f"{args.out}/best.pt + val_report.json")
+
+
+def cmd_infer(args) -> None:
+    """Audio file(s) -> per-track drum events using best.pt + chosen thresholds.
+    Output: JSONL {track_id, events: [[time_s, gm_pitch, velocity_0_127], ...]}."""
+    import librosa
+    import torch
+
+    dev = ("cuda" if torch.cuda.is_available()
+           else "mps" if torch.backends.mps.is_available() else "cpu")
+    model = build_model()
+    model.load_state_dict(torch.load(args.model, map_location="cpu"))
+    model.to(dev).eval()
+    report = _json_load(Path(args.model).parent / "val_report.json")
+    thresholds = np.array(report["thresholds"])
+    out = open(args.out, "w")  # noqa: SIM115
+    for audio in args.audio:
+        y, _ = librosa.load(audio, sr=SR, mono=True)
+        m = librosa.feature.melspectrogram(y=y, sr=SR, n_fft=N_FFT, hop_length=HOP,
+                                           n_mels=N_MELS)
+        X = np.log1p(m).astype(np.float32)
+        prob, vel = _predict_probs(model, X, dev)
+        events = [[round(t, 4), CLASSES[int(c)], int(round(v * 127))]
+                  for t, c, v in _pick_events(prob, vel, thresholds)]
+        out.write(json.dumps({"track_id": Path(audio).stem, "events": events}) + "\n")
+    out.close()
+    print(f"wrote {args.out}")
 
 
 def main() -> None:
@@ -446,6 +822,18 @@ def main() -> None:
             p.add_argument("--limit", type=int, default=0)
         if name == "features":
             p.add_argument("--workers", type=int, default=8)
+        if name == "train":
+            p.add_argument("--out", type=Path, required=True)
+            p.add_argument("--epochs", type=int, default=80)
+            p.add_argument("--patience", type=int, default=15)
+            p.add_argument("--batch", type=int, default=48)
+            p.add_argument("--lr", type=float, default=1e-3)
+            p.add_argument("--workers", type=int, default=8)
+        if name == "infer":
+            p.add_argument("--model", type=Path, required=True,
+                           help="best.pt (val_report.json with thresholds beside it)")
+            p.add_argument("--audio", nargs="+", required=True)
+            p.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
     {"acquire": cmd_acquire, "separate": cmd_separate, "features": cmd_features,
      "train": cmd_train, "infer": cmd_infer}[args.cmd](args)
