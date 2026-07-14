@@ -272,6 +272,30 @@ exclusion counts land in acquire_stats.json. Trainer: PR #17 (eval/train_drum_cn
 5-class vocabulary pinned to the gm.py representatives 36/38/42/47/49 for like-for-like
 eval-side reduction against ADTOF.
 
+**Phase-1 data review + recipe (2026-07-14, ledgered before any training):** review of
+the DATA_READY corpus caught a **key-collision bug** in the acquire stage: E-GMD track
+keys were derived from audio filename stems, which repeat across drummers/sessions/kits
+— stats counted 35,209/5,031 kept train/val performances but labels.json held only 936
+unique egmd entries (~39k rows silently overwritten, last-writer-wins; each surviving
+entry internally consistent). Slakh oracle (1,557) and separated (700) entries are
+unaffected. Fix: keys from the full relative path. With uniqueness restored the E-GMD
+pool is ~40k performances (444 h) which would dominate Slakh ~4:1 in hours and pull the
+corpus toward clean e-kit audio, away from the separated-stem deployment domain —
+**deliberate subset instead**: stratified sample of ~10,000 train performances (max-N
+per kit × style so all 43 kits appear; all validation rows kept up to 1,500), targeting
+rough hour-parity with the Slakh side. **Training recipe (fixed now):** CRNN — 96-mel
+@ 100 fps input; 3 conv blocks (32/64/96, 3×3 ×2 + BN + ReLU, freq-pool 2) →
+freq-flatten → 2-layer BiGRU 128 → two heads: 5-class onset sigmoid + 5-class velocity
+(masked regression at onset frames; non-gating). Targets: onsets widened ±1 frame
+(neighbor weight 0.5), per-class pos_weight. Adam 1e-3 constant, batch 48 × 10 s random
+crops, gain ±6 dB + light SpecAugment (≤2 freq masks ≤8 bins, ≤1 time mask ≤20 frames),
+early stop patience 15 on the selection metric, cap 80 epochs. Peak-picking: per-class
+threshold grid-searched on validation, local-max ±2 frames, 50 ms min inter-onset.
+**Selection metric:** mean of macro onset-F(50 ms) over three validation pools — E-GMD
+val, Slakh val oracle stems, Slakh val separated stems — equally weighted (deployment
+input is separated). Architecture revisions at CV stage remain allowed but must be
+ledgered here before retraining (TP1 discipline).
+
 ## Transcription (Slakh2100-redux test, n=151, GT stems = oracle)
 
 | # | date | commit | system | bass note-F | other note-F | drums onset-F | artifacts |
