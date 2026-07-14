@@ -49,14 +49,20 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/jams"]
 # Ship the bundled model weights + the self-contained uv workers as package data.
-artifacts = ["src/jams/data/models/*.pt", "src/jams/data/*.json", "src/jams/data/structure_worker.py", "src/jams/data/stems_worker.py", "src/jams/data/drum_worker.py", "src/jams/data/scnet/*.py"]
+artifacts = ["src/jams/data/models/*.pt", "src/jams/data/*.json", "src/jams/data/structure_worker.py", "src/jams/data/stems_worker.py", "src/jams/data/drum_worker.py", "src/jams/data/scnet/*.py", "src/jams/data/melroformer/*.py"]
 
 [tool.ruff]
 line-length = 100
 target-version = "py310"
 src = ["src", "tests"]
-# Vendored third-party code (SCNet, MIT) is kept byte-faithful to upstream — don't lint it.
-extend-exclude = ["src/jams/data/scnet/scnet.py", "src/jams/data/scnet/separation.py"]
+# Vendored third-party code (SCNet + Mel-Band RoFormer, MIT) is kept byte-faithful to
+# upstream — don't lint it.
+extend-exclude = [
+    "src/jams/data/scnet/scnet.py",
+    "src/jams/data/scnet/separation.py",
+    "src/jams/data/melroformer/mel_band_roformer.py",
+    "src/jams/data/melroformer/attend.py",
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "C4"]
