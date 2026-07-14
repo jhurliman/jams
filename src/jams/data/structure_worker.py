@@ -3,6 +3,8 @@
 # requires-python = ">=3.10,<3.14"
 # dependencies = ["all-in-one-mps>=0.1", "numpy>=1.26", "numba>=0.61"]
 # ///
+# pyright: reportMissingImports=false
+
 """All-In-One (PyTorch/MPS) song-structure worker for jams.
 
 Self-contained uv script: ``uv run --script structure_worker.py ...`` resolves and
