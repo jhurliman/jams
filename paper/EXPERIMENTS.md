@@ -799,3 +799,40 @@ incl. the contingent ablation), Tier-2 cap **$20** (renders on CPU ≈ free). Fr
 zero credentials (artifacts relay box → local → S3, OV1 pattern). Artifacts →
 `s3://jams-mir-eval-usw2/ov2/` (frozen OV2-val list, seeds, scripts, checkpoint +
 data sha256s, license/provenance evidence). Never touches ov1/ or d1/ prefixes.
+
+**Amendment (2026-07-13, declared before any training; user goal clarification) —
+condition T-blind (label-free dominant-source decomposition) becomes the primary
+product target.** User: the desired deliverable is "I found K dominant
+sounds/instruments in `other`, here are their stems and MIDI" — no labels required.
+This is BLIND count-agnostic decomposition, and Slakh provides perfect unlabeled GT
+(the constituent stems themselves), so it trains with permutation-invariant matching
+and NO annotation:
+- **T-blind**: same backbone family as T1 (bandsplit-RNN-small), no conditioning
+  input; **K=6 output slots + 1 residual slot**. Targets: the 6 highest-energy
+  other-bucket stems in the sampled mixture (fewer → silence slots), residual = sum of
+  remaining stems. Loss: PIT over the 6 slots (−SI-SDR, permutation by best match) +
+  silence penalty (energy + STFT-mag) on unused slots + residual loss + mixture-
+  consistency penalty. Same data pipeline, crops, augmentation as T1.
+- **T-blind-null (training-free auto pipeline)**: YourMT3+ transcribe → co-onset
+  feature clustering (k ≤ 6, Phase-0 prototype) → T0 harmonic masking per cluster +
+  residual. The honest no-training version of the same product.
+- **Metrics (T-blind)**: permutation-matched mean SI-SDR over active slots vs
+  energy-top-6 GT stems (primary, vs T-blind-null, paired, 10k bootstrap seed 0);
+  active-slot count vs GT stem count; residual leakage (energy of top-6 GT content in
+  the residual, lower better); mixture consistency; **per-lane transcription note-F vs
+  the matched GT stem's MIDI — VALID here (no conditioning → no circularity), reported
+  for basic-pitch and YourMT3+ per lane**; diagnostic: pooled per-lane note-F vs
+  monolithic-bucket transcription (the OV1 condition-A framing, blind-decomposition
+  arm).
+- **Ship T-blind** iff: beats T-blind-null by ≥ +3 dB permutation-matched mean SI-SDR
+  on OV2-val (95% CI lower bound > 0), no worst-decile regression vs T-blind-null,
+  silence/residual behavior sane (unused-slot output ≤ −40 dB rel. input), and the
+  same 5-track real-EDM listening check (user veto).
+- **Role of T1 (conditioned)**: demoted to secondary — the interactive path (user
+  note-selection → extract) and lane-refinement loop; unchanged bars. T1 and T-blind
+  share the backbone, data pipeline, and OV2-val; training both = one extra run.
+- **Budget**: Tier-1 cap **$45 → $60** (two training runs; ONE shared contingent
+  ablation/restart across both). Declared possible Tier-2b extension (evidence-gated,
+  separate approval): MixIT-style unsupervised fine-tune of T-blind on real EDM
+  `other` stems (label-free training admits real in-domain audio — the strongest
+  hedge against the synth→real cliff).
