@@ -11,6 +11,7 @@
 #   "soundfile>=0.13",
 # ]
 # ///
+# pyright: reportMissingImports=false
 """EVAL-ONLY — not on the production path. S-KEY key-estimation worker.
 
 Production key detection is the in-process key CNN (``jams.analysis.key_cnn``); no jams
