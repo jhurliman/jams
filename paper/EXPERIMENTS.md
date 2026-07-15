@@ -514,6 +514,63 @@ ES1: the EDM separation fix reverts to fine-tuning single-pass SCNet directly on
 data (the ES1 research's Option 4), not a two-pass front-end.** Artifacts:
 s3://jams-mir-eval-usw2/s7/ (per-track JSONLs both arms both datasets, summary, logs).
 
+### ES2 (pre-registered 2026-07-14, before any corpus render or fine-tune) — synthetic D&B stem dataset → single-pass SCNet fine-tune
+
+**Motivation.** Octo Glo (real jump-up) exposed a MUSDB18-domain allocation collapse
+in the shipped SCNet XL IHF (drums stem −1.6 dB rel mix absorbing 71% of sub+bass-band
+and 77% of highs; bass stem −9.8 dB → 16 notes). Off-the-shelf checkpoints don't beat
+SCNet (ES1 research), and two-pass failed (S7). The remaining lever is fine-tuning
+SCNet on in-domain EDM stems. No openly-licensed real EDM multitracks exist (ES1
+licensing research, verified from 3 angles), so the corpus is **synthetically
+rendered** — feasibility proven GO (DawDreamer+Surge XT+Dexed, offline, 11× realtime,
+stem-sum residual −225 dB, shipped-SCNet realism check = regime (a) real training
+signal: drums 14.4 / bass 15.7 dB SI-SDR on the synthetic mix, real-music difficulty
+band, not trivially-clean).
+
+**Corpus (pre-registered spec).** ~500 tracks, **broad drum & bass** coverage (per
+user 2026-07-14): sub-styles jump-up, neurofunk, liquid, jungle/ragga, techstep,
+dancefloor — each with its characteristic drum pattern, bass-design family, and
+arrangement. Render stack (all MIT/GPL-output-grant/CC0, ledgered in ES2 RUNBOOK):
+DawDreamer (MIT) offline engine; Surge XT (GPL + output grant, programmatic params,
+no factory-preset content copied) + Dexed (GPL, own FM patches) for bass/synths; drums
+= our DSP **plus a real CC0 break/one-shot layer** (Freesound CC0 breaks + CC0 909/808;
+no copyrighted Amen recording) to close the "un-modern synthetic drums" gap the probe
+flagged. 4 buses drums/bass/other/vocals (vocals often silent/chops). **Target
+definition (binding, musdb-XL style):** GT stems are the PREMASTER bus renders (they
+sum to the premaster mix exactly); the master chain (comp+limiter to genre LUFS
+targets) is applied to the MIX only, with a per-track master gain-ratio recorded so
+stems remain reconstructible — training against limited-master-summing stems is
+prohibited (the probe measured the nonlinearity collapsing drums 14.4→1.4 dB).
+**Diversity axes randomized per track** (anti-one-template): tempo (168–176, mode 174,
++ 85–90 half-time feel), key, sub-style/arrangement grammar, drum family + break
+choice + ghost density, bass family (reese/wobble/jump-up-bounce/foghorn) + layer
+count, synth layer count, sidechain style (DnB utility duck vs pump), master loudness.
+CC-BY assets attributed in a dataset card; corpus is ours (renderer output) → MIT,
+shippable weights.
+
+**Fine-tune (pre-registered).** From the shipped SCNet XL IHF MUSDB checkpoint,
+fine-tune on the synthetic D&B corpus (train split); ~20% held out as **ES2-synth-val**
+(frozen split, disjoint sub-styles-balanced). Recipe details (LR, steps, augmentation)
+fixed at launch from a short LR-range probe on train only. GPU + budget: render is
+free (offline); fine-tune est. on the ledgered cloud rates, **cap declared at the
+budget gate** — the fine-tune run is a SEPARATE budget approval after the corpus is
+rendered + validated (not spent under this pre-reg).
+
+**Gate (decision criteria, declared now).** Fine-tuned SCNet (B) vs shipped SCNet (A):
+(1) **Non-regression on general material** — Slakh2100-redux test n=151, per-stem
+SI-SDR + downstream note-F/onset-F, paired bootstrap 10k seed 0: every metric Δ(B−A)
+CI lower bound > −0.5 dB SI-SDR / > −0.01 note-F (must not break what works). (2)
+**In-domain improvement** — ES2-synth-val held-out: per-stem SI-SDR Δ(B−A) > 0, CI
+excl 0 (esp. `other` and `bass`, the collapse stems). (3) **Real-EDM qualitative** —
+Octo Glo + a 5-track real-jump-up set: the band-energy allocation signature (drums
+sub-share, bass RMS rel mix) must move toward balanced vs the shipped model's collapse;
+user listening veto. **Honest limitation (recorded):** with no real-EDM GT test set
+(user declined Ableton export for now), criterion (3) is qualitative — there is no
+paired real-EDM SI-SDR number; a future Ableton-rendered private set would upgrade it
+to quantitative. Ship the fine-tune iff (1) AND (2) hold and (3) shows no regression.
+Negative result (synth→real doesn't transfer) is a publishable finding either way.
+Artifacts → s3://jams-mir-eval-usw2/es2/.
+
 ## Structure (Raveform, pre-registered — fine-tune sweep CONCLUDED 2026-07-12: all variants FAIL, ship stock ensemble)
 
 Protocol: v1 All-In-One trainer, 11-class Raveform head, true folds from metadata (not
