@@ -27,7 +27,7 @@ exact pipeline (librosa decode included), so nothing here may drift from it.
 
 The model emits 5 drum classes at the canonical GM representatives used across
 jams (``jams.analysis.gm``) — 36 kick, 38 snare, 42 hi-hat, 47 tom, 49 cymbal —
-with velocity from the model's velocity head (0–127, floored at 1 for the MIDI
+with velocity from the model's velocity head (0-127, floored at 1 for the MIDI
 note-on contract). Kept in its own uv env (torch has no CPython 3.14 wheels)
 so the pipeline pieces stay independently replaceable; same resident-worker
 JSONL pattern as the other workers.

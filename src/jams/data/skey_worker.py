@@ -11,6 +11,7 @@
 #   "soundfile>=0.13",
 # ]
 # ///
+# pyright: reportMissingImports=false
 """S-KEY key-estimation worker for jams — Deezer's self-supervised tonality model.
 
 Runs `deezer/skey <https://github.com/deezer/skey>`_ (Kong et al., ICASSP 2025; MIT, the
@@ -21,7 +22,8 @@ decorrelate. This worker is now an EVAL artifact only (it banks the S-KEY featur
 ``eval/stats_significance.py`` replays); the production key path is the key CNN.
 
 Kept in its own uv env so its pinned torch/nnAudio stack stays independent of jams' env.
-Same resident-worker JSONL pattern as the stems/drums workers. The model is tiny; CPU inference is a few seconds per track.
+Same resident-worker JSONL pattern as the stems/drums workers. The model is tiny;
+CPU inference is a few seconds per track.
 
 Modes:
   single-shot:  skey_worker.py --audio FILE            -> prints one JSON object
