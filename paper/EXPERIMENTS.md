@@ -571,6 +571,30 @@ to quantitative. Ship the fine-tune iff (1) AND (2) hold and (3) shows no regres
 Negative result (synth→real doesn't transfer) is a publishable finding either way.
 Artifacts → s3://jams-mir-eval-usw2/es2/.
 
+**Amendment (2026-07-15, declared before any render/fine-tune; render-agent design
+review).** Realism v2 validated the FX/real-drum approach (other-bus SCNet SI-SDR
+1.8→10.5 dB with a CC0 808 layer + per-stem bus processing baked pre-sum; all buses
+now 10–15 dB = regime a; stem-sum residual −225 dB preserved). Three design decisions
+locked in before rendering:
+1. **Silent-vocals correctness trap (binding fix).** The pilot corpus is
+   **instrumental D&B — vocals bus empty**; fine-tuning heads toward silent vocals
+   would actively UN-TEACH SCNet's pretrained MUSDB vocals head. Therefore the
+   fine-tune loss **masks the vocals term** (gradients from drums/bass/other only);
+   the pretrained vocal path is preserved, not retrained. (Future vocal-D&B corpora
+   with real CC0/CC-BY acappella content would unmask it — out of pilot scope.)
+2. **Gate addition — vocals non-regression.** Because trunk drift under drums/bass/
+   other fine-tuning could still degrade vocals at inference, criterion (1)
+   non-regression now also requires **MedleyDB-V2 vocals SI-SDR Δ(B−A) CI lb > −0.5
+   dB** (the only vocals-bearing test set we hold), alongside the Slakh checks.
+3. **Timbral diversity is the #1 transfer risk (binding requirement).** Melodic
+   sources must NOT be single-patch: **per-track procedural Surge parameter
+   randomization** (osc/filter/unison/waveshaper/env/FX — not init-patch), plus a
+   second/third engine (Dexed FM + Vitalium wavetable, self-authored patches) so
+   bass/other span subtractive+FM+wavetable; drums span **multiple CC0 kits** (more
+   TidalCycles CC0 + E-GMD CC-BY), not one 808. Validation is **distributional**: the
+   SCNet-realism check reports the SI-SDR *distribution* across the sub-style-balanced
+   batch (must span a real-DnB-like easy/medium/hard spread), not one track's number.
+
 ## Structure (Raveform, pre-registered — fine-tune sweep CONCLUDED 2026-07-12: all variants FAIL, ship stock ensemble)
 
 Protocol: v1 All-In-One trainer, 11-class Raveform head, true folds from metadata (not
