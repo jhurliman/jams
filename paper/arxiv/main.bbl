@@ -1,0 +1,177 @@
+\begin{thebibliography}{33}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Raffel et~al.(2014)Raffel, McFee, Humphrey, Salamon, Nieto, Liang, and Ellis]{raffel2014mireval}
+Colin Raffel, Brian McFee, Eric~J. Humphrey, Justin Salamon, Oriol Nieto, Dawen Liang, and Daniel P.~W. Ellis.
+\newblock mir\_eval: A transparent implementation of common {MIR} metrics.
+\newblock In \emph{Proceedings of the 15th International Society for Music Information Retrieval Conference (ISMIR)}, Taipei, Taiwan, 2014.
+
+\bibitem[Krumhansl(1990)]{krumhansl1990cognitive}
+Carol~L. Krumhansl.
+\newblock \emph{Cognitive Foundations of Musical Pitch}.
+\newblock Oxford University Press, 1990.
+
+\bibitem[Faraldo et~al.(2016)Faraldo, G{\'o}mez, Jord{\`a}, and Herrera]{faraldo2016key}
+{\'A}ngel Faraldo, Emilia G{\'o}mez, Sergi Jord{\`a}, and Perfecto Herrera.
+\newblock Key estimation in electronic dance music.
+\newblock In \emph{Proceedings of the 38th European Conference on Information Retrieval (ECIR)}, Padua, Italy, 2016.
+
+\bibitem[Faraldo(2017)]{faraldo2017thesis}
+{\'A}ngel Faraldo.
+\newblock \emph{Tonality Estimation in Electronic Dance Music: A Computational and Musically Informed Examination}.
+\newblock PhD thesis, Universitat Pompeu Fabra, 2017.
+\newblock The GiantSteps-MTG-Keys dataset accompanies this work.
+
+\bibitem[Bogdanov et~al.(2013)Bogdanov, Wack, G{\'o}mez, Gulati, Herrera, Mayor, Roma, Salamon, Zapata, and Serra]{bogdanov2013essentia}
+Dmitry Bogdanov, Nicolas Wack, Emilia G{\'o}mez, Sankalp Gulati, Perfecto Herrera, Oscar Mayor, Gerard Roma, Justin Salamon, Jos{\'e}~R. Zapata, and Xavier Serra.
+\newblock Essentia: An audio analysis library for music information retrieval.
+\newblock In \emph{Proceedings of the 14th International Society for Music Information Retrieval Conference (ISMIR)}, Curitiba, Brazil, 2013.
+
+\bibitem[Korzeniowski and Widmer(2018)]{korzeniowski2018genre}
+Filip Korzeniowski and Gerhard Widmer.
+\newblock Genre-agnostic key classification with convolutional neural networks.
+\newblock In \emph{Proceedings of the 19th International Society for Music Information Retrieval Conference (ISMIR)}, Paris, France, 2018.
+
+\bibitem[B{\"o}ck et~al.(2016)B{\"o}ck, Korzeniowski, Schl{\"u}ter, Krebs, and Widmer]{bock2016madmom}
+Sebastian B{\"o}ck, Filip Korzeniowski, Jan Schl{\"u}ter, Florian Krebs, and Gerhard Widmer.
+\newblock madmom: A new python audio and music signal processing library.
+\newblock In \emph{Proceedings of the 24th ACM International Conference on Multimedia}, Amsterdam, The Netherlands, 2016.
+
+\bibitem[Schreiber and M{\"u}ller(2019)]{schreiber2019inception}
+Hendrik Schreiber and Meinard M{\"u}ller.
+\newblock Musical tempo and key estimation using convolutional neural networks with directional filters.
+\newblock In \emph{Proceedings of the Sound and Music Computing Conference (SMC)}, M{\'a}laga, Spain, 2019.
+
+\bibitem[Baumann(2021)]{steinwedel2021inceptionkeynet}
+Stefan~A. Baumann.
+\newblock Deeper convolutional neural networks and broad augmentation policies improve performance in musical key estimation.
+\newblock In \emph{Proceedings of the 22nd International Society for Music Information Retrieval Conference (ISMIR)}, 2021.
+\newblock Model released as ``InceptionKeyNet''.
+
+\bibitem[Kong et~al.(2024)Kong, Lostanlen, Meseguer-Brocal, Wong, Lagrange, and Hennequin]{kong2024stone}
+Yuexuan Kong, Vincent Lostanlen, Gabriel Meseguer-Brocal, Stella Wong, Mathieu Lagrange, and Romain Hennequin.
+\newblock {STONE}: Self-supervised tonality estimator.
+\newblock In \emph{Proceedings of the 25th International Society for Music Information Retrieval Conference (ISMIR)}, San Francisco, USA, 2024.
+
+\bibitem[Kong et~al.(2025)Kong, Meseguer-Brocal, Lostanlen, Lagrange, and Hennequin]{kong2025skey}
+Yuexuan Kong, Gabriel Meseguer-Brocal, Vincent Lostanlen, Mathieu Lagrange, and Romain Hennequin.
+\newblock {S-KEY}: Self-supervised learning of major and minor keys from audio.
+\newblock In \emph{Proceedings of the IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)}, 2025.
+
+\bibitem[Yonay et~al.(2026)Yonay, Hammond, and Yang]{keymyna2026}
+Ori Yonay, Tracy Hammond, and Tianbao Yang.
+\newblock Masked contrastive pre-training improves music audio key detection, 2026.
+\newblock arXiv:2604.10021. Model released as ``KeyMyna''.
+
+\bibitem[Knees et~al.(2015)Knees, Faraldo, Herrera, Vogl, B{\"o}ck, H{\"o}rschl{\"a}ger, and Le~Goff]{knees2015giantsteps}
+Peter Knees, {\'A}ngel Faraldo, Perfecto Herrera, Richard Vogl, Sebastian B{\"o}ck, Florian H{\"o}rschl{\"a}ger, and Mickael Le~Goff.
+\newblock Two data sets for tempo estimation and key detection in electronic dance music annotated from user corrections.
+\newblock In \emph{Proceedings of the 16th International Society for Music Information Retrieval Conference (ISMIR)}, M{\'a}laga, Spain, 2015.
+
+\bibitem[Bittner et~al.(2022)Bittner, Bosch, Rubinstein, Meseguer-Brocal, and Ewert]{bittner2022basicpitch}
+Rachel~M. Bittner, Juan~Jos{\'e} Bosch, David Rubinstein, Gabriel Meseguer-Brocal, and Sebastian Ewert.
+\newblock A lightweight instrument-agnostic model for polyphonic note transcription and multipitch estimation.
+\newblock In \emph{Proceedings of the IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)}, 2022.
+
+\bibitem[Gardner et~al.(2022)Gardner, Simon, Manilow, Hawthorne, and Engel]{gardner2022mt3}
+Josh Gardner, Ian Simon, Ethan Manilow, Curtis Hawthorne, and Jesse Engel.
+\newblock {MT3}: Multi-task multitrack music transcription.
+\newblock In \emph{Proceedings of the International Conference on Learning Representations (ICLR)}, 2022.
+
+\bibitem[Chang et~al.(2024)Chang, Benetos, Kirchhoff, and Dixon]{chang2024yourmt3}
+Sungkyun Chang, Emmanouil Benetos, Holger Kirchhoff, and Simon Dixon.
+\newblock {YourMT3+}: Multi-instrument music transcription with enhanced transformer architectures and cross-dataset stem augmentation.
+\newblock In \emph{Proceedings of the IEEE International Workshop on Machine Learning for Signal Processing (MLSP)}, 2024.
+
+\bibitem[Manilow et~al.(2019)Manilow, Wichern, Seetharaman, and Le~Roux]{manilow2019slakh}
+Ethan Manilow, Gordon Wichern, Prem Seetharaman, and Jonathan Le~Roux.
+\newblock Cutting music source separation some {Slakh}: A dataset to study the impact of training data quality and quantity.
+\newblock In \emph{Proceedings of the IEEE Workshop on Applications of Signal Processing to Audio and Acoustics (WASPAA)}, 2019.
+
+\bibitem[Callender et~al.(2020)Callender, Hawthorne, and Engel]{callender2020egmd}
+Lee Callender, Curtis Hawthorne, and Jesse Engel.
+\newblock Improving perceptual quality of drum transcription with the expanded groove {MIDI} dataset, 2020.
+\newblock arXiv:2004.00188.
+
+\bibitem[Zehren et~al.(2021)Zehren, Alunno, and Bientinesi]{zehren2021adtof}
+Mickael Zehren, Marco Alunno, and Paolo Bientinesi.
+\newblock {ADTOF}: A large dataset of non-synthetic music for automatic drum transcription.
+\newblock In \emph{Proceedings of the 22nd International Society for Music Information Retrieval Conference (ISMIR)}, 2021.
+
+\bibitem[Bittner et~al.(2014)Bittner, Salamon, Tierney, Mauch, Cannam, and Bello]{bittner2014medleydb}
+Rachel~M. Bittner, Justin Salamon, Mike Tierney, Matthias Mauch, Chris Cannam, and Juan~Pablo Bello.
+\newblock {MedleyDB}: A multitrack dataset for annotation-intensive {MIR} research.
+\newblock In \emph{Proceedings of the 15th International Society for Music Information Retrieval Conference (ISMIR)}, Taipei, Taiwan, 2014.
+
+\bibitem[Rouard et~al.(2023)Rouard, Massa, and D{\'e}fossez]{rouard2023hybrid}
+Simon Rouard, Francisco Massa, and Alexandre D{\'e}fossez.
+\newblock Hybrid transformers for music source separation.
+\newblock In \emph{Proceedings of the IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)}, 2023.
+
+\bibitem[Lu et~al.(2024)Lu, Wang, Kong, and Hung]{lu2024bsroformer}
+Wei-Tsung Lu, Ju-Chiang Wang, Qiuqiang Kong, and Yun-Ning Hung.
+\newblock Music source separation with band-split rope transformer.
+\newblock In \emph{Proceedings of the IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)}, 2024.
+
+\bibitem[Tong et~al.(2024)Tong, Zhu, Chen, Kang, Jiang, Li, Wu, and Meng]{tong2024scnet}
+Weinan Tong, Jiaxu Zhu, Jun Chen, Shiyin Kang, Tao Jiang, Yang Li, Zhiyong Wu, and Helen Meng.
+\newblock {SCNet}: Sparse compression network for music source separation.
+\newblock In \emph{Proceedings of the IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)}, 2024.
+
+\bibitem[Solovyev et~al.(2023)Solovyev, Stempkovskiy, and Habruseva]{zfturbo2024msst}
+Roman Solovyev, Alexander Stempkovskiy, and Tatiana Habruseva.
+\newblock Benchmarks and leaderboards for sound demixing tasks, 2023.
+\newblock arXiv:2305.07489; Music-Source-Separation-Training (MSST) model zoo, \url{https://github.com/ZFTurbo/Music-Source-Separation-Training}.
+
+\bibitem[Kim and Nam(2023)]{kim2023allinone}
+Taejun Kim and Juhan Nam.
+\newblock All-in-one metrical and functional structure analysis with neighborhood attentions on demixed audio.
+\newblock In \emph{Proceedings of the IEEE Workshop on Applications of Signal Processing to Audio and Acoustics (WASPAA)}, 2023.
+
+\bibitem[Nieto et~al.(2019)Nieto, McCallum, Davies, Robertson, Stark, and Egozy]{nieto2019harmonix}
+Oriol Nieto, Matthew McCallum, Matthew E.~P. Davies, Andrew Robertson, Adam Stark, and Eran Egozy.
+\newblock The {Harmonix} {Set}: Beats, downbeats, and functional segment annotations of western popular music.
+\newblock In \emph{Proceedings of the 20th International Society for Music Information Retrieval Conference (ISMIR)}, Delft, The Netherlands, 2019.
+
+\bibitem[Kim et~al.(2026)Kim, Kim, Kim, and Nam]{kim2026raveform}
+Taejun Kim, Jongsoo Kim, Hyungyu Kim, and Juhan Nam.
+\newblock Raveform: A dataset of metrical and functional structure annotations for {EDM} tracks in {DJ} mixes.
+\newblock \emph{Transactions of the International Society for Music Information Retrieval}, 9\penalty0 (1):\penalty0 131--143, 2026.
+\newblock \doi{10.5334/tismir.288}.
+
+\bibitem[B{\"o}ck and Davies(2020)]{bock2020deconstruct}
+Sebastian B{\"o}ck and Matthew E.~P. Davies.
+\newblock Deconstruct, analyse, reconstruct: How to improve tempo, beat, and downbeat estimation.
+\newblock In \emph{Proceedings of the 21st International Society for Music Information Retrieval Conference (ISMIR)}, Montr{\'e}al, Canada, 2020.
+
+\bibitem[Foscarin et~al.(2024)Foscarin, Schl{\"u}ter, and Widmer]{foscarin2024beatthis}
+Francesco Foscarin, Jan Schl{\"u}ter, and Gerhard Widmer.
+\newblock Beat this! {A}ccurate beat tracking without {DBN} postprocessing.
+\newblock In \emph{Proceedings of the 25th International Society for Music Information Retrieval Conference (ISMIR)}, San Francisco, USA, 2024.
+
+\bibitem[Bittner et~al.(2019)Bittner, Fuentes, Rubinstein, Jansson, Choi, and Kell]{bittner2019mirdata}
+Rachel~M. Bittner, Magdalena Fuentes, David Rubinstein, Andreas Jansson, Keunwoo Choi, and Thor Kell.
+\newblock mirdata: Software for reproducible usage of datasets.
+\newblock In \emph{Proceedings of the 20th International Society for Music Information Retrieval Conference (ISMIR)}, Delft, The Netherlands, 2019.
+
+\bibitem[Schreiber and M{\"u}ller(2018{\natexlab{a}})]{schreiber2018crowd}
+Hendrik Schreiber and Meinard M{\"u}ller.
+\newblock A crowdsourced experiment for tempo estimation of electronic dance music.
+\newblock In \emph{Proceedings of the 19th International Society for Music Information Retrieval Conference (ISMIR)}, Paris, France, 2018{\natexlab{a}}.
+\newblock GiantSteps Tempo v2 annotations.
+
+\bibitem[Schreiber and M{\"u}ller(2018{\natexlab{b}})]{schreiber2018tempocnn}
+Hendrik Schreiber and Meinard M{\"u}ller.
+\newblock A single-step approach to musical tempo estimation using a convolutional neural network.
+\newblock In \emph{Proceedings of the 19th International Society for Music Information Retrieval Conference (ISMIR)}, Paris, France, 2018{\natexlab{b}}.
+
+\bibitem[Zehren et~al.(2023)Zehren, Alunno, and Bientinesi]{zehren2023adtof}
+Mickael Zehren, Marco Alunno, and Paolo Bientinesi.
+\newblock High-quality and reproducible automatic drum transcription from crowdsourced data.
+\newblock \emph{Signals}, 4\penalty0 (4):\penalty0 768--787, 2023.
+
+\end{thebibliography}

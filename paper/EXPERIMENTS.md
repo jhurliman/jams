@@ -65,6 +65,332 @@ ISMIR 2018: 74.6 weighted · InceptionKeyNet ISMIR 2021: 75.68 · KeyMyna (arXiv
 in-repo checkpoint appears newer/better than the paper's, and our 567-track subset differs
 from their eval; both documented as limitations.
 
+### K10 (pre-registered 2026-07-12, before any training) — own permissive key CNN + one-shot gate vs madmom
+
+**Motivation** (from banked-prediction gap analysis, job tmp `beat_madmom_analysis.py`):
+fusion vs madmom is 47 wins / 67 losses / 453 ties; of the 47 tracks madmom gets exactly
+right where fusion doesn't, 23 are unreachable by any reranker (both fusion candidates
+wrong) — a stronger base model is required, not a cleverer combiner. Oracle ceilings:
+max(refined, S-KEY) = 0.8683; + madmom = 0.8986. Simulated significance bar vs madmom on
+n=567 (CI half-width ≈ 0.023): point lead needs ≈0.834; significant lead needs ≈0.853+.
+
+**Corpus finding (recorded here; verified empirically):** mirdata `beatport_key` (1,486
+tracks, Faraldo's revised v1.0 annotations) contains **all 1,157** GS-MTG usable train
+ids — it is the same corpus, not an independent set — and has **0** id overlap with
+GiantSteps Key. It therefore cannot serve as a second test set; it CAN serve as the
+(slightly larger, relabeled) training corpus. GS-Key remains the sole test set.
+
+**System (single design, complexity deliberately bounded):** a 24-class key CNN in the
+Korzeniowski & Widmer 2018 family — log-CQT input (24 bins/oct), small conv stack +
+global average pooling + 24-way softmax (~0.1–0.3 M params), PyTorch. Trained ONLY on
+`beatport_key` (1,486; usable-label subset documented at train time) with ±4-semitone
+pitch-shift augmentation via CQT bin-roll and label transposition. All model selection
+(architecture depth/width, lr, aug range, epochs/early-stop) by 5-fold CV **within the
+training corpus**; the test set is never touched during development.
+
+**Final-system candidates (CV-selected, simplest-within-noise wins; NO new combiner
+machinery):** (a) CNN standalone; (b) the existing production two-head fusion with the
+CNN in the S-KEY slot; (c) the existing fusion choosing between CNN and S-KEY. The
+selected system gets ONE evaluation on GS-Key (n=567).
+
+**Gate (decision rule fixed now):** primary = paired Δ(final − madmom K9) weighted, 10k
+track-level bootstrap, 95% CI. CI > 0 ⇒ claim significant superiority. CI spans 0 but
+point Δ > 0 ⇒ report point lead, no superiority claim. Point Δ ≤ 0 ⇒ negative result,
+reported. No iteration against the test set in any branch; whatever lands is ledgered.
+
+**Budget:** ≤$150 Lambda (authorized 2026-07-12); training also fits aleph0 4090.
+
+**Verdict (2026-07-12): gate outcome = no lead (point Δ −0.0007) — reported as-is per
+the decision rule. Substantively: a statistical dead heat with madmom.**
+
+- Selection trace (all train-side): base run CV 0.7164 (1,363 usable of 1,486;
+  labels/audio drops logged). Width-2.0 / longer-budget variant CV 0.7103 — capacity
+  did not help; width-1.0 locked. Candidate CV on the GS-MTG∩OOF basis (n=1,129):
+  (a) CNN standalone **0.7489** · (c) S-KEY-vs-CNN rerank 0.7488 · (b) CNN-slot fusion
+  0.7466 · reference S-KEY fusion 0.7308 → **(a) selected** (simplest-within-noise).
+  CNN OOF probs are out-of-fold wrt CNN training; fold-split reproduction verified
+  (OOF weighted = CV mean to 4 dp).
+- Two implementation bugs were caught by chance-level CV **before any test
+  involvement** and fixed (commits 6d6d0a3: 2-D global pooling made the net
+  transposition-invariant; f07d1a3: augmentation label sign inverted vs bin-roll,
+  verified numerically). Recorded here as selection-process facts, not results.
+- **Test (the single shot, locked model `final.pt` width 1.0):** weighted **0.8321**
+  [0.8039, 0.8586], exact **0.7795** — the best exact accuracy of any system measured
+  on this subset, including madmom (0.7725). Paired CNN−madmom: **Δ −0.0007
+  [−0.0187, +0.0182]** ns (41 W / 40 L / 486 ties). Paired CNN−fusion(K6): +0.0198
+  [−0.0023, +0.0427] ns (58 W / 38 L). No superiority claim; the permissively-licensed
+  frontier moves 0.8123 → 0.8321 and madmom's point edge over our best system shrinks
+  from +0.0205 to +0.0007.
+- Genre slice of the K10 CNN (descriptive post-hoc on `cnn_gskey.jsonl`, n≥15):
+  Dubstep 0.900 · Electro House 0.894 · Techno 0.854 · Deep House 0.846 · Tech House
+  0.812 · D&B 0.804 · House 0.800 · Prog House 0.772 · Trance 0.763 · Electronica/
+  Downtempo 0.739. Techno — the fusion's weakest genre (0.746) — recovers to 0.854.
+- Runtime (system property, measured 2026-07-12 on the shipped worker,
+  `key_cnn_worker.py --audio`, Apple-Silicon CPU): 1.6 s wall for a 120 s wav,
+  including process start and model load; inference is one forward pass over the
+  full-track CQT.
+- Cost: ~\$3 Lambda A10 (~2 h wall, instance terminated). Artifacts:
+  `eval/data/gsmtg/cnn_gskey.jsonl` (+ S3 `k10/`), fold + final checkpoints and OOF
+  posteriors at `s3://jams-mir-eval-usw2/k10/`, selection/eval scripts at
+  `k10/scripts/`; trainer committed as `eval/train_key_cnn.py`.
+
+## Tempo (GiantSteps-Key tempo labels, n=458; Acc1 ±4%)
+
+### TP1 (pre-registered 2026-07-12, before any training) — MIT tempo CNN replacement
+
+**Motivation:** replace the production tempo stack (TempoCNN `deepsquare` weights +
+Essentia inference — both under licenses incompatible with an all-MIT runtime) with a
+model whose code and weights are ours. This is a **non-inferiority** experiment: the
+production system already scores Acc1 0.921 raw / 0.965 corrected on this protocol.
+
+**Training corpus (audited):** Raveform (1,332 tracks; `bpm_ref` derived from the
+dataset's expert beat annotations; MIT) + GiantSteps-Tempo v2 (664 tracks, **minus 42
+whose Beatport catalog ids appear in GiantSteps Key** — mandatory exclusion because
+(a) those tracks are in the eval set and (b) v2 labels on them informed our eval-label
+corrections; leaves 622). Raveform↔GS-Key song-level overlap is not auditable by id
+(different corpora/naming); documented residual risk, expected negligible for coarse
+global-tempo labels.
+
+**Design (fixed):** clean-room reimplementation of the Schreiber & Müller (ISMIR 2018)
+single-step tempo CNN family from the paper (no upstream code): log-mel input
+(sr 11,025, 40 mels, hop 512), temporal conv stack, 256-class softmax (30–285 BPM,
+1-BPM bins), sliding-window softmax averaging at inference. Augmentation: time-axis
+rescale (log-uniform ×0.7–1.4) with label rescaling. Selection by 5-fold CV within the
+training corpus only; simplest-within-noise. The production genre-aware octave
+resolution stays **outside** the model, unchanged, so the gate isolates the model swap.
+
+**Gate (decision rule fixed now):** ONE paired evaluation vs the production TempoCNN
+path on the identical n=458 protocol (both label variants reported; corrected is
+primary). Ship if paired ΔAcc1(corrected) 95% CI lower bound > −0.02 (non-inferiority
+margin). CI lower bound > 0 additionally permits a superiority note. Otherwise:
+negative result, TempoCNN stays, reported as-is.
+
+**Budget:** aleph0 4090 (\$0) preferred; ≤\$20 Lambda fallback.
+
+**TP1 v1 CV result + v2 amendment (2026-07-13, CV stage — test untouched):** v1
+(architecture as first implemented: 3×3 conv/maxpool freq stack → 3 parallel temporal
+convs 1×{32,64,96} → time-average pooling → Linear(36,256); no input normalization;
+AdamW + cosine(T_max=60) with patience 10; log-uniform ×0.7–1.4 aug) failed CV:
+**cv_acc1_mean 0.445** (folds 0.517/0.192/0.535/0.565/0.418), train loss stuck ≈4.8 vs
+ln 256 ≈ 5.545 floor, val Acc1 oscillating 0.03–0.56 between epochs
+(s3://jams-mir-eval-usw2/tp1/out/). Diagnosis from the published paper (clean-room —
+paper only, no AGPL code): (a) the TimeAvg readout collapses the time axis to 36
+channel means before classification, destroying the periodicity detail the reference
+back-end keeps — the published net flattens the intact time axis (36×256) into
+FC 64 → FC 64 → FC 256 (~2.9M params); (b) no per-window input normalization (reference
+rescales each window to [0,1]); (c) cosine schedule sized for 60 epochs while patience
+stopped runs at ~15, so LR never annealed. **v2 (one revision, declared before any new
+CV):** faithful clean-room implementation — 3 short-filter convs (16 @ 1×5 along time),
+4 multi-filter modules (freq avg-pool 5/2/2/2 ×1; six parallel 1×{32,64,96,128,192,256}
+convs, 24 filters each; 1×1 bottleneck → 36; ELU; BN preceding convs), flatten →
+BN → Dropout 0.5 → FC 64 → FC 64 → FC 256 (2,939,402 params); per-window [0,1] rescale
+on magnitude mel (√expm1 of stored log1p-power features); discrete aug factors
+{0.8, 0.84, …, 1.2} time-stretch with label bpm/f (validation un-augmented); Adam
+constant lr 1e-3, early stop on val Acc1 patience 20 (cap 150). Local sanity before
+GPU: forward shape OK; 96-track memorization test converges loss 5.5 → 0.4 with
+accuracy 1.0 (v1 could not leave the floor). Gate and corpus unchanged.
+
+**TP1 verdict (2026-07-13, ONE test shot spent — PASS, non-inferior):** v2 CV
+cv_acc1_mean **0.9621** (folds 0.9795/0.9565/0.9565/0.9488/0.9692), median best epoch 36
+→ `final.pt` trained on the full corpus at that budget (A10, total GPU spend ≈\$5).
+Before the shot, the baseline arm was **regenerated with committed code**: the Jun-25
+`results_sota.json` tempo predictions are stale — 13 D&B/dubstep tracks now fold to
+full-tempo under the current manifest genre metadata — giving production TempoCNN
+**0.9258 raw / 0.9694 corrected** (n=458). This supersedes the previously reported
+0.921/0.965: raw traced to the stale artifact; 0.965 traced to an intermediate run whose
+per-track output was not preserved. Neither artifact+corrections combination in git
+history reproduces 0.965; the regenerated numbers are the reproducible ones (script in
+the gate artifacts). One-shot paired result, corrected labels primary (mechanics
+validated beforehand on training tracks only, 5/5): **CNN 0.9672 vs production 0.9694**;
+ΔAcc1(corrected) **−0.0022, 95% CI [−0.0153, +0.0109]** — CI lower bound > −0.02 →
+**non-inferior; ship**. Not superior (CI spans 0). Wins/losses/ties 4/5/449. Raw labels:
+CNN 0.9192 vs production 0.9258. Octave resolution: production `resolve_tempo_octave`
+imported verbatim in both arms — the gate isolates the model swap exactly. Artifacts:
+s3://jams-mir-eval-usw2/tp1/gate/ (per-track predictions both arms, gate JSON, one-shot
++ baseline scripts) and s3://jams-mir-eval-usw2/tp1/out_v2/ (checkpoints, CV histories).
+Decision per pre-registration: the CNN replaces TempoCNN weights + Essentia inference in
+production.
+
+### D1 (pre-registered 2026-07-13, before any training) — permissively-licensed drum transcription, aiming for superiority
+
+**Motivation:** the shipped drum transcriber (adtof-pytorch) bundles weights mechanically
+converted from ADTOF originals that are **CC BY-NC-SA 4.0** (verified against the upstream
+repo — our earlier "no declared license/GPL" understanding was wrong in both directions:
+the port is unlicensed, the originals are NC). Replace it with a model whose weights we
+own (MIT), and — unlike TP1 — aim for **superiority**: both committed eval protocols are
+ADTOF's documented weak domains (third-party measurement: ADTOF ≈0.45 onset-F on the
+E-GMD test set; electronic timbres are its weakest genre).
+
+**Ruled out by license audit (2026-07-13, web-verified 3/3 adversarial checks):** OaF
+E-GMD checkpoint port (checkpoint has NO license — Apache-by-association only; retrain
+instead); MDB-Drums / IDMT-SMT-Drums / ENST / RBMA13 / TMIDT / A2MD as training data
+(NC / no-license / signed-agreement — eval-only where licenses permit); YourMT3+ drums
+(GPL-3.0 repo vs apache-2.0 HF tag, contradictory); pseudo-labeling with ADTOF as
+teacher (NC contamination).
+
+**Training corpus (all CC BY 4.0, license-verified):** E-GMD train split (444.5 h,
+human-performed e-kit with velocity) + Slakh2100-redux **train-split** drum stems, both
+oracle AND separator-processed (mix → our shipped SCNet → separated drum stem, MIDI
+labels unchanged) — the mix-then-separate domain matching is a verified open gap in the
+literature and matches our deployment input exactly + StemGMD (1,224 h, stem-level
+remixing per Mezza et al.). Optional top-ups, each gated on its own license check before
+use: STAR Drums filtered to permissive per-track licenses; Melucci-style one-shot
+synthesis (sample-pack EULA check first). The n=151 Slakh test tracks and the n=500
+E-GMD test subset NEVER appear in training in any form.
+
+**Design:** 5-class (kick / snare / hi-hat / tom / cymbal) onset model with velocity
+head (E-GMD velocities; ADTOF emits flat 100 — a product win that is NOT part of the
+gate). CRNN family first (Zehren 2023: data, not architecture, drives ADT accuracy);
+architecture iteration at CV stage is allowed but every revision is ledgered here before
+new training (TP1 lesson). Selection ONLY on train-side validation splits (E-GMD val,
+Slakh val, held-out StemGMD kits). Output mapped to GM percussion by the existing
+`jams.analysis.gm` canonicalisation (unchanged, outside the model).
+
+**Gate (decision rule fixed now):** ONE paired test evaluation vs the shipped
+adtof-pytorch on both committed protocols. Primary: Slakh2100-redux oracle drum stems
+(n=151, per-class onset-F 50 ms, macro over classes; ADTOF baseline 0.638). Secondary:
+E-GMD test subset (n=500; baseline 0.6449). SHIP if primary paired Δmacro-F 95% CI
+lower bound > −0.02 AND secondary CI lower bound > −0.02; claim **superiority** only
+where CI lower bound > 0, per protocol, stated separately. Same shot also runs
+MDB-Drums + RBMA13 as external non-gating diagnostics (NC licenses permit evaluation).
+Otherwise: negative result, ADTOF stays (isolated, correctly relicensed in the paper),
+reported as-is.
+
+**Budget:** ≤\$50 Lambda (data prep is the long pole — E-GMD + Slakh + StemGMD are
+hundreds of GB; acquisition and feature extraction happen box-side like K10, not on the
+laptop).
+
+**Phase-1 scoping (2026-07-13, ledgered before any training):** StemGMD deferred from
+the phase-1 corpus (pipeline-simplicity call by the build agent; disk was NOT the
+constraint — 1.4 TB free). It may enter at CV stage only as a further ledgered
+amendment if validation curves show data hunger. Slakh separator-processed variants
+capped at 700 of ~1,560 train+val mixes (validation mixes processed first so selection
+coverage is complete; cap overridable, actual pace logged box-side). Test-leakage
+guards asserted in code: the ENTIRE E-GMD test split is excluded (superset of the n=500
+protocol subset), and the Slakh redux test split is never downloaded to the box at all;
+exclusion counts land in acquire_stats.json. Trainer: PR #17 (eval/train_drum_cnn.py);
+5-class vocabulary pinned to the gm.py representatives 36/38/42/47/49 for like-for-like
+eval-side reduction against ADTOF.
+
+**Phase-1 data review + recipe (2026-07-14, ledgered before any training):** review of
+the DATA_READY corpus caught a **key-collision bug** in the acquire stage: E-GMD track
+keys were derived from audio filename stems, which repeat across drummers/sessions/kits
+— stats counted 35,209/5,031 kept train/val performances but labels.json held only 936
+unique egmd entries (~39k rows silently overwritten, last-writer-wins; each surviving
+entry internally consistent). Slakh oracle (1,557) and separated (700) entries are
+unaffected. Fix: keys from the full relative path. With uniqueness restored the E-GMD
+pool is ~40k performances (444 h) which would dominate Slakh ~4:1 in hours and pull the
+corpus toward clean e-kit audio, away from the separated-stem deployment domain —
+**deliberate subset instead**: stratified sample of ~10,000 train performances (max-N
+per kit × style so all 43 kits appear; all validation rows kept up to 1,500), targeting
+rough hour-parity with the Slakh side. **Training recipe (fixed now):** CRNN — 96-mel
+@ 100 fps input; 3 conv blocks (32/64/96, 3×3 ×2 + BN + ReLU, freq-pool 2) →
+freq-flatten → 2-layer BiGRU 128 → two heads: 5-class onset sigmoid + 5-class velocity
+(masked regression at onset frames; non-gating). Targets: onsets widened ±1 frame
+(neighbor weight 0.5), per-class pos_weight. Adam 1e-3 constant, batch 48 × 10 s random
+crops, gain ±6 dB + light SpecAugment (≤2 freq masks ≤8 bins, ≤1 time mask ≤20 frames),
+early stop patience 15 on the selection metric, cap 80 epochs. Peak-picking: per-class
+threshold grid-searched on validation, local-max ±2 frames, 50 ms min inter-onset.
+**Selection metric:** mean of macro onset-F(50 ms) over three validation pools — E-GMD
+val, Slakh val oracle stems, Slakh val separated stems — equally weighted (deployment
+input is separated). Architecture revisions at CV stage remain allowed but must be
+ledgered here before retraining (TP1 discipline).
+
+**Phase-2 implementation clarifications (2026-07-14, recorded at training launch):**
+model as ledgered, 1,487,786 params. Choices the recipe did not pin: raw log1p-mel
+input, no per-crop normalization (per-crop norm would cancel the gain augmentation;
+first BatchNorm adapts); velocity loss = masked MSE at exact-onset frames, weight 0.5;
+per-class pos_weight = frames/(3·count) capped [1, 30]; per-epoch selection uses a
+coarse 4-point threshold grid with the full 0.10–0.90 grid applied once on the selected
+checkpoint; E-GMD train n=9,999 (one sampled row had no mappable events); mir_eval
+added to trainer deps so selection matching is byte-identical to the gate scorer.
+30-fixture overfit smoke passed pre-launch (loss 0.77→0.05, selection 1.000, sane
+velocities). Corpus on box verified: 13,756 tracks (E-GMD 9,999+1,500 / Slakh 1,557 /
+separated 700), 2,040 validation, all 43 kits, CORPUS_OK assertion.
+
+**Verdict (2026-07-14): SHIP — SUPERIOR on both arms (one-shot, as pre-registered).**
+Training: 80-epoch cap reached (~23.5 h A10), best epoch 75 by the selection metric
+(mean macro onset-F over the three val pools); fine threshold grid → [0.9, 0.85, 0.7,
+0.9, 0.75], selection 0.8074 (egmd_val 0.8898 / slakh_val_oracle 0.8212 /
+slakh_val_sep 0.7112), velocity MAE 0.106; late-epoch val was noisy and ep75 is a
+spike — noted pre-gate, expected test regression materialized but did not threaten the
+margin. Gate (single scoring pass, `score_gate.py`, paired per track, 10k bootstrap
+seed 0, positional pairing on the banked baseline order): **Slakh oracle primary
+n=151: ours 0.7671 vs ADTOF 0.6383, Δ +0.1287 [+0.1058, +0.1521], win-rate 83% —
+non-inferior PASS, CI lb > 0 ⇒ SUPERIOR. E-GMD secondary n=500: ours 0.8179 vs ADTOF
+0.6449, Δ +0.1730 [+0.1550, +0.1910], win-rate 90% — PASS, SUPERIOR.** Both
+pre-registered ship conditions met with superiority, so the ADTOF-port replacement
+claim is supported on both of its weak-domain protocols. Execution notes: D1 box
+terminated post-training (~$40 of the $50 cap); checkpoint↔repo-trainer identity
+verified tensor-for-tensor (62/62, strict load, 1,487,786 params) before inference;
+Slakh test audio fetched per-file from the gated HF mirror and md5-verified
+bit-identical to the canonical CC BY index (Zenodo 14009687); E-GMD test files (500)
+range-extracted from the 96 GB archive; test inference local MPS (2.2 s/track E-GMD,
+33.9 s/track Slakh). MDB-Drums/RBMA13 external diagnostics not yet run (non-gating;
+may follow). Artifacts: s3://jams-mir-eval-usw2/d1/gate/ (verdict + per-track scores +
+predictions + manifests + frozen scripts); model `best.pt` → production as
+`drum_cnn_v1.pt` (swap PR follows). Trainer PR #17 pending merge — the shipped
+checkpoint matches exactly that code.
+
+**Addendum (2026-07-14, declared before any external-benchmark results) — external ADT
+diagnostics (non-gating, as pre-registered).** Purpose: position the shipped drum CNN
+against the ADT literature on ITS benchmarks — boundary-mapping, not a gate; no model,
+threshold, or peak-picking changes permitted. Datasets: MDB-Drums and RBMA13 (both
+named in the pre-registration; licenses verified before use, NC = eval-only);
+IDMT-SMT-Drums / ENST optional if licenses permit. Rules, binding: (a) mirror each
+published comparison's scoring protocol exactly (class vocabulary — 3-class KD/SD/HH
+where the literature reports it, our 5-class where comparable; 50 ms onset tolerance;
+per-track vs pooled averaging as in the cited work — protocol per cited number recorded
+with the result); (b) published numbers are quoted only with citations and only where
+the underlying track set matches ours exactly (the subset-calibration lesson); (c) ALL
+attempted datasets are reported, including failures — no silent drops; (d) prior
+recorded upfront: the model trained on e-kit (E-GMD) + synthetic (Slakh) sources;
+transfer to real acoustic-kit multi-genre recordings is untested and may regress vs
+ADTOF-family models trained on real-music annotations. A loss there BOUNDS the claim
+domain ("superior in the EDM/production pipeline") — it does not affect the shipped
+in-domain superiority gate. ADTOF-pytorch is run alongside on identical tracks as the
+paired reference arm wherever feasible (Linux box or existing banked outputs; no
+arm64 wheel locally).
+
+**Addendum results (2026-07-14) — external ADT diagnostics complete.** Scorer
+self-tested on synthetic fixtures (all protocols pass); cross-validation: measured
+ADTOF-port MDB full-mix 5-class pooled F 0.792 lands inside the published
+ADTOF-family zero-shot range 0.78–0.81, validating scorer + port together. Datasets:
+MDB-Drums (CC BY-NC-SA, 23 tracks) and IDMT-SMT-Drums V2 (CC BY-NC-ND, 95 mixtures)
+acquired and run; **RBMA13 blocked** — annotations acquired (27 tracks, 3-class) but
+audio is behind a $7 Bandcamp paywall (original free distribution defunct; harness
+staged and self-tested, ~15 min turnaround after purchase); **ENST skipped** (signed
+license agreement required = registration friction per protocol). Reference arm:
+ADTOF-pytorch on aleph0 4090 (same cached env as the banked pre-D1 baseline;
+upstream commit unpinned — provenance caveat if the paper needs it). Headline
+protocol-matched comparison (MDB all-23 full mixes, zero-shot, 5-class KD/SD/HH/TT/CY,
+50 ms, pooled F): published ADTOF-family 0.78–0.81 (Zehren 2023 0.81; Weber/STAR
+2025 0.78–0.79); paired port run 0.7915; **ours deployment-config (mix → shipped
+SCNet → CNN) 0.7684**; ours raw-mix (out-of-contract input) 0.5374. Paired deltas
+vs port (house 50 ms trackmacro, 10k bootstrap seed 0): MDB drum-only 3-cl −0.0493
+[−0.0930, −0.0040], 5-cl −0.0641 [−0.1105, −0.0177]; MDB mix→SCNet arm 3-cl −0.0301
+[−0.0704, +0.0128], 5-cl −0.0352 [−0.0764, +0.0087]; IDMT 3-cl −0.0413 [−0.0596,
+−0.0232]. At Vogl's stricter 20 ms tolerance on IDMT the gap vanishes (0.8828 vs
+0.8825) — our onsets are more precisely timed (plausibly E-GMD's 2 ms-aligned
+labels; ADTOF's crowd-sourced annotations cost it timing precision). The
+within-dataset-trained 2017 SOTA (CBGRU 0.952 @ 20 ms, 3-fold CV on the same 95
+loops) stays ~7 pts above both zero-shot systems. Notable positive: the shipped
+separator recovers most of the raw-mix deficit on real music (0.537 → 0.768 5-class
+pooled) — mix-then-separate is what makes a stem-trained model viable on real mixes.
+**Read: exactly the recorded prior — the shipped CNN trails ADTOF-family models by
+3–6 F points on real acoustic-kit benchmarks (significant on 3 of 4 primary paired
+arms; the deployment-config arm's CI spans 0), while the in-domain gate result
+stands untouched. Claim domain confirmed as bounded: "superior in the EDM/production
+pipeline", not field-wide.** Citation fix for the paper: the "ADTOF ≈0.45 on E-GMD"
+prior's primary source is Yeung et al., ICASSP 2026 (arXiv:2509.21739), Table 1
+(7→5-class remap, full E-GMD test); our banked 0.6449 was the n=500 subset under
+house protocol — both agree E-GMD is ADTOF's weak domain, magnitude differs with
+protocol. Also flagged: Wu et al. 2018's review contains NO MDB/RBMA13 benchmark
+results (IDMT + ENST only) — a common misattribution the paper must not repeat.
+Artifacts: scratch `d1ext/` (consolidated summary JSON, scorer + passing self-tests,
+manifests, predictions ×8, per-protocol scores ×18, paired CIs, SCNet stems) →
+s3://jams-mir-eval-usw2/d1/external/.
+
 ## Transcription (Slakh2100-redux test, n=151, GT stems = oracle)
 
 | # | date | commit | system | bass note-F | other note-F | drums onset-F | artifacts |
@@ -107,7 +433,88 @@ its own subset, so the ranking is unaffected; noted for completeness.
 Caveat for S4: drums onset-F dips ~1 pt vs htdemucs despite +2.7 dB SDR (transcriber
 sensitivity to separator transient character); per-stem hybrid listed as future work.
 
-## Structure (Raveform, pre-registered — training in progress)
+### S7 (pre-registered 2026-07-14, before any gate results) — vocals-first two-pass separation gate
+
+**Context.** ES1: user-reported jump-up D&B failure (Octo Glo: SCNet allocation
+collapse — drums stem −1.6 dB rel mix holding ~71% of sub+bass-band and 77% of high
+energy; bass stem −9.8 dB → 16 transcribed notes). User adopted the vocals-first
+two-pass as the base architecture for future separation work (incl. the planned EDM
+fine-tune). PR #24 (`feat/two-pass-separation`, OFF by default) implements it; its
+recorded Octo Glo diagnostic already shows two-pass does NOT fix the allocation
+collapse (band signature unchanged; vocals stem differs materially) — the gate
+therefore tests non-inferiority on Slakh + vocals superiority on real vocal music,
+not an EDM fix claim.
+
+**Systems.** A = shipped single-pass SCNet XL IHF (as S4/T10). B = two-pass
+(`JAMS_STEMS_TWO_PASS=1`, PR #24): Kim Mel-Band RoFormer vocals (HF
+`KimberleyJSN/melbandroformer` @ `ac9b0614`, sha256 `87201f4d…559e`, MIT) →
+instrumental = mix − vocals → same SCNet XL IHF for drums/bass/other. Everything
+downstream frozen and identical in both arms: YourMT3+ pitched transcription (frozen
+worker), drum CNN v1 drums, quantization off (per T5), same worker commit, same
+device per arm (aleph0 RTX 4090).
+
+**Data.** Arm 1 (non-inferiority): Slakh2100-redux test, n=151 (same tracklist as
+S1–S5/T10; mixes from the md5-verified d1gate copy, GT stems+MIDI from the OV1
+conf-test staging on aleph0). Slakh has no vocals stems, so the Slakh arm cannot
+measure vocals quality; it additionally reports the two-pass vocals-stem energy
+(RMS dB rel mix) as a hallucination check — pass 1 on vocal-free mixes should
+extract ≈silence. Arm 2 (vocals superiority): MedleyDB V2 (aleph0, CC BY-NC-SA —
+EVAL-ONLY per house rules), all tracks whose metadata lists ≥1 vocal-tagged stem;
+mix = provided MIX; reference vocals = sum of vocal-tagged stems; both arms' vocals
+estimates scored against it. No test-split tuning in either arm; the only pre-launch
+evidence is the PR #24 Octo Glo diagnostic.
+
+**Metrics.** (1) per-stem SI-SDR drums/bass/other on Slakh (S4 scorer); (2)
+downstream bass/other note-F (YourMT3+) + drums macro onset-F (drum CNN v1) on
+Slakh; (3) vocals SI-SDR on MedleyDB; paired per-track Δ(B−A), bootstrap 10,000
+resamples seed 0, 95% percentile CIs.
+
+**Ship bars (binding).** Non-inferiority, all must hold (Slakh): bass note-F, other
+note-F, drums onset-F Δ CI lower bound > −0.01; drums/bass/other SI-SDR Δ CI lower
+bound > −0.5 dB. Superiority (MedleyDB): vocals SI-SDR Δ > 0 with CI excluding 0.
+Qualitative non-regress: Octo Glo band signature vs the PR #24 tables (drums
+sub-share, bass RMS) — regression triggers investigation before any default flip.
+Decision rule: flip `stems_two_pass` default ON iff ALL bars pass; else stay OFF and
+record. ONE run per arm; infra retries per track allowed, no parameter iteration.
+Cost: $0 cloud (aleph0). Runtime reported per arm.
+
+**Verdict (2026-07-14): two-pass FAILS both bars — DROPPED, stays OFF, PR #24
+closed.** Both arms ran clean on aleph0 (Slakh n=151, MedleyDB-V2 vocals n=24, 0
+failures each). Arm A reproduced the ledgered T10 shipped-system numbers exactly
+(SI-SDR drums/other/bass 14.31/11.76/5.98; bass note-F 0.6626 = T10 0.6613, other
+0.7881 = T10 0.7877; drums onset-F 0.6672 vs T10's 0.5741 as expected — drum CNN v1
+replaced ADTOF per PR #19). Point-estimate deltas Δ(B−A): **Slakh other-SDR −1.49 dB
+(11.76→10.27; bar > −0.5 → FAIL), other note-F −0.0098 (0.7881→0.7783; bar CI-lb
+> −0.01 → borderline FAIL); bass note-F +0.002, drums onset-F −0.001, drums/bass SDR
+flat (pass). MedleyDB vocals SI-SDR arm A 0.551 vs arm B −0.015 → Δ −0.57 dB, WRONG
+DIRECTION (bar: Δ > 0 CI-excl-0 → FAIL).** Mechanism: on vocal-free Slakh the RoFormer
+vocal pass siphons synth/pad content from `other` into the discarded vocal bucket
+(−1.49 dB `other` SDR); on real MedleyDB vocals the Kim RoFormer's published +1.3 dB
+Multisong edge did NOT transfer (domain gap — same lesson as the drum CNN's acoustic
+regression). Two failed superiority/non-inferiority bars → no default flip; two-pass
+architecture dropped for the EDM separation goal. Formal 10k paired bootstrap CIs
+(seed 0) confirm: other note-F Δ −0.0097 **[−0.0126, −0.0071]** (FAIL, bar lb > −0.01),
+other SDR Δ −1.495 **[−1.831, −1.166]** (FAIL, bar lb > −0.5), MedleyDB vocals Δ −0.566
+**[−2.459, +0.714]** (FAIL, bar Δ>0 & CI-excl-0); passing bars: bass note-F +0.0019
+[−0.0013, +0.0052], drums onset-F −0.0008 [−0.0037, +0.0013], drums SDR +0.024, bass
+SDR +0.043. Net 4/7 PASS, 3 FAIL. Hallucination mechanism confirmed: on vocal-free
+Slakh, arm-B vocals-stem RMS median −23.0 dB rel mix (vs A's −43.7; 54/151 tracks
+above −20 dB) — the RoFormer pulls ~20 dB of phantom "vocals" out of the instrumental,
+which is the content lost from `other`. MedleyDB validation (mandated): reference
+construction VALID (mix/ref/est sample-aligned 44.1 kHz, ref RMS −2.5…−6.7 dB rel mix,
+good tracks corr 0.94–0.98 → SI-SDR +8.5…+14.9); the ~0 dB mean is REAL, driven by a
+few genuine out-of-domain collapses (FilthyBird corr≈0 → SI-SDR −58 dB, numerically
+unstable) not a bug — robust median actually slightly favors B (+9.01 vs +8.52), but
+the bar is on mean+CI → FAIL. 8 bass-less Slakh tracks excluded identically both arms
+(n=143 bass). Two plumbing fixes on the fresh clone (scratch `.python-version` pin
+removed; RoFormer cuda probe wrapped in the same autocast as inference — output
+identical), no science touched; one infra restart mid-MedleyDB-armA resumed from
+per-track checkpoint (SI-SDR deterministic). **Consequence for
+ES1: the EDM separation fix reverts to fine-tuning single-pass SCNet directly on EDM
+data (the ES1 research's Option 4), not a two-pass front-end.** Artifacts:
+s3://jams-mir-eval-usw2/s7/ (per-track JSONLs both arms both datasets, summary, logs).
+
+## Structure (Raveform, pre-registered — fine-tune sweep CONCLUDED 2026-07-12: all variants FAIL, ship stock ensemble)
 
 Protocol: v1 All-In-One trainer, 11-class Raveform head, true folds from metadata (not
 index%8), genre-weighted sampler (∝ inverse genre frequency, cap 4×), function-class
@@ -314,3 +721,387 @@ training-free per-class threshold calibration fit on train folds, or label-defin
 (buildup/end boundaries are the least consistently annotated classes in Raveform).
 Artifacts: `gate_st4.jsonl` / `gate_st4_scored.json` (results_aws + S3 gates/),
 `fold2_st4.pth` (S3 checkpoints/).
+
+**Per-class paired CIs (2026-07-12 addendum, for the paper).** Track-level bootstrap
+(10k, seed 0, per-track GT-duration coverage — the same basis as ST-v3's table; the
+verdict paragraph above quotes pooled coverage deltas, which differ slightly), both
+variants regenerated with one committed script (`eval/structure_class_cis.py`, run
+against the banked gate arms; v4 pairwise cross-checks gate_compare exactly at
++0.0026 [−0.0083, +0.0134]):
+
+| class (n) | ST-v3 Δ [95% CI] | ST-v4 Δ [95% CI] |
+|---|---|---|
+| cooldown (113) | **+0.233 [+0.157, +0.312] SIG** | +0.076 [−0.000, +0.151] ns |
+| buildup (115) | **−0.158 [−0.219, −0.098] SIG** | **−0.240 [−0.308, −0.175] SIG** |
+| end (140) | +0.014 [+0.000, +0.036] ns | **−0.355 [−0.435, −0.278] SIG** |
+| outro (148) | **−0.092 [−0.143, −0.044] SIG** | **+0.081 [+0.027, +0.135] SIG** |
+| intro (160) | **+0.047 [+0.006, +0.091] SIG** | **+0.078 [+0.031, +0.128] SIG** |
+| altoutro (26) | +0.036 [−0.079, +0.181] ns | **+0.123 [+0.010, +0.256] SIG** |
+| altintro (22) | +0.083 [+0.000, +0.211] ns | +0.083 [+0.000, +0.211] ns |
+| bridge (4) | +0.000 | +0.125 [+0.000, +0.375] ns |
+| breakdown (164) | +0.007 [+0.000, +0.016] marginal | **+0.016 [+0.002, +0.032] SIG** |
+| drop (165) | +0.003 [−0.007, +0.014] ns | −0.004 [−0.018, +0.010] ns |
+
+Two honesty upgrades vs the pooled numbers quoted above: v4's cooldown "+0.059" and
+bridge "+0.200" are **not significant** at the track level (bridge rests on n=4 tracks),
+so v4's ledger-quoted gains overstate it slightly — the FAIL verdict is unchanged and
+strengthened. These CIs are the ones used in `paper/arxiv/` (Table/Fig "structure
+trade").
+
+### OV1 (pre-registered 2026-07-13, before any evaluation) — open-vocabulary decomposition of `other` vs monolithic YourMT3+
+
+**Hypothesis.** Decomposing the `other` stem into labeled instrument sub-stems with a
+text-queried separator, then transcribing each sub-stem, (H1) improves pooled
+instrument-agnostic note-F over the production single-pass YourMT3+ on `other`, and/or
+(H2) yields usably-accurate per-instrument labels that the production path discards.
+
+**Phase-1 survey (2026-07-13, subagent; license evidence archived with artifacts).**
+Candidates license-checked code + weights separately. Shippable: AudioSep base (MIT code;
+official ckpt in MIT-tagged HF space `Audio-AGI/AudioSep`; CLAP encoder from LAION's
+CC0-1.0 release), AudioSep-hive (Apache-2.0 code+weights; demo showed it LESS
+instrument-selective than base → alternate only), htdemucs_6s (MIT code; weights MIT
+since 2026-07-11 via v4.1.0 re-host at `hf.co/adefossez/HTDemucs-6s` — supersedes the
+2022 research-only statement in adefossez/demucs#327; both cited). Eval-only: Banquet
+(MIT code, CC-BY-NC-SA weights — best published fine-grained numbers, MoisesDB piano
+2.5 dB), MoisesDB (CC-BY-NC-SA, no MIDI). Rejected: ZFTurbo zoo fine-grained ckpts (no
+stated weight licenses, undisclosed data), USS (music SDRi ≈ −0.5), generative LASS wave
+(hallucination = wrong failure mode for MIDI), TUSS (license), CLAPSep (unlicensed).
+Deferred: Meta SAM Audio (gated weights; may be added as condition B-sam under this same
+protocol ONLY if declared before execution).
+
+**Conditions (all consume the same GT `other` bucket wav per track).**
+- **A (production)**: `other.wav` → YourMT3+ (YPTF.MoE+Multi via mt3-infer, the shipped
+  `yourmt3_worker.py` checkpoint) single pass → flat note stream. Exactly the shipped path.
+- **A-lab (cheap labels)**: identical run keeping mt3-infer's per-instrument MIDI programs
+  (the current worker discards them at `yourmt3_worker.py:111–115`; patched in scratch,
+  not in the tracked worker). Zero extra compute; contributes labeling metrics only —
+  the honest null for H2.
+- **B (open-vocab)**: `other.wav` → AudioSep base (official ckpt
+  `audiosep_base_4M_steps.ckpt` + LAION CLAP, 32 kHz mono, chunked 5 s inference) with
+  FIXED query bank Q → energy gate (drop sub-stems with non-silent frame fraction < 0.02
+  at −40 dBFS/100 ms) → YourMT3+ per surviving sub-stem → merged + deduplicated.
+  Sub-variant **B-bp**: basic-pitch (house thresholds 0.6/0.25) per sub-stem.
+  Q (fixed before seeing any val results): ["piano", "electric guitar",
+  "acoustic guitar", "synthesizer", "strings", "organ", "brass", "saxophone", "flute",
+  "mallet percussion"]. A per-track oracle-query variant (queries = the track's true
+  inst_classes) may run as a diagnostic UPPER BOUND, reported separately, never headline.
+- **C (fixed finer vocab)**: `other.wav` → htdemucs_6s keeping {piano, guitar, other}
+  heads (drums/bass/vocals energy logged, discarded) → YourMT3+ per head → merged +
+  deduplicated.
+
+**Data.** Slakh2100-redux **validation split**, fixed random subset **n=150, seed 1234**
+(declared now, before running: condition B is ~10 YourMT3+ passes/track, full n=375 is
+compute-bloat without inferential need). Rationale: test (n=151) stays reserved — one
+confirmatory run of the winning condition only; train is contaminated (YourMT3+ trained
+on Slakh train; never evaluate on train). GT `other` bucket per track: audio = sum of all
+stems with `is_drum == false` and not Bass (program 32–39 / inst_class "Bass"); GT notes
+= union of those stems' MIDI. 44.1 kHz redux only (babyslakh 16 kHz banned for headline
+numbers, per T7). GT class grouping and the fixed sub-stem-label→class map are archived
+with the artifacts (Synth Lead/Pad→Synth; htdemucs_6s residual head unlabeled: excluded
+from labeling accuracy, included in pooled notes).
+
+**Metrics (mir_eval, house protocol).** Primary: pooled instrument-agnostic
+onset+pitch note-F (50 ms / 50 cents, offsets ignored) = `evaluate_transcription.note_prf`;
+onset-only F as co-primary robustness check. **Merge rule (pre-registered)**: pooled
+estimate = union of sub-stem notes; dedup collapses same-pitch notes with |Δonset| ≤ 50 ms
+across sub-stems (keep higher velocity; ties → longer). Applied to B/C only; note counts
+reported before/after. Secondary: per-class note-F (classes in ≥20 tracks, macro);
+labeling accuracy = fraction of matched GT↔estimate pairs with equal class (B, C, A-lab);
+negative-control hallucination (energy + transcribed notes from queries absent in GT);
+sub-stem survival counts; wall-clock s/track. Optional e2e tier (mix → SCNet XL IHF →
+estimated `other` → each condition) is secondary and may be skipped for budget — if
+skipped, said so.
+
+**Decision criteria (declared before running).**
+- **Adopt B (or C)**: pooled onset+pitch note-F paired Δ vs A ≥ +0.02 with 95% bootstrap
+  CI (10k, seed 0, per-track) excluding 0, AND median wall-clock ≤ 4× A, AND
+  negative-control hallucinated notes < 5% of pooled estimate.
+- **Adopt for labels at parity**: pooled Δ CI includes 0 within −0.01, AND labeling
+  accuracy ≥ 0.70, AND beats A-lab's labeling accuracy by ≥ +0.10 (paired CI excluding
+  0) — decomposition must beat the free alternative, not merely exist.
+- **Adopt A-lab alone** if it reaches ≥ 0.70 labeling accuracy and B/C fail their bars
+  (ship = small worker change exposing labels).
+- Otherwise: no integration; archive as negative result.
+- Winning condition gets ONE confirmatory test-split run (n=151); no test iteration.
+
+**Priors from phase-1 feasibility (babyslakh Track00001, TRAIN split — recorded so the
+outcome can't be quietly reframed).** AudioSep-family decomposition is LEAKY on dense
+synthetic music: every query in Q returned −23..−29 dB RMS against a −22.2 dB mixture;
+absent-instrument queries returned 64–97% non-silent audio; one query's basic-pitch
+transcription alone exceeded the whole bucket's GT note count (2,459 vs 1,659).
+htdemucs_6s heads are cleaner (drums/bass at −74 dB on other-only input) but mislabeled
+the demo track (its "guitar" head best matched GT Organ+Harmonica, SI-SDR −2.9 vs −10.3
+for GT Guitar). Stated prior: A likely keeps the best pooled note-F; B's value, if any,
+is labels (H2), where it must beat A-lab.
+
+**Budget & venue.** Fresh Lambda A10 instance (separate from the D1 box), OV1 cap **$20**
+(within the standing cumulative authorization). Implementation smoke on ≤3 TRAIN-split
+tracks (mechanics only, results discarded) permitted before the val run. Artifacts →
+`s3://jams-mir-eval-usw2/ov1/` (per-track JSONL, summary JSON, scripts, license
+evidence). Box terminated on completion.
+
+**Amendment (2026-07-13, declared before any val-split results existed) — condition
+B-yl, detected-label queries.** User-proposed cascade: reuse condition A's YourMT3+ pass
+to select the AudioSep query subset per track. Q_track = {q ∈ Q : the class q maps to
+(inverse of the ledgered label→class map; a detected Guitar activates BOTH guitar
+queries) has ≥ 5 notes in the track's A-lab output}. Downstream identical to B (energy
+gate, per-sub-stem YourMT3+, dedup); no new query strings — Q_track ⊆ Q, so cost ≤ B.
+Motivation: phase-1's worst failure channel was hallucinated content on
+absent-instrument queries (64–97% non-silent audio from empty queries); detection-gated
+queries close that channel WITHOUT GT leakage — production-legal, unlike the
+oracle-query diagnostic, which remains a separate labeled upper bound. Accepted trade,
+stated upfront: B-yl conditions the query set on A's detections, so it cannot recover an
+instrument YourMT3+ misses entirely (if a class has < 5 A-lab notes it is never
+queried) — it tests decomposition as a refinement cascade, not as an independent recall
+path. Decision bars: identical to B.
+
+**Amendment (2026-07-13, declared before any val metrics existed) — budget cap $20 →
+$25.** The phase-2 runner triggered the pre-registered stop-and-report rule: measured
+smoke timings (3 TRAIN tracks, mechanics only) project 386 s/track serial ≈ $24 all-in,
+dominated by condition B's per-sub-stem YourMT3+ passes (165.9 s/track mean, ±35% with
+note density). Resolution: cap raised to $25 under the standing compute authorization;
+a scheduling-only B-bp CPU/GPU overlap patch (byte-identical outputs, disclosed) brings
+the projection to ≈ $19.8. A proposed AudioSep query-batching optimization was DECLINED
+to keep the ledgered condition-B implementation untouched. Hard stop-sync-report
+watchdog at $25. Also recorded: data source switched from the gated HF mirror to the
+canonical Zenodo redux tarball (all 150 sampled tracks md5-verified against the
+canonical index), and the eval box holds zero credentials (artifacts relay
+box → local → S3).
+
+**Verdict (2026-07-14): decomposition-by-separation FAILS all adoption bars; ADOPT
+A-lab ALONE (pre-registered fallback).** n=150 Slakh val, all six conditions, bars
+evaluated verbatim. Pooled onset+pitch note-F: **A 0.8956** (onset-F 0.9197) ·
+B 0.5742 (Δ −0.3214 [−0.3357, −0.3077]; hallucinated notes 42.5%; 233 s/track = 14×A)
+· B-bp 0.3967 (Δ −0.4989) · **B-yl 0.6595** (Δ −0.2361 [−0.2502, −0.2220];
+hallucination 1.6% — the detected-query amendment achieved its purpose; best
+decomposition variant) · C 0.5767 (Δ −0.3189; label acc 0.605 but only 2 labeled
+heads). The pre-registered energy gate was inert against AudioSep (10/10 sub-stems
+survived on every track — leakage floods every query with audible content). Labeling:
+**A-lab 0.8802 accuracy** (macro class-F 0.8139; Piano 0.9248 / Guitar 0.9122 / Synth
+0.7119 / Pipe 0.6586), hallucination 0.15%, zero extra compute → clears the ≥0.70
+adopt-A-lab-alone bar decisively; B/B-yl/C label accuracies (0.21/0.32/0.60) all lose
+to A-lab by ≥ 0.27 (paired CIs exclude 0). Decision per pre-registration: NO
+decomposition integration (negative result, archived); SHIP A-lab = expose YourMT3+'s
+per-instrument tracks (worker change at the ledgered discard site). Confirmatory
+test-split run (n=151, ONE shot, A-lab labeling accuracy only) to be executed before
+any public claim quotes the 0.88. Wall-clock/cost: run ≈ 15.5 h A10 ≈ $20 + staging ≈
+$4.6, within the amended $25 cap. Artifacts: s3://jams-mir-eval-usw2/ov1/ (summary,
+per-track JSONLs, scripts, GT buckets + A-lab MIDI, checkpoint hashes).
+
+**Confirmatory test-split run (2026-07-14, ONE shot as pre-registered) — 0.88
+CONFIRMS.** n=151 Slakh redux test, zero failures. **A-lab label accuracy 0.8793
+(val 0.8802)**; macro class-F 0.7566 (val 0.8139; Synth is the test-side weak class
+at 0.5927 vs val 0.7119); hallucination 0.36%; pooled note-F 0.8488 / onset-F 0.8930.
+External consistency check: the confirmatory's pooled note-F on test equals banked T2
+(YourMT3+ oracle other, same split) to 4 dp — 0.8488 — independent implementations,
+identical number. Infrastructure (all disclosed): OV1 box terminated pre-run
+(~$24.6/$25 cap); run executed FREE on aleph0 (RTX 4090) via `ov1_conf.py`, a driver
+importing the frozen `ov1_run`/`ov1_score` functions verbatim, restricted to the
+winning A-lab condition per pre-reg (non-winning conditions not re-run); exact
+checkpoint staged from the box archive (`.mt3_checkpoints`, hashes on file); plumbing
+smoke on 2 VAL tracks reproduced banked per-track label_acc to full float precision
+(0.8815055762081785 / 0.9054393305439331) before the single test invocation; GT built
+by frozen `ov1_gt.py` for all 151 (0 failures); one crash-resume mechanism available,
+unused. Public claim now supported: **"YourMT3+ per-instrument labels: 0.88 labeling
+accuracy (val 0.8802 / test 0.8793, Slakh other-bucket)"**. Artifacts:
+s3://jams-mir-eval-usw2/ov1/conf_test/ (summary, per-track scores, A-lab MIDI, log).
+
+### OV2 (pre-registered 2026-07-13, before any training) — note-conditioned voice-lane extraction from `other` ("separate the audio of THESE notes")
+
+**Hypothesis.** Conditioning a separator on a target-voice piano roll extracts per-voice
+lanes from the `other` bucket that (H1) beat a training-free score-informed harmonic
+mask (Tier-0) by ≥ +3 dB mean per-voice SI-SDR under degraded (transcription-realistic)
+conditioning, and (H2) remain non-hallucinatory (empty/wrong roll → silence). Context:
+OV1 addresses *labels/notes* from `other`; OV2 addresses *audio lanes* — conditioning
+rolls come from user selection (webapp piano roll) or clustered transcription, and its
+value is independent of OV1's outcome.
+
+**Phase-0 findings (2026-07-13, recorded so outcomes can't be reframed).**
+(a) YourMT3+ on real EDM `other` stems does NOT emit usable voice programs: GM 80–103
+synth programs ≈ 4% of pitched notes (edm_demo) and misassigned (register 26–41);
+synths map to Strings/Chromatic-Perc/Pipe/Brass; D&B `other` stems transcribe as ~95%
+drum-channel notes with pitched recall collapse (dnb0030: 57 pitched notes vs 46%
+harmonic energy). Conditioning groups therefore come from user selection (primary) or
+co-onset feature clustering (forced k≈5 gives interpretable arp/pad/stab/FX lanes;
+silhouette auto-k under-segments; ARI vs GM programs 0.09–0.25) — never from GM
+programs. (b) Tier-0 null on babyslakh TRAIN (Tracks 1/2/6; GT rolls; 16 kHz): mean
+per-voice SI-SDR −3.0/−2.1/−4.4 dB clean (SI-SDRi +6.1/+8.3/+8.2), −3.7/−3.3/−5.1 dB
+with ±30 ms jitter + 10% dropout; dominant voices can lose energy to overlapping combs
+(worst voice −9.6 dB); a Wiener refinement iteration did not help. (c) Headless render
+feasibility PASS: DawDreamer 0.8.3 (GPL-3.0, offline tool only) rendered a 174 BPM
+poly-synth pattern on arm64. (d) Survey: no published deep model trains arbitrary
+polyphonic note-subset extraction from multi-timbral mixtures; nearest lineage =
+score-informed NMF (Ewert–Müller), Gover ISMIR'20 (choral, collapses on real audio),
+Jointist (fixed 39 classes, unlicensed), Tunturi EUSIPCO'25 (concat conditioning fails
+synth→real while score-only masks transfer). Mandatory eval-time baselines: Tier-0
+null, score-informed NMF, oracle IRM anchor.
+
+**Conditions.**
+- **T0 (null; ships as fallback regardless)**: harmonic comb mask + Wiener-style
+  normalization (24 harmonics, 1/h rolloff, ±50-cent bands, 30 ms onset allowance,
+  λ=0.05 residual).
+- **T1 (trained)**: bandsplit-RNN-small (~20 M params, 44.1 kHz stereo, STFT 2048/512),
+  roll raster (sustain/onset/velocity channels) → conv encoder → per-frame FiLM at
+  bandsplit blocks + roll concat input channels; loss = −SI-SDR + 0.5·multi-res STFT
+  L1; 10% negative-conditioning samples (5% empty roll, 5% wrong-track roll) trained
+  to silence (energy + STFT-mag penalty); mixture-consistency penalty on full-partition
+  samples; least-squares consistency projection offered at inference.
+  **Primary variant declared: FiLM+concat ("both").** One contingent ablation run
+  (FiLM-only) is permitted within cap ONLY if the primary fails ship gates or
+  negative-conditioning collapses; concat-only is not trained (Tunturi transfer risk)
+  unless that ablation motivates it. Weights trained from scratch → MIT.
+- **T1-deg / T0-deg**: same, evaluated under degraded conditioning (the headline).
+- Oracle anchors (diagnostic, never headline): IRM on target voice; clean-GT-roll T1.
+
+**Data/splits.** Train: Slakh2100-redux TRAIN minus a held-out carve **OV2-val = 60
+tracks, seed 4242, drawn and frozen before training**; mixtures = resampled subsets of
+4–10 other-bucket stems (recomposition augmentation); targets = single stems or unions
+of 1–3 stems (roll = union); per-stem gain ±6 dB, channel swap, shared sidechain-pump
+envelope pre-mix, light per-stem EQ. OV1's val subset (n=150, seed 1234) and the test
+split are NOT used — OV2-val is a train-split carve, legitimate because OV2 evaluates
+separation (SI-SDR has no YourMT3+-contamination concern; any note-based metric on
+OV2-val must not use YourMT3+ as scorer — it trained on Slakh train). babyslakh 16 kHz
+= prototypes only, never headline; **Tier-0 must be re-baselined at 44.1 kHz on OV2-val
+before any gating**. Conditioning degradation (train + deg eval): onset N(0, 20 ms)
+clipped ±60 ms, duration ×U(0.8, 1.25), dropout U(0, 0.30), insertions ≤15%
+register-local, 3% octave substitution, velocity noise — rates bracket house
+transcriber quality (0.849 oracle note-F; far worse on EDM per Phase-0). Tier-2 (only
+if T1 ships AND real-EDM listening shows timbre-transfer artifacts): DawDreamer-rendered
+EDM role corpus (~50 h mixtures; 300–500 GPL/CC0 patches; held-out patches AND patterns
+for val; per-patch provenance ledger; NO Vital factory presets/wavetables), fine-tune +
+re-eval on held-out renders.
+
+**Metrics.** Primary: mean per-voice SI-SDR on OV2-val under degraded conditioning,
+T1-deg vs T0-deg paired per voice, 10k bootstrap seed 0. Secondary: clean-roll SI-SDR;
+SI-SDRi; worst-decile voice SI-SDR (dominant-voice regression check); mixture
+consistency (Σ lanes + residual vs input); negative-conditioning output level (empty +
+wrong roll, dB rel. input); note-F ONLY in non-circular slices; role-label accuracy
+(Tier-2 renders only); s/track. **Circularity rule (binding):** re-transcribing an
+extracted lane and scoring against its conditioning notes is INVALID (a model that
+synthesizes its roll scores perfectly). Note-F is valid only for (i) recall of notes
+DELETED from the conditioning roll, scored vs GT; (ii) leakage = other voices' GT notes
+found in the lane (lower better); (iii) real-EDM lanes judged by a human, not a
+transcriber.
+
+**Decision criteria (declared before training).**
+- **Ship T1** into the stems pipeline iff on OV2-val: T1-deg vs T0-deg paired Δ ≥
+  +3 dB mean per-voice SI-SDR with 95% CI lower bound > 0, AND worst-decile voices do
+  not regress vs T0-deg, AND empty-roll output ≤ −40 dB rel. input, AND dropout-slice
+  recall ≥ 0.5, AND a 5-track real-EDM listening check (Raveform, webapp lanes) is not
+  vetoed by the user.
+- **Ship T0 alone** (training-free lane preview) if T1 fails but T0 lanes are judged
+  useful in the same listening check.
+- Otherwise: archive as negative result (survey + Phase-0 findings still feed the paper).
+
+**Process, budget, venue.** **Binding review checkpoint**: after data pipeline +
+OV2-val carve + 44.1 kHz Tier-0 re-baseline + trainer fixture-smoke, and BEFORE any
+training launch, the runner stops for orchestrator data review (house discipline —
+this checkpoint caught fatal bugs in TP1 and D1). Tier-1 cap **$45** (Lambda A10,
+incl. the contingent ablation), Tier-2 cap **$20** (renders on CPU ≈ free). Fresh box,
+zero credentials (artifacts relay box → local → S3, OV1 pattern). Artifacts →
+`s3://jams-mir-eval-usw2/ov2/` (frozen OV2-val list, seeds, scripts, checkpoint +
+data sha256s, license/provenance evidence). Never touches ov1/ or d1/ prefixes.
+
+**Amendment (2026-07-13, declared before any training; user goal clarification) —
+condition T-blind (label-free dominant-source decomposition) becomes the primary
+product target.** User: the desired deliverable is "I found K dominant
+sounds/instruments in `other`, here are their stems and MIDI" — no labels required.
+This is BLIND count-agnostic decomposition, and Slakh provides perfect unlabeled GT
+(the constituent stems themselves), so it trains with permutation-invariant matching
+and NO annotation:
+- **T-blind**: same backbone family as T1 (bandsplit-RNN-small), no conditioning
+  input; **K=6 output slots + 1 residual slot**. Targets: the 6 highest-energy
+  other-bucket stems in the sampled mixture (fewer → silence slots), residual = sum of
+  remaining stems. Loss: PIT over the 6 slots (−SI-SDR, permutation by best match) +
+  silence penalty (energy + STFT-mag) on unused slots + residual loss + mixture-
+  consistency penalty. Same data pipeline, crops, augmentation as T1.
+- **T-blind-null (training-free auto pipeline)**: YourMT3+ transcribe → co-onset
+  feature clustering (k ≤ 6, Phase-0 prototype) → T0 harmonic masking per cluster +
+  residual. The honest no-training version of the same product.
+- **Metrics (T-blind)**: permutation-matched mean SI-SDR over active slots vs
+  energy-top-6 GT stems (primary, vs T-blind-null, paired, 10k bootstrap seed 0);
+  active-slot count vs GT stem count; residual leakage (energy of top-6 GT content in
+  the residual, lower better); mixture consistency; **per-lane transcription note-F vs
+  the matched GT stem's MIDI — VALID here (no conditioning → no circularity), reported
+  for basic-pitch and YourMT3+ per lane**; diagnostic: pooled per-lane note-F vs
+  monolithic-bucket transcription (the OV1 condition-A framing, blind-decomposition
+  arm).
+- **Ship T-blind** iff: beats T-blind-null by ≥ +3 dB permutation-matched mean SI-SDR
+  on OV2-val (95% CI lower bound > 0), no worst-decile regression vs T-blind-null,
+  silence/residual behavior sane (unused-slot output ≤ −40 dB rel. input), and the
+  same 5-track real-EDM listening check (user veto).
+- **Role of T1 (conditioned)**: demoted to secondary — the interactive path (user
+  note-selection → extract) and lane-refinement loop; unchanged bars. T1 and T-blind
+  share the backbone, data pipeline, and OV2-val; training both = one extra run.
+- **Budget**: Tier-1 cap **$45 → $60** (two training runs; ONE shared contingent
+  ablation/restart across both). Declared possible Tier-2b extension (evidence-gated,
+  separate approval): MixIT-style unsupervised fine-tune of T-blind on real EDM
+  `other` stems (label-free training admits real in-domain audio — the strongest
+  hedge against the synth→real cliff).
+
+**Amendment (2026-07-13, declared before any training) — variable lane count,
+K_max = 8.** User clarification: the decomposition count is per-track and discovered,
+not fixed — one track may yield 3 lanes, another 8, under some maximum. The slot
+mechanism already provides this (unused slots trained to silence); this amendment makes
+it binding and raises headroom: **K_max = 6 → 8** slots + residual (Slakh other-buckets
+average ~9 constituent stems; babyslakh range 5–15). GT targets = energy-top-8 stems
+(fewer → silence slots), remainder → residual. **Active-lane rule (declared)**: at
+inference a slot is a "found sound" iff its output energy > −40 dB rel. the input
+mixture (same threshold as the silence bars); the product reports only active lanes,
+and the active-slot-count-vs-GT-stem-count metric is scored on this rule. PIT matching
+uses Hungarian assignment (K=8 is trivially tractable). If A10 memory forces a
+batch-size reduction below 8 at K=8, the runner reports at the review checkpoint
+rather than silently shrinking crops.
+
+**Amendment (2026-07-14, data-review checkpoint outcomes; declared before any
+training).** The binding checkpoint fired with three catches and five sign-offs:
+- **Negative-conditioning loss redesigned on fixture-smoke evidence**: the ledgered
+  energy+STFT-mag silence penalty at w=1 left empty-roll output at −15.7 dB rel input
+  (bar: ≤ −40); w=5 collapsed training (silence term dominated gradients, gating
+  broke). Replacement (declared): bounded relative-energy penalty
+  softplus(10·log10(E_est/E_mix) + 50 dB)/10 — saturates once output ≤ −50 dB rel
+  input so it cannot compete with SI-SDR on positives; both failed variants recorded
+  in RUNBOOK.md. The conditioning-gating smoke itself PASSED decisively (7/7
+  same-mixture/different-roll pairs extract the correct stem: +4.4…+13.7 dB vs own
+  stem, −18.8…−54.9 dB vs the other).
+- **Blind mixture-size distribution reweighted**: ≥30% of T-blind draws now use 9–10
+  stems so the residual slot trains on nonsilent targets (uniform 4–10 left it silent
+  in 94% of draws).
+- **Price correction + cap**: gpu_1x_a10 is $1.29/hr (design assumed $0.75), so two
+  full 150k-step runs project $62–107 — over the $60 cap; the stop-rule fired
+  pre-spend. Cap **$60 → $75**, with a declared allocation rule: phase-1 on-box
+  (~$10) → real s/step from throughput probes → T-blind (primary) trains the full
+  150k; T1 gets min(100k, what fits under cap) with a 75k floor; if the floor doesn't
+  fit, stop-and-report. Cumulative Lambda projection stays ≤ ~$137 of the $150
+  authorization; Tier-2 remains separately gated.
+- Sign-offs: T-blind-null clustering k ≤ 6 → **k ≤ 8** (symmetry with K_max=8);
+  T-blind at 26.55 M params accepted under "same backbone family" (trunk = the
+  ledgered 19.6 M; slot head 9×); T0 eval STFT 4096/1024 declared (T0-specific; T1
+  keeps 2048/512); contamination note accepted (YourMT3+ optimistic on OV2-val →
+  biases *against* T-blind at the bar; basic-pitch is the uncontaminated lane
+  transcriber); OV2-val carve frozen (60 IDs, seed 4242, sha256₁₆ b85c4cd21d99e297,
+  ineligible-tracks-excluded-never-replaced rule embedded).
+- Execution note: the runner's permission layer denies box launches and S3 pushes
+  from subagents; the orchestrator provisions boxes and relays artifacts directly
+  (zero-credential box pattern retained).
+
+**Amendment (2026-07-14, PHASE1_READY review; declared before training launch).**
+(1) **Silence loss ratified as amended**: the ledgered "(energy + STFT-mag penalty)"
+on unused slots is replaced by the bounded relative-energy penalty
+`softplus(10·log10(E_est/E_mix) + 50)/10` — two pre-registered-form variants failed
+smokes (w=1 leaked −15.7 dB vs the −40 bar; w=5 collapsed training); redesign was
+evidence-driven during recovery, documented in RUNBOOK.md, validated by the T1 GPU
+smoke (empty-roll −50.3 dB) and T-blind smoke (unused slots −40.9…−48.2). (2)
+**K_max=8 ratified for T-blind-null** (supersedes the k≤6 in the 9ee436a text; the
+null must match the primary's slot budget; measured null: −8.63 dB → bar −5.63). (3)
+**Allocation amended on measured throughput**: A10-22GB feasible batches are T-blind
+4 (0.92 s/step) / T1 2 draws (0.50 s/step) — the ledgered 8–12 do not fit at 8-s
+crops; prior rule (T-blind full 150k + T1 floor 75k) exceeds the $75 cap at these
+rates. Adopted plan: **T-blind 120k + T1 100k steps ≈ $69.5 incl. $7.8 spent** —
+protects the primary's crop count (~480k) while keeping T1 meaningful. No
+grad-checkpointing or partition-cap changes post-smoke (no new moving parts). (4)
+T-blind fixture smoke recorded 13/14 with one 0.5 dB near-miss on an unused-slot
+silence bar (−39.5 vs −40.0, still descending); flag-flip rerun waived — the binding
+bar is evaluated on OV2-val after training, not on fixtures. (5) Blind full-track
+permutation-matched eval script to be written during training ($0; frozen before any
+T-blind eval).
