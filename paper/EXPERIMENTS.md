@@ -478,6 +478,28 @@ Decision rule: flip `stems_two_pass` default ON iff ALL bars pass; else stay OFF
 record. ONE run per arm; infra retries per track allowed, no parameter iteration.
 Cost: $0 cloud (aleph0). Runtime reported per arm.
 
+**Verdict (2026-07-14): two-pass FAILS both bars — DROPPED, stays OFF, PR #24
+closed.** Both arms ran clean on aleph0 (Slakh n=151, MedleyDB-V2 vocals n=24, 0
+failures each). Arm A reproduced the ledgered T10 shipped-system numbers exactly
+(SI-SDR drums/other/bass 14.31/11.76/5.98; bass note-F 0.6626 = T10 0.6613, other
+0.7881 = T10 0.7877; drums onset-F 0.6672 vs T10's 0.5741 as expected — drum CNN v1
+replaced ADTOF per PR #19). Point-estimate deltas Δ(B−A): **Slakh other-SDR −1.49 dB
+(11.76→10.27; bar > −0.5 → FAIL), other note-F −0.0098 (0.7881→0.7783; bar CI-lb
+> −0.01 → borderline FAIL); bass note-F +0.002, drums onset-F −0.001, drums/bass SDR
+flat (pass). MedleyDB vocals SI-SDR arm A 0.551 vs arm B −0.015 → Δ −0.57 dB, WRONG
+DIRECTION (bar: Δ > 0 CI-excl-0 → FAIL).** Mechanism: on vocal-free Slakh the RoFormer
+vocal pass siphons synth/pad content from `other` into the discarded vocal bucket
+(−1.49 dB `other` SDR); on real MedleyDB vocals the Kim RoFormer's published +1.3 dB
+Multisong edge did NOT transfer (domain gap — same lesson as the drum CNN's acoustic
+regression). Two failed superiority/non-inferiority bars → no default flip; two-pass
+architecture dropped for the EDM separation goal. Caveat recorded: absolute MedleyDB
+vocals SI-SDR was low for both arms (~0 dB), consistent with MedleyDB mixes not being
+exact stem-sums; paired Δ still valid (shared reference both arms). Formal 10k paired
+bootstrap CIs computed by the eval agent, staged to scratch `s7/`. **Consequence for
+ES1: the EDM separation fix reverts to fine-tuning single-pass SCNet directly on EDM
+data (the ES1 research's Option 4), not a two-pass front-end.** Artifacts:
+s3://jams-mir-eval-usw2/s7/ (per-track JSONLs both arms both datasets, summary, logs).
+
 ## Structure (Raveform, pre-registered — training in progress)
 
 Protocol: v1 All-In-One trainer, 11-class Raveform head, true folds from metadata (not
