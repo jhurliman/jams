@@ -492,15 +492,29 @@ vocal pass siphons synth/pad content from `other` into the discarded vocal bucke
 (−1.49 dB `other` SDR); on real MedleyDB vocals the Kim RoFormer's published +1.3 dB
 Multisong edge did NOT transfer (domain gap — same lesson as the drum CNN's acoustic
 regression). Two failed superiority/non-inferiority bars → no default flip; two-pass
-architecture dropped for the EDM separation goal. Caveat recorded: absolute MedleyDB
-vocals SI-SDR was low for both arms (~0 dB), consistent with MedleyDB mixes not being
-exact stem-sums; paired Δ still valid (shared reference both arms). Formal 10k paired
-bootstrap CIs computed by the eval agent, staged to scratch `s7/`. **Consequence for
+architecture dropped for the EDM separation goal. Formal 10k paired bootstrap CIs
+(seed 0) confirm: other note-F Δ −0.0097 **[−0.0126, −0.0071]** (FAIL, bar lb > −0.01),
+other SDR Δ −1.495 **[−1.831, −1.166]** (FAIL, bar lb > −0.5), MedleyDB vocals Δ −0.566
+**[−2.459, +0.714]** (FAIL, bar Δ>0 & CI-excl-0); passing bars: bass note-F +0.0019
+[−0.0013, +0.0052], drums onset-F −0.0008 [−0.0037, +0.0013], drums SDR +0.024, bass
+SDR +0.043. Net 4/7 PASS, 3 FAIL. Hallucination mechanism confirmed: on vocal-free
+Slakh, arm-B vocals-stem RMS median −23.0 dB rel mix (vs A's −43.7; 54/151 tracks
+above −20 dB) — the RoFormer pulls ~20 dB of phantom "vocals" out of the instrumental,
+which is the content lost from `other`. MedleyDB validation (mandated): reference
+construction VALID (mix/ref/est sample-aligned 44.1 kHz, ref RMS −2.5…−6.7 dB rel mix,
+good tracks corr 0.94–0.98 → SI-SDR +8.5…+14.9); the ~0 dB mean is REAL, driven by a
+few genuine out-of-domain collapses (FilthyBird corr≈0 → SI-SDR −58 dB, numerically
+unstable) not a bug — robust median actually slightly favors B (+9.01 vs +8.52), but
+the bar is on mean+CI → FAIL. 8 bass-less Slakh tracks excluded identically both arms
+(n=143 bass). Two plumbing fixes on the fresh clone (scratch `.python-version` pin
+removed; RoFormer cuda probe wrapped in the same autocast as inference — output
+identical), no science touched; one infra restart mid-MedleyDB-armA resumed from
+per-track checkpoint (SI-SDR deterministic). **Consequence for
 ES1: the EDM separation fix reverts to fine-tuning single-pass SCNet directly on EDM
 data (the ES1 research's Option 4), not a two-pass front-end.** Artifacts:
 s3://jams-mir-eval-usw2/s7/ (per-track JSONLs both arms both datasets, summary, logs).
 
-## Structure (Raveform, pre-registered — training in progress)
+## Structure (Raveform, pre-registered — fine-tune sweep CONCLUDED 2026-07-12: all variants FAIL, ship stock ensemble)
 
 Protocol: v1 All-In-One trainer, 11-class Raveform head, true folds from metadata (not
 index%8), genre-weighted sampler (∝ inverse genre frequency, cap 4×), function-class
