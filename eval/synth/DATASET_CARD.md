@@ -77,11 +77,32 @@ by seed. `split.json` records the exact `train`/`val` track-id lists and a `val_
   the true GT guarantee); on-disk FLAC-16 ≈ **−77…−80 dB** (16-bit quantization floor, effectively
   perfect for stem targets). See `validation_report.json`.
 - **Shipped-SCNet SI-SDR realism** (single-pass SCNet XL IHF on rendered premaster mixes vs GT
-  stems, 18 tracks spanning sub-styles): the per-stem SI-SDR **distribution** sits in **regime (a)**
-  — an imperfect, real-music difficulty band (drums ≈ 5–17, bass ≈ 4–15, other ≈ −6–12 dB), not
-  trivially clean and not broken; the spread (incl. genuinely hard tracks) is the signal we want.
-  Full table in `validation_report.json`. (`other` lifted from the probe's 1.8 dB via the richer
-  mid arrangement + convolution reverb.)
+  stems, 18 tracks spanning sub-styles). The per-stem SI-SDR **distribution** sits in **regime (a)**
+  — an imperfect, real-music difficulty band (ref: real MUSDB18 SCNet drums ≈ 14.3), not trivially
+  clean and not broken. Overall (dB):
+
+  | stem | min | p25 | median | p75 | max | mean |
+  |---|---|---|---|---|---|---|
+  | drums | 4.8 | 6.6 | 11.7 | 15.0 | 16.8 | 11.0 |
+  | bass  | 1.3 | 2.8 | 12.1 | 14.2 | 19.2 | 9.8 |
+  | other | −6.4 | 1.2 | 3.5 | 9.6 | 18.7 | 5.3 |
+
+  Per-sub-style medians (dB) — the spread is the signal:
+
+  | sub-style | drums | bass | other |
+  |---|---|---|---|
+  | jump-up | 13.2 | 16.8 | 11.3 |
+  | dancefloor | 12.2 | 13.0 | 10.0 |
+  | jungle | 10.8 | 11.6 | 1.5 |
+  | liquid | 6.1 | 14.2 | 5.7 |
+  | techstep | 8.9 | 10.9 | 2.5 |
+  | neurofunk | 14.0 | **2.7** | 1.1 |
+
+  The wide spread (min bass 1.3, min other −6.4, genuinely hard tracks) is the desired real
+  training signal. **Neurofunk bass median 2.7 dB** is on-point: SCNet struggles to separate the
+  dense reese/growl bass — the exact in-domain collapse ES2's fine-tune targets. `other` lifted
+  from the probe's 1.8 dB via the richer mid arrangement + convolution reverb. Full per-track
+  numbers in `validation_report.json`.
 
 ## Asset / license ledger
 
