@@ -1186,3 +1186,40 @@ silence bar (−39.5 vs −40.0, still descending); flag-flip rerun waived — t
 bar is evaluated on OV2-val after training, not on fixtures. (5) Blind full-track
 permutation-matched eval script to be written during training ($0; frozen before any
 T-blind eval).
+
+## OV2 VERDICT (2026-07-16) — both learned arms FAIL; archive as negative result
+
+Training complete on the Lambda A10 (T-blind 120k steps + T1 conditioned 100k steps,
+`s_per_step` 0.9 / 0.48; both `final.pt` saved). Held-out eval on the frozen **OV2-val
+(60 tracks, 516 voices)** with the pre-registered scripts (`eval_tblind.py`,
+`eval_t1.py`), no test iteration. Verdicts:
+
+**T-blind (label-free dominant-source decomposition) — FAIL.** Permutation-matched
+mean SI-SDR **−9.25 dB** (worst-decile −15.6); **paired Δ vs T-blind-null = −0.618 dB,
+CI95 [−1.66, +0.45]** (n=60, 10k bootstrap seed 0). Ship bar was ≥ +3 dB with CI-LB > 0.
+The blind model is **statistically indistinguishable from the training-free null** — it
+does not learn to decompose `other` without conditioning. Consistent with OV1's finding
+that separation-based decomposition of `other` is a dead end.
+
+**T1 (note-conditioned voice extraction) — FAIL (real but insufficient).** Primary bar
+is **T1-deg vs T0-deg** (T0 = training-free note-conditioned soft-mask baseline;
+re-baselined at 44.1 kHz on OV2-val: `t0_degraded_mean` −3.40 dB, `t0_clean` −1.70,
+IRM-oracle ceiling 6.91). T1: `t1_degraded_mean` −1.57 dB, `t1_clean` −0.44,
+`si_sdr_input` −10.47. **Paired Δ (T1-deg − T0-deg) = +1.828 dB, CI95 [+1.475, +2.219]**
+(n=516, 10k bootstrap seed 0), 74% of voices improve — a **real, significant gain**, but
+**below the +3 dB ship bar**. Worst-decile paired Δ **−3.08 dB** (some voices regress vs
+T0 → secondary no-regression bar also violated). Condition-response is excellent and
+passes its bars — **empty-roll −63.9 dB** (bar ≤ −40), **wrong-roll −34.0 dB** — i.e.
+the extractor genuinely obeys the note-roll (silent on empty, suppressed on mismatch);
+that capability just isn't worth ≥ +3 dB over the free baseline. NOTE: the interim
+"+10 dB gain" figure quoted during the run was T1 vs the do-nothing **input floor**
+(−10.5 dB), NOT the pre-registered T0 baseline — the correct comparison is +1.83 dB.
+
+**Decision (per pre-registration line "Otherwise: archive as negative result").** Neither
+learned model ships. The only remaining option is the declared fallback **"Ship T0 alone
+(training-free lane preview) if T1 fails but T0 lanes are judged useful"** — a user
+listening-call, not an automatic ship; T0-degraded −3.40 dB is modest. Publishable
+negative: *label-free decomposition of `other` fails outright; note-conditioning helps
+significantly (+1.83 dB, p<0.05) but not enough to beat a zero-cost soft-mask by the
+pre-registered margin.* Artifacts (both `final.pt`, per-track JSONL, summaries, frozen
+OV2-val list) on the box → `s3://jams-mir-eval-usw2/ov2/`. Spend within Tier-1 $45 cap.
