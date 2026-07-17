@@ -1,12 +1,11 @@
 import { useEffect } from 'react';
 
 import { api } from './api.ts';
+import { DataVizStack } from './components/DataVizStack.tsx';
 import { ImportDropZone } from './components/ImportDropZone.tsx';
 import { Inspector } from './components/Inspector.tsx';
-import { StemLanes } from './components/StemLanes.tsx';
 import { TrackList } from './components/TrackList.tsx';
 import { Transport } from './components/Transport.tsx';
-import { Waveform } from './components/Waveform.tsx';
 import { useAudio } from './hooks/useAudio.ts';
 import { usePeaks } from './hooks/usePeaks.ts';
 import { useEditor } from './store.ts';
@@ -73,9 +72,7 @@ export function App() {
           <>
             {error && <div className="error">Audio decode failed: {error}</div>}
             {loading && <div className="placeholder">Loading…</div>}
-            <Waveform peaks={peaks} audio={audio} />
-            {!peaks && !error && <div className="dim hint-line">Decoding waveform…</div>}
-            <StemLanes />
+            <DataVizStack peaks={peaks} error={error} audio={audio} />
           </>
         )}
       </main>
