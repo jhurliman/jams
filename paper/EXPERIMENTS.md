@@ -391,6 +391,46 @@ Artifacts: scratch `d1ext/` (consolidated summary JSON, scorer + passing self-te
 manifests, predictions ×8, per-protocol scores ×18, paired CIs, SCNet stems) →
 s3://jams-mir-eval-usw2/d1/external/.
 
+**RBMA13 addendum result (2026-07-16) — the previously-blocked benchmark, now
+run (non-gating).** The 30-track RBMA "Various Assets NYC 2013" compilation audio
+(the $7 Bandcamp block recorded on 2026-07-14) is now acquired and staged; the Vogl
+`rbma13-drums` annotations were re-acquired from the TU-Wien source
+(`http://ifs.tuwien.ac.at/~vogl/datasets/rbma13-drums.zip`, HTTP 200; 3-class labels
+0=KD/1=SD/2=HH) since the prior copy died with the D1 box. Track↔WAV mapping (annotation
+`Track-NN` ↔ compilation WAV NN) verified structurally: every annotated track's max
+onset falls inside its same-numbered WAV's duration (tightest margins 1.4–1.6 s;
+Track-21, a 46 s skit with a 43 s last onset, is a decisive fingerprint). **27 of 30
+tracks map** — tracks 06/07/26 carry no drum annotations in the release (they contain no
+drums) and are excluded, exactly matching Vogl's "30 tracks, 3 drumless → 27 evaluated";
+no silent drops. Same frozen scorer + self-tests, same house protocol as MDB/IDMT: 3-class
+KD/SD/HH, per-track macro-F then mean over tracks (trackmacro), 50 ms primary / 20 ms
+secondary, paired 10 k bootstrap seed 0 (the bootstrap reproduces the banked IDMT paired
+CIs exactly). "Ours" is the deployment config (full mix → shipped SCNet XL IHF → drum CNN,
+`drum_cnn_v1.pt` md5 51c693eb…, unchanged); ADTOF-pytorch is run as the reference arm on
+**both** the full mix (its natural input, matching Vogl's full-mix setup) and the SCNet
+drums stem (matched-input analog to the MDB "sep" arm). Headline trackmacro F: **ours
+0.5808 @ 50 ms / 0.5565 @ 20 ms**; ADTOF-full-mix 0.6367 / 0.6260; ADTOF-sep 0.6294 /
+0.6161 (pooled-micro, ours 0.619/0.591, ADTOF ~0.71/0.69). Paired ours−ADTOF (per-track
+macro): vs full-mix −0.0559 [−0.1025, −0.0115] @ 50 ms and −0.0695 [−0.1144, −0.0270]
+@ 20 ms (both significant, ours wins 30 % of tracks); vs matched sep −0.0486 [−0.1000,
++0.0037] @ 50 ms (CI touches 0) and −0.0596 [−0.1103, −0.0071] @ 20 ms (significant).
+Published reference (Vogl et al., ISMIR 2017, Table 3 RBMA13 DT column — the SAME 27-track
+set, so the track-set-match rule is satisfied): within-dataset 3-fold-CV, 20 ms tolerance
+(paper §5.3), drum-detection-only CNN **F 0.662**, best CRNN (CBGRU-b) **0.673** (0.684
+with oracle beats) — i.e., the within-dataset 2017 SOTA sits ~roughly level with the
+zero-shot ADTOF reference (pooled ~0.69 @ 20 ms; averaging mode not fully pinned in the
+paper, so this cross-protocol read is approximate) and above ours. **Read: on RBMA13's
+dense, production-heavy commercial mixes the shipped CNN trails the ADTOF family by ~5–7 F
+(3 of 4 paired arms significant; matched-sep 50 ms CI touches 0), and — unlike IDMT — the
+gap does NOT close at 20 ms (it widens slightly): our E-GMD onset-timing edge does not
+transfer to this domain. Both zero-shot systems sit far below their IDMT/MDB levels (this
+set is hard: EDM/electronic kits, heavy production, singing voice). This confirms and
+extends the recorded prior and the bounded claim domain ("superior in the EDM/production
+pipeline," not field-wide); the in-domain superiority gate is untouched.** Artifacts
+(rbma_* names mirroring mdb_*/idmt_*): summary JSON, re-acquired annotations zip,
+manifests, predictions ×3, per-protocol scores ×6, paired CIs ×4, SCNet stems, bootstrap
+script → s3://jams-mir-eval-usw2/d1/external/.
+
 ## Transcription (Slakh2100-redux test, n=151, GT stems = oracle)
 
 | # | date | commit | system | bass note-F | other note-F | drums onset-F | artifacts |
