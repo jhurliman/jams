@@ -13,9 +13,12 @@ import numpy as np
 from scipy.signal import butter, sosfilt
 
 from . import arrange, patches
+from . import presets as _presets
+from . import wavetable as _wt
 from .surge import render_layer
 
 SR = 44100
+_PRESET_SEED_PROB = 0.4
 
 
 def _hp(x: np.ndarray, f: float) -> np.ndarray:
@@ -93,8 +96,10 @@ def _modulate(x: np.ndarray, family: str, tl: arrange.Timeline, rng) -> np.ndarr
     return x  # jumpup_bounce: tone is already plucky from the filter env
 
 
-# Mid-bass families that can also come from the Vitalium wavetable engine.
+# Mid-bass families that can also come from a wavetable engine (Vitalium or the CC0 scan-synth).
+# The CC0 bank's folding / FM / sync / phase-distortion tables are the Reese/growl/neuro fuel.
 _VIT_BASS = {"reese", "wobble", "growl"}
+_WT_BASS = {"reese", "wobble", "growl", "foghorn"}
 
 
 def render_bass_bus(spec, tl: arrange.Timeline, rng,
@@ -104,6 +109,8 @@ def render_bass_bus(spec, tl: arrange.Timeline, rng,
     bus = np.zeros((2, n))
     descriptors: list[dict] = []
     vit_ok = vitalium is not None and vitalium.available()
+    cc0wt_ok = _wt.available()
+    preset_ok = _presets.available()
 
     def fit(a: np.ndarray) -> np.ndarray:
         if a.shape[1] < n:
@@ -122,9 +129,16 @@ def render_bass_bus(spec, tl: arrange.Timeline, rng,
             descriptors.append({"family": family, **desc})
             continue
         notes = _mid_notes(spec, tl, rng, family)
-        if vit_ok and family in _VIT_BASS and rng.random() < 0.35:
-            audio = fit(vitalium.render(notes, secs, rng, family))
-            desc = {"engine": "vitalium-wt"}
+        roll = rng.random()
+        if cc0wt_ok and family in _WT_BASS and roll < 0.35:
+            # CC0 wavetable scan-synth — real public-domain growl/neuro tables.
+            audio = fit(_wt.render(notes, secs, rng, family))
+            desc = {"engine": "cc0-wavetable"}
+        elif vit_ok and family in _VIT_BASS and roll < 0.6:
+            seed = _presets.pick(rng) if (preset_ok and rng.random() < _PRESET_SEED_PROB) else None
+            audio = fit(vitalium.render(notes, secs, rng, family, seed=seed))
+            desc = {"engine": "vitalium-wt", "preset_seeded": bool(seed),
+                    "preset": (seed or {}).get("_name")}
         else:
             audio = fit(render_layer(cfg, notes, secs, family))
         audio = _modulate(audio, family, tl, rng)

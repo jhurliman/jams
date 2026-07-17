@@ -41,13 +41,33 @@ count + roles, sidechain style (DnB duck vs housier pump) + depth, master loudne
 
 ### Multi-engine timbral diversity (the #1 synth→real transfer lever)
 
-Every melodic voice is a **procedurally randomized** patch (no factory-preset content) drawn
-across **three distinct synthesis engines**, so the corpus is not monotimbral:
+Every melodic voice is a **procedurally randomized** patch drawn across **four distinct synthesis
+engines**, so the corpus is not monotimbral:
 
 - **Surge XT** — per-track randomized osc engine (Classic subtractive, Wavetable, Window, Modern,
   FM2/FM3, Twist macro, String physical-model), filter model, waveshaper, unison, envelopes.
 - **Dexed** — DX7-style **FM** (randomized algorithm feedback, operator ratios/levels/envelopes).
-- **Vitalium** — **wavetable** (randomized wave-frame morph, spectral unison, filter, envelopes).
+- **Vitalium** — **wavetable** (spectral unison, routed multimode filter, distortion, envelopes).
+  Optionally **preset-seeded**: license-vetted `.vital` `settings` scalars are mapped by name to
+  Vitalium params as sparse "quality anchors", then band-jittered (see the ingestion section).
+- **CC0 wavetable scan-synth** — a numpy band-limited oscillator that plays **real public-domain
+  wavetables** (folding / FM / sync / phase-distortion / PPG etc. — the Reese/growl/neuro fuel),
+  the #1 realism lever. D&B bass patches are biased toward the gritty categories.
+
+**Preset / wavetable ingestion (Phase-1 spike + design).** A spike established that DawDreamer
+**cannot** load a `.vital` preset or its embedded wavetable into this Vitalium VST3: `load_preset`
+returns `False`, and the plugin state chunk (`save_state`/`load_state`) is an **opaque JUCE VST3
+binary blob** (`VC2!…<VST3PluginState><IComponent>` → binary, not the `.vital` JSON), so only the
+~700 **named scalar params** are addressable via `set_parameter`. Consequences, wired in honestly
+(no faked capability): (1) external CC0 wavetables are ingested by our **own** numpy scan-synth
+(public-domain sample data inside our own oscillator — no derivative-work argument needed), not
+through Vitalium; (2) preset "seeding" is a **scalar overlay** — safe, well-scaled families (osc
+level/unison, filter cutoff/res, ADSR) mapped by name, then band-jittered per family; discrete /
+enum / routing / topology params are never jittered. The spike also fixed three latent no-ops in
+the prior Vitalium patch (filter never routed → cutoff/res inert; Osc 2 switch off → a set osc-2
+level silent; distortion type None → distortion amount inert), so the scalar params now shape
+timbre. `.vital` preset files are used only as render **inputs** staged outside the shipped corpus
+and are **never** redistributed; only rendered audio ships.
 
 Drums combine our original DSP kit with **real one-shots from two kits** (per-hit pitch/gain
 jitter + round-robin to kill the machine-gun tell), re-sequenced into D&B patterns:
@@ -104,6 +124,29 @@ by seed. `split.json` records the exact `train`/`val` track-id lists and a `val_
   from the probe's 1.8 dB via the richer mid arrangement + convolution reverb. Full per-track
   numbers in `validation_report.json`.
 
+### Wavetable + preset realism upgrade — controlled A/B (this revision)
+
+Matched 12-track batch (one per sub-style ×2, identical seeds), CC0-wavetable scan-synth + preset
+seeding **OFF vs ON** (Vitalium filter/osc-2/distortion routing fixes present in both arms, so this
+isolates the *source* lever). SCNet XL IHF SI-SDR medians (dB), lower = harder to separate =
+closer to real-music difficulty:
+
+| stem | before (OFF) | after (ON) | Δ |
+|---|---|---|---|
+| drums | 14.1 | 13.5 | −0.6 |
+| bass  | 12.9 | **6.4** | **−6.5** |
+| other | 5.5 | 2.8 | −2.7 |
+
+Adding the real CC0 wavetables (biased to folding/FM/sync/phase "neuro" tables) + preset-seeded
+Vitalium moves **bass and other markedly harder** while drums stay put and the stem-sum residual
+stays perfect (on-disk FLAC-16 −76…−79 dB; float ≈ −219 dB) — i.e. still firmly in regime (a),
+not broken, not trivially clean. This is the intended realism/diversity increase: the distinct
+public-domain wavetable spectra are exactly the dense, hard-to-separate bass the ES2 fine-tune
+targets. Note the corpus-wide bass median (6.4) now sits *below* the 10–15 dB comfort band; the
+CC0-bass mix fraction (`_WT_BASS` ≈ 0.35 in `bass.py`) is the tuning knob if a maintainer wants
+bass held higher. `other` (2.8) tracks the same direction. Both arms' full numbers:
+`es2_valbatch/sisdr_report.json` (staged, not shipped).
+
 ## Asset / license ledger
 
 | Asset | License | URL | Use |
@@ -112,11 +155,39 @@ by seed. `split.json` records the exact `train`/`val` track-id lists and a `val_
 | TidalCycles TR-808 (sounds-tr808-fischer) | **CC0-1.0** | github.com/tidalcycles/sounds-tr808-fischer | real CC0 808 one-shots, re-sequenced |
 | Surge XT | GPL-3 + output grant | surge-synthesizer.github.io | bass + synth voices (procedural params) |
 | Dexed | GPL-3 | asb2m10.github.io/dexed | FM voices (own patches) |
-| Vitalium (DISTRHO/Vital, NO_AUTH) | GPL-3 | github.com/DISTRHO/DISTRHO-Ports | wavetable voices (content-free, own params) |
+| Vitalium (DISTRHO/Vital, NO_AUTH) | GPL-3 | github.com/DISTRHO/DISTRHO-Ports | wavetable voices (content-free, own params + preset-scalar overlay) |
 | DawDreamer | MIT | github.com/DBraun/DawDreamer | offline render engine |
 
-Excluded on license grounds: any copyrighted "Amen" recording; Cymatics packs (EULA bars
-redistributing isolated sounds — a separation stem *is* the sample); anything NonCommercial/unclear.
+### Synth-source provenance manifest (CC0 wavetables + preset render-seeds)
+
+New in this revision. **Only rendered audio ships**; the wavetable/preset source files are cloned
+into a non-shipped staging dir (`SYNTH_WT_BANK` / `SYNTH_PRESET_SRC`, default under `~/.claude/`,
+git-ignored) and used purely as render inputs. Each source's LICENSE was verified on disk; commit
+SHAs are pinned below.
+
+| Source repo | License | Commit SHA | Use | Notes |
+|---|---|---|---|---|
+| atsushieno/open-vital-resources | **CC0-1.0** (wavetables); README text CC-BY 4.0 | `8c31ac1940173bb89ea342293236a6a96f8c97d0` | ~1.26k CC0 wavetables → numpy scan-synth osc | Kimura Taro Free Wavetables + WAVEEDIT ONLINE, both CC0 (README-declared) |
+| christ-offer/vitalium-presets | **CC0-1.0** | `8c6c93cb7763d684b6ef66f700e71d9a4814471f` | CC0 wavetables + 3 CC0 preset scalar-seeds | LICENSE = CC0 on disk |
+| Mxm40b/vital-presets | **Unlicense** | `1a1edf22f54d9d2d4433cca3f9a1f09e383118e0` | 104 preset scalar-seeds | author spot-check: only `author=="mxmfrpr"` (uploader) used; 9 ambiguous `"me"` excluded |
+| abstractionmage/Vital-Presets | **CC0-1.0** | `023763ab9b394f5adf65089def75f6a4f6e3aa85` | 8 CC0 preset scalar-seeds | LICENSE = CC0 on disk |
+| nahush2321/Vitalium-presets | **GPL-3.0** | `025728f9a630d921050cf7eac0d514baee6b6994` | 221 preset scalar-seeds | self-made Vitalium-native; **audio-only** position below |
+
+**GPL preset → audio-only position (binding).** The rendered AUDIO is *program output*: a GPL
+preset used as a render seed does not propagate its copyleft to the rendered stem, exactly as GIMP
+(GPL) images and Audacity (GPL) audio are the user's to license. We therefore use GPL presets as
+render seeds but **never ship/redistribute the modified `.vital` files** — they stay staged outside
+the corpus. (We additionally only import scalar params, never the preset's embedded wavetable,
+because the host cannot load it anyway — see the spike above.)
+
+**CC0 attribution (courtesy).** CC0/Public-Domain requires no attribution, but we gratefully credit
+the wavetable authors: Kimura Taro (kimurataro.com/free-wavetables), WAVEEDIT ONLINE
+(waveeditonline.com), @atsushieno (open-vital-resources), and christ-offer (vitalium-presets).
+
+Excluded on license grounds: **Vital's own factory presets** (separate non-redistributable
+license); any no-license / commercial-EULA / CC-BY-SA / NonCommercial preset or wavetable packs;
+any copyrighted "Amen" recording; Cymatics packs (EULA bars redistributing isolated sounds — a
+separation stem *is* the sample); anything NonCommercial/unclear.
 
 ## Known limitations (honest)
 
