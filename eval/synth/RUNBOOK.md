@@ -33,8 +33,12 @@ uv pip install --python .venv/bin/python dawdreamer numpy scipy soundfile pyloud
 ```
 
 Vitalium is built + installed via `build_vitalium.sh` (arm64 VST3, no sudo). Paths are
-env-overridable: `SYNTH_SURGE_VST3`, `SYNTH_DEXED_VST3`, `SYNTH_VITALIUM_VST3`, `SYNTH_STEMS_WORKER`.
-If a plugin is absent, the renderer degrades gracefully (Surge covers all roles).
+env-overridable: `SYNTH_SURGE_VST3`, `SYNTH_DEXED_VST3`, `SYNTH_VITALIUM_VST3`, `SYNTH_STEMS_WORKER`,
+`SYNTH_WT_BANK` (CC0 wavetable bank), `SYNTH_PRESET_SRC` (license-vetted `.vital` preset seeds). If a
+plugin *or* a bank/preset source is absent, the renderer degrades gracefully (Surge covers all roles;
+the CC0 scan-synth and preset seeding simply drop out). The wavetable/preset sources are cloned into
+a non-shipped staging dir (git-ignored); only rendered audio + code + manifest ship — see the
+DATASET_CARD provenance manifest for repos, licenses, and pinned commit SHAs.
 
 ## Reproduce
 
@@ -65,6 +69,13 @@ Outputs under `corpus/`: `audio/<track_id>/{drums,bass,other,vocals,mix_premaste
 - `arrange.py` — arrangement timeline (two-drop grammar, per-role intensity, harmony, bus balance).
 - `patches.py` — **procedural Surge patch randomization** (osc engine / filter / waveshaper / env).
 - `surge.py` / `dexed.py` / `vitalium.py` — Surge XT + Dexed (FM) + Vitalium (wavetable) drivers.
+- `wavetable.py` — **CC0 wavetable scan-synth** (numpy band-limited oscillator over public-domain
+  `.vitaltable` banks; the #1 timbre lever). Bank env-overridable via `SYNTH_WT_BANK`.
+- `presets.py` — **preset bank** (license-vetted `.vital` seeds: scalar overlay + raw-JSON loader for
+  full fidelity; author spot-check; audio-only GPL position). Source env-overridable `SYNTH_PRESET_SRC`.
+- `vital_state.py` — **full-fidelity `.vital` loader**: JUCE-wraps a (jittered) preset JSON into a
+  Vitalium VST3 state chunk and `load_state`s it, so the preset's real embedded **wavetable** + all
+  params render through the unmodified GPL plugin. Supersedes scalar-only seeding.
 - `bass.py` — bass families (sub / reese / wobble / jumpup-bounce / foghorn / growl).
 - `synths.py` — `other` bus (pad / rhodes / stab / lead / pluck / atmos).
 - `oneshots.py` — E-GMD + TR-808 one-shot library extraction + loading.
