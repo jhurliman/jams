@@ -48,26 +48,38 @@ engines**, so the corpus is not monotimbral:
   FM2/FM3, Twist macro, String physical-model), filter model, waveshaper, unison, envelopes.
 - **Dexed** — DX7-style **FM** (randomized algorithm feedback, operator ratios/levels/envelopes).
 - **Vitalium** — **wavetable** (spectral unison, routed multimode filter, distortion, envelopes).
-  Optionally **preset-seeded**: license-vetted `.vital` `settings` scalars are mapped by name to
-  Vitalium params as sparse "quality anchors", then band-jittered (see the ingestion section).
+  Optionally **preset-seeded at FULL FIDELITY**: a license-vetted `.vital` preset is loaded whole —
+  its real embedded **wavetable** and all params — via `load_state`, then band-jittered in the JSON
+  before loading (see the ingestion section).
 - **CC0 wavetable scan-synth** — a numpy band-limited oscillator that plays **real public-domain
-  wavetables** (folding / FM / sync / phase-distortion / PPG etc. — the Reese/growl/neuro fuel),
-  the #1 realism lever. D&B bass patches are biased toward the gritty categories.
+  wavetables** (folding / FM / sync / phase-distortion / PPG etc. — the Reese/growl/neuro fuel).
+  An independent procedural timbre source; preset fidelity no longer depends on it.
 
-**Preset / wavetable ingestion (Phase-1 spike + design).** A spike established that DawDreamer
-**cannot** load a `.vital` preset or its embedded wavetable into this Vitalium VST3: `load_preset`
-returns `False`, and the plugin state chunk (`save_state`/`load_state`) is an **opaque JUCE VST3
-binary blob** (`VC2!…<VST3PluginState><IComponent>` → binary, not the `.vital` JSON), so only the
-~700 **named scalar params** are addressable via `set_parameter`. Consequences, wired in honestly
-(no faked capability): (1) external CC0 wavetables are ingested by our **own** numpy scan-synth
-(public-domain sample data inside our own oscillator — no derivative-work argument needed), not
-through Vitalium; (2) preset "seeding" is a **scalar overlay** — safe, well-scaled families (osc
-level/unison, filter cutoff/res, ADSR) mapped by name, then band-jittered per family; discrete /
-enum / routing / topology params are never jittered. The spike also fixed three latent no-ops in
-the prior Vitalium patch (filter never routed → cutoff/res inert; Osc 2 switch off → a set osc-2
-level silent; distortion type None → distortion amount inert), so the scalar params now shape
-timbre. `.vital` preset files are used only as render **inputs** staged outside the shipped corpus
-and are **never** redistributed; only rendered audio ships.
+**Preset / wavetable ingestion (corrected root cause + full-fidelity design).** An initial spike
+concluded DawDreamer could carry only scalar params (not a preset's wavetable) into Vitalium —
+because it fed raw `.vital` bytes to `load_preset` (returns `False`) and STANDARD-base64-decoded the
+state chunk (→ garbage that looked binary). **That was wrong.** The correct path is `load_state`:
+Vitalium's VST3 state chunk (`VC2!` + LE-uint32 XML length + `<VST3PluginState><IComponent>…`) has
+its `<IComponent>` in **JUCE `MemoryBlock` base64** (custom alphabet `".A–Za–z0–9+"`, LSB-first,
+`<len>.<data>`), which decodes to the literal `.vital` JSON — wavetables included — plus a fixed
+32-byte `…JUCEPrivateData` trailer. So we craft a loadable state from any `.vital` JSON (XML
+skeleton + trailer derived at runtime from one `save_state`, nothing hardcoded) and `load_state` it
+→ the preset renders at **full fidelity through the unmodified GPL plugin**. Verified end-to-end:
+splicing a pure square into a preset's osc-1 wavetable renders the textbook odd-harmonics spectrum;
+distinct presets yield large cross-spectral distances (real wavetables carried).
+
+Preset seeding therefore now (a) loads the real wavetable + full patch, and (b) applies the banded
+per-family jitter to the JSON `settings` values **before** encoding (osc frame/level/detune, filter
+cutoff/res, amp ADSR, FX dry/wet — in native Vital units, role-clamped); discrete / enum / routing /
+topology / sync / stereo / `effect_chain_order` keys are **never** jittered, preserving the preset's
+wavetables and structural character. Separately, the spike fixed three latent no-ops in the
+procedural (non-seeded) Vitalium patch (filter never routed → cutoff/res inert; Osc 2 switch off →
+a set osc-2 level silent; distortion type None → distortion amount inert).
+
+**Licensing unchanged:** an **unmodified**, redistributable GPL Vitalium binary is fed its own
+native state; the rendered AUDIO is program output, so GPL/CC0/Unlicense preset seeds do not
+propagate copyleft to it (GIMP/Audacity doctrine). `.vital` files are render **inputs** staged
+outside the shipped corpus and are **never** redistributed; only rendered audio ships.
 
 Drums combine our original DSP kit with **real one-shots from two kits** (per-hit pitch/gain
 jitter + round-robin to kill the machine-gun tell), re-sequenced into D&B patterns:
@@ -157,7 +169,7 @@ numbers: `es2_valbatch/sisdr_report.json` (staged, not shipped).
 | TidalCycles TR-808 (sounds-tr808-fischer) | **CC0-1.0** | github.com/tidalcycles/sounds-tr808-fischer | real CC0 808 one-shots, re-sequenced |
 | Surge XT | GPL-3 + output grant | surge-synthesizer.github.io | bass + synth voices (procedural params) |
 | Dexed | GPL-3 | asb2m10.github.io/dexed | FM voices (own patches) |
-| Vitalium (DISTRHO/Vital, NO_AUTH) | GPL-3 | github.com/DISTRHO/DISTRHO-Ports | wavetable voices (content-free, own params + preset-scalar overlay) |
+| Vitalium (DISTRHO/Vital, NO_AUTH) | GPL-3 | github.com/DISTRHO/DISTRHO-Ports | wavetable voices (content-free procedural params; full-fidelity preset seeds via `load_state`) |
 | DawDreamer | MIT | github.com/DBraun/DawDreamer | offline render engine |
 
 ### Synth-source provenance manifest (CC0 wavetables + preset render-seeds)

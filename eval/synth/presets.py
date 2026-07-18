@@ -54,7 +54,7 @@ def _parse(path: str) -> dict | None:
     if not isinstance(s, dict):
         return None
     out: dict = {"_name": d.get("preset_name") or os.path.splitext(os.path.basename(path))[0],
-                 "_author": d.get("author", "")}
+                 "_author": d.get("author", ""), "_path": path}
 
     def g(k):
         v = s.get(k)
@@ -119,8 +119,25 @@ def count() -> int:
 
 
 def pick(rng) -> dict | None:
-    """Return a random preset seed dict, or None if no bank is staged."""
+    """Return a random preset seed dict, or None if no bank is staged.
+
+    The dict carries the normalized scalar overlay (backward-compatible) plus ``_path`` /
+    ``_name`` / ``_author`` / ``_license`` metadata. Use ``load_json`` on it for full-fidelity
+    (``vital_state``) loading of the preset's real wavetable + all params.
+    """
     b = _bank()
     if not b:
         return None
     return b[int(rng.integers(len(b)))]
+
+
+def load_json(seed: dict) -> dict | None:
+    """Read the raw ``.vital`` JSON for a seed dict from ``pick`` (for full-fidelity loading)."""
+    path = seed.get("_path")
+    if not path or not os.path.exists(path):
+        return None
+    try:
+        with open(path) as fh:
+            return json.load(fh)
+    except Exception:
+        return None

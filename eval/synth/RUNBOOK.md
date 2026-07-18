@@ -71,8 +71,11 @@ Outputs under `corpus/`: `audio/<track_id>/{drums,bass,other,vocals,mix_premaste
 - `surge.py` / `dexed.py` / `vitalium.py` — Surge XT + Dexed (FM) + Vitalium (wavetable) drivers.
 - `wavetable.py` — **CC0 wavetable scan-synth** (numpy band-limited oscillator over public-domain
   `.vitaltable` banks; the #1 timbre lever). Bank env-overridable via `SYNTH_WT_BANK`.
-- `presets.py` — **preset scalar seeding** (license-vetted `.vital` `settings` → normalized Vitalium
-  params, sparse "quality anchors"; audio-only GPL position). Source env-overridable `SYNTH_PRESET_SRC`.
+- `presets.py` — **preset bank** (license-vetted `.vital` seeds: scalar overlay + raw-JSON loader for
+  full fidelity; author spot-check; audio-only GPL position). Source env-overridable `SYNTH_PRESET_SRC`.
+- `vital_state.py` — **full-fidelity `.vital` loader**: JUCE-wraps a (jittered) preset JSON into a
+  Vitalium VST3 state chunk and `load_state`s it, so the preset's real embedded **wavetable** + all
+  params render through the unmodified GPL plugin. Supersedes scalar-only seeding.
 - `bass.py` — bass families (sub / reese / wobble / jumpup-bounce / foghorn / growl).
 - `synths.py` — `other` bus (pad / rhodes / stab / lead / pluck / atmos).
 - `oneshots.py` — E-GMD + TR-808 one-shot library extraction + loading.

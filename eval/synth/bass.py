@@ -14,6 +14,7 @@ from scipy.signal import butter, sosfilt
 
 from . import arrange, patches
 from . import presets as _presets
+from . import vital_state as _vs
 from . import wavetable as _wt
 from .surge import render_layer
 
@@ -139,9 +140,15 @@ def render_bass_bus(spec, tl: arrange.Timeline, rng,
             desc = {"engine": "cc0-wavetable"}
         elif vit_ok and family in _VIT_BASS and roll < 0.6:
             seed = _presets.pick(rng) if (preset_ok and rng.random() < _PRESET_SEED_PROB) else None
-            audio = fit(vitalium.render(notes, secs, rng, family, seed=seed))
-            desc = {"engine": "vitalium-wt", "preset_seeded": bool(seed),
-                    "preset": (seed or {}).get("_name")}
+            pj = _presets.load_json(seed) if (seed and _vs.available()) else None
+            if pj is not None:
+                audio = fit(_vs.render(notes, secs, rng, family, pj))
+                desc = {"engine": "vitalium-fullstate", "preset_seeded": True,
+                        "preset": seed.get("_name"), "preset_license": seed.get("_license")}
+            else:
+                audio = fit(vitalium.render(notes, secs, rng, family, seed=seed))
+                desc = {"engine": "vitalium-wt", "preset_seeded": bool(seed),
+                        "preset": (seed or {}).get("_name")}
         else:
             audio = fit(render_layer(cfg, notes, secs, family))
         audio = _modulate(audio, family, tl, rng)

@@ -11,6 +11,7 @@ import numpy as np
 
 from . import arrange, patches, theory
 from . import presets as _presets
+from . import vital_state as _vs
 from . import wavetable as _wt
 from .surge import render_layer
 
@@ -151,10 +152,18 @@ def render_other_bus(spec, tl, rng, dexed=None, vitalium=None) -> tuple[np.ndarr
             descriptors.append({"role": role, "engine": "cc0-wavetable"})
         elif engine == "vitalium":
             seed = _presets.pick(rng) if (preset_ok and rng.random() < _PRESET_SEED_PROB) else None
-            audio = fit(vitalium.render(notes, secs, rng, role, seed=seed))
-            descriptors.append({"role": role, "engine": "vitalium-wt",
-                                "preset_seeded": bool(seed),
-                                "preset": (seed or {}).get("_name")})
+            pj = _presets.load_json(seed) if (seed and _vs.available()) else None
+            if pj is not None:
+                # full-fidelity: load the preset's real wavetable + params via load_state, jittered
+                audio = fit(_vs.render(notes, secs, rng, role, pj))
+                descriptors.append({"role": role, "engine": "vitalium-fullstate",
+                                    "preset_seeded": True, "preset": seed.get("_name"),
+                                    "preset_license": seed.get("_license")})
+            else:
+                audio = fit(vitalium.render(notes, secs, rng, role, seed=seed))
+                descriptors.append({"role": role, "engine": "vitalium-wt",
+                                    "preset_seeded": bool(seed),
+                                    "preset": (seed or {}).get("_name")})
         else:
             cfg, desc = patches.rand_synth_cfg(role, rng)
             audio = fit(render_layer(cfg, notes, secs, role))
