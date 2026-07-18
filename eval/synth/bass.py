@@ -19,6 +19,9 @@ from .surge import render_layer
 
 SR = 44100
 _PRESET_SEED_PROB = 0.4
+# Probability a wavetable-family mid-bass is rendered by the CC0 scan-synth (the neuro-bass lever).
+# Tuned to hold the SCNet-realism bass SI-SDR median at ~8 dB (matched A/B; see DATASET_CARD).
+_WT_BASS_PROB = 0.33
 
 
 def _hp(x: np.ndarray, f: float) -> np.ndarray:
@@ -130,7 +133,7 @@ def render_bass_bus(spec, tl: arrange.Timeline, rng,
             continue
         notes = _mid_notes(spec, tl, rng, family)
         roll = rng.random()
-        if cc0wt_ok and family in _WT_BASS and roll < 0.35:
+        if cc0wt_ok and family in _WT_BASS and roll < _WT_BASS_PROB:
             # CC0 wavetable scan-synth — real public-domain growl/neuro tables.
             audio = fit(_wt.render(notes, secs, rng, family))
             desc = {"engine": "cc0-wavetable"}

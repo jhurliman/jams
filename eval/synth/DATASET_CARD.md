@@ -128,24 +128,26 @@ by seed. `split.json` records the exact `train`/`val` track-id lists and a `val_
 
 Matched 12-track batch (one per sub-style ×2, identical seeds), CC0-wavetable scan-synth + preset
 seeding **OFF vs ON** (Vitalium filter/osc-2/distortion routing fixes present in both arms, so this
-isolates the *source* lever). SCNet XL IHF SI-SDR medians (dB), lower = harder to separate =
-closer to real-music difficulty:
+isolates the *source* lever). SCNet XL IHF SI-SDR (dB), lower = harder to separate = closer to
+real-music difficulty. The CC0-bass mix fraction (`_WT_BASS_PROB` in `bass.py`) was **tuned to
+`0.33`** to land the bass median near the ~8 dB target (a deliberate split between the OFF baseline
+12.9 and the aggressive-mix 6.4):
 
-| stem | before (OFF) | after (ON) | Δ |
+| stem | before (OFF) | after (ON, `_WT_BASS_PROB=0.33`) | Δ median |
 |---|---|---|---|
 | drums | 14.1 | 13.5 | −0.6 |
-| bass  | 12.9 | **6.4** | **−6.5** |
-| other | 5.5 | 2.8 | −2.7 |
+| bass  | 12.9 | **9.3** (mean 8.5) | −3.6 |
+| other | 5.5 | 4.3 | −1.2 |
 
 Adding the real CC0 wavetables (biased to folding/FM/sync/phase "neuro" tables) + preset-seeded
-Vitalium moves **bass and other markedly harder** while drums stay put and the stem-sum residual
-stays perfect (on-disk FLAC-16 −76…−79 dB; float ≈ −219 dB) — i.e. still firmly in regime (a),
-not broken, not trivially clean. This is the intended realism/diversity increase: the distinct
-public-domain wavetable spectra are exactly the dense, hard-to-separate bass the ES2 fine-tune
-targets. Note the corpus-wide bass median (6.4) now sits *below* the 10–15 dB comfort band; the
-CC0-bass mix fraction (`_WT_BASS` ≈ 0.35 in `bass.py`) is the tuning knob if a maintainer wants
-bass held higher. `other` (2.8) tracks the same direction. Both arms' full numbers:
-`es2_valbatch/sisdr_report.json` (staged, not shipped).
+Vitalium moves **bass and other harder** while drums stay put and the stem-sum residual stays
+perfect (on-disk FLAC-16 −76…−79 dB; float ≈ −219 dB) — still firmly in regime (a), not broken,
+not trivially clean. The distinct public-domain wavetable spectra are exactly the dense,
+hard-to-separate bass the ES2 fine-tune targets. **Tuning note:** at n=12 the bass median is
+noise-dominated and steep in the mix fraction (`0.33`→9.3, `0.34`→6.5, `0.35`→6.4 medians), so
+`_WT_BASS_PROB=0.33` (bass median 9.3 / **mean 8.5 ≈ 8**) is the chosen operating point; raise it
+toward 0.35 for a harder bass, lower it toward 0 to approach the 12.9 baseline. Both arms' full
+numbers: `es2_valbatch/sisdr_report.json` (staged, not shipped).
 
 ## Asset / license ledger
 
