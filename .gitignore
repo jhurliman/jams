@@ -49,3 +49,10 @@ paper/arxiv/main.fls
 paper/arxiv/main.fdb_latexmk
 paper/arxiv/main.blg
 paper/arxiv/main.synctex.gz
+paper/lbd/main.aux
+paper/lbd/main.log
+paper/lbd/main.blg
+paper/lbd/main.fls
+paper/lbd/main.fdb_latexmk
+paper/lbd/main.out
+paper/lbd/main.synctex.gz
