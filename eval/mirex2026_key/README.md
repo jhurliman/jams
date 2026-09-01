@@ -42,7 +42,9 @@ The model is trained ONLY on mirdata `beatport_key`. That corpus was verified
 empirically (recorded in the project ledger, `paper/EXPERIMENTS.md`, section
 K10) to contain all 1,157 usable GiantSteps-MTG training ids — it is the same
 corpus under revised annotations — and to have **zero track-id overlap with
-GiantSteps Key**. GiantSteps Key was used exactly once, as a held-out test set
+GiantSteps Key**. The overlap check is reproducible from the mirdata indexes
+alone: `uv run eval/verify_key_disjoint.py` (1,486 beatport_key ids vs. 600
+giantsteps_key ids, intersection empty). GiantSteps Key was used exactly once, as a held-out test set
 after all model selection was frozen; no MIREX evaluation audio or labels were
 used in training or model selection. If the MIREX evaluation set includes
 GiantSteps Key material, the above pre-registered score is the expected
