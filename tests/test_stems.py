@@ -302,3 +302,39 @@ def test_gm_monophonic_filter_keeps_loudest_overlap():
         {"onset": 2.0, "offset": 3.0, "pitch": 50, "velocity": 60},
     ]
     assert [n["pitch"] for n in gm.monophonic_filter(notes)] == [45, 50]
+
+
+# --- yourmt3 worker: device selection ---------------------------------------
+
+
+def _load_yourmt3_worker():
+    path = Path(S.__file__).resolve().parents[1] / "data" / "yourmt3_worker.py"
+    spec = importlib.util.spec_from_file_location("yourmt3_worker", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_yourmt3_prefers_mps_and_caps_allocator_by_budget(monkeypatch):
+    """mt3-infer's own auto-select is cuda-or-cpu; the worker must pick mps on Apple
+    Silicon and cap the allocator (absolute budget / recommended working set)."""
+    torch = pytest.importorskip("torch")
+    w = _load_yourmt3_worker()
+    seen = {}
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+    monkeypatch.setattr(torch.backends.mps, "is_available", lambda: True, raising=False)
+    monkeypatch.setattr(torch.mps, "recommended_max_memory", lambda: 20e9, raising=False)
+    monkeypatch.setattr(torch.mps, "set_per_process_memory_fraction",
+                        lambda f: seen.__setitem__("frac", f), raising=False)
+    monkeypatch.setenv("JAMS_MPS_MEMORY_GB", "8")
+    assert w._select_device() == "mps"
+    assert seen["frac"] == pytest.approx(0.4)
+    assert w._select_device() == "mps"  # cached; no second cap call needed
+
+
+def test_yourmt3_falls_back_to_cpu_without_accelerator(monkeypatch):
+    torch = pytest.importorskip("torch")
+    w = _load_yourmt3_worker()
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+    monkeypatch.setattr(torch.backends.mps, "is_available", lambda: False, raising=False)
+    assert w._select_device() == "cpu"
