@@ -97,7 +97,8 @@
       "bass_f1": 0.5957,
       "other_f1": 0.4585,
       "archive": "results_aws/slakh_test_e2e.json",
-      "si_sdr_note": "per-track SI-SDR stored in the archive and recomputed"
+      "si_sdr_note": "per-track SI-SDR stored in the archive and recomputed",
+      "sha256": "111626ff21e36d3005e5f60b9e5d2f16b98c3eacea132ba501ed8cddb39edb88"
     },
     {
       "id": "S4",
@@ -112,7 +113,9 @@
       "other_f1": 0.4733,
       "archive": "results_aws/sep_scnet_notes.json",
       "si_sdr_archive": "results_aws/sep_scnet_sdr.json",
-      "si_sdr_note": "per-track SI-SDR not stored in the S4 archive; the aggregate file is checked instead (T10 stores per-track SCNet SI-SDR: 14.31/5.98/11.76)"
+      "si_sdr_note": "per-track SI-SDR not stored in the S4 archive; the aggregate file is checked instead (T10 stores per-track SCNet SI-SDR: 14.31/5.98/11.76)",
+      "sha256": "19397c11e7d3d6023e624db9056fce47bb8c498d1c261ba24c19aebaf7765e1b",
+      "si_sdr_archive_sha256": "34290c03c917fd688e97ca599a6061a6d1604bb29a51b730ab8b991a275bba9e"
     }
   ],
   "bass_reference": {

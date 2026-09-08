@@ -187,8 +187,31 @@ class PublicationIntegrityTests(unittest.TestCase):
             doc = json.loads(s1.read_text())
             doc["per_track"][0]["sdr"]["drums"] = float("nan")
             s1.write_text(json.dumps(doc))
+            bad = json.loads(json.dumps(good))
+            for r in bad["separation"]:
+                r.pop("sha256", None)  # isolate the finiteness check from the digest check
             with self.assertRaisesRegex(ValueError, "non-finite"):
+                check_archives(bad, Path(root))
+        with tempfile.TemporaryDirectory() as root:  # digest mismatch with unchanged aggregates
+            shutil.copytree(HERE / "evidence" / "results_aws", Path(root) / "results_aws")
+            s1 = Path(root) / "results_aws" / "slakh_test_e2e.json"
+            doc = json.loads(s1.read_text())
+            a, b = doc["per_track"][0]["sdr"], doc["per_track"][1]["sdr"]
+            a["drums"], b["drums"] = b["drums"], a["drums"]
+            s1.write_text(json.dumps(doc))
+            with self.assertRaisesRegex(ValueError, "SHA-256"):
                 check_archives(good, Path(root))
+        with tempfile.TemporaryDirectory() as root:  # incomplete SI-SDR support
+            shutil.copytree(HERE / "evidence" / "results_aws", Path(root) / "results_aws")
+            s1 = Path(root) / "results_aws" / "slakh_test_e2e.json"
+            doc = json.loads(s1.read_text())
+            doc["per_track"][0]["sdr"]["drums"] = None
+            s1.write_text(json.dumps(doc))
+            bad = json.loads(json.dumps(good))
+            for r in bad["separation"]:
+                r.pop("sha256", None)  # isolate the support check from the digest check
+            with self.assertRaisesRegex(ValueError, "support"):
+                check_archives(bad, Path(root))
 
 
 if __name__ == "__main__":

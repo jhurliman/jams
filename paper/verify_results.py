@@ -104,6 +104,13 @@ def check_snapshot(data: dict) -> dict:
         for r in data["transcription"]:
             if r.get("ci") is None or not r.get("sha256"):
                 raise ValueError(f"Recomputed snapshot row {r['id']} lacks ci/sha256")
+        for r in data["separation"]:
+            if not r.get("sha256") or (
+                "si_sdr_archive" in r and not r.get("si_sdr_archive_sha256")
+            ):
+                raise ValueError(
+                    f"Recomputed snapshot separation row {r['id']} lacks archive digests"
+                )
     rows = {r["id"]: r for r in data["transcription"]}
     if set(rows) != {"T1", "T2b", "S4", "T10"} or len(data["transcription"]) != 4:
         raise ValueError("Expected four unique primary configurations")
@@ -342,6 +349,10 @@ def check_separator(data: dict, root: Path, boot_kw: dict) -> dict:
     for sid, r in sep.items():
         path = root / r["archive"]
         digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        if r.get("sha256") and r["sha256"] != digest:
+            raise ValueError(
+                f"separation {sid}: archive SHA-256 {digest} differs from snapshot {r['sha256']}"
+            )
         scores = {
             "drums": read_scores(path, group="drums", key="drum_onset_f"),
             "bass": read_scores(path, group="bass"),
@@ -375,6 +386,11 @@ def check_separator(data: dict, root: Path, boot_kw: dict) -> dict:
                         or not math.isfinite(v)
                     ):
                         raise ValueError(f"separation {sid} {g}: non-finite SI-SDR value {v!r}")
+                n_expected = 151 if g != "bass" else r["bass_n"]
+                if len(vals) != n_expected:
+                    raise ValueError(
+                        f"separation {sid} {g} SI-SDR: support {len(vals)} != {n_expected}"
+                    )
                 mean = sum(vals) / len(vals)
                 if abs(mean - r[f"{g}_si_sdr"]) > 0.0051:
                     raise ValueError(
@@ -397,7 +413,10 @@ def check_separator(data: dict, root: Path, boot_kw: dict) -> dict:
                     "n": None,
                     "source": "aggregate_only_archive",
                 }
-            row_report["si_sdr_archive_sha256"] = hashlib.sha256(agg_path.read_bytes()).hexdigest()
+            agg_digest = hashlib.sha256(agg_path.read_bytes()).hexdigest()
+            if r.get("si_sdr_archive_sha256") and r["si_sdr_archive_sha256"] != agg_digest:
+                raise ValueError(f"separation {sid}: SI-SDR archive SHA-256 differs from snapshot")
+            row_report["si_sdr_archive_sha256"] = agg_digest
         out["rows"][sid] = row_report
     spd = data["separator_paired_delta"]
     for key, g, n in (
