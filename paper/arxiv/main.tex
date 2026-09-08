@@ -123,7 +123,15 @@ The experiment ledger identifies the Slakh2100-redux test split, with 151
 multitracks. The acquisition script groups stems marked as drums into drums,
 General MIDI bass programs 32--39 (zero-indexed), or stems labeled Bass, into bass,
 and all remaining pitched stems into other. It sums audio within each group and
-merges the corresponding MIDI instruments. Slakh contains synthesized instrumental
+merges the corresponding MIDI instruments. An audit of all 445 grouped references
+(151 multitracks; 8 have no bass stem) found no stem whose MIDI was merged while its
+audio was unreadable, no truncation of a group to a shorter member, no clipping in
+the 16-bit sums (largest summed peak 0.93), grouped audio equal to the recomputed
+sums to one quantization step, and no note beyond the audio end. Cross-correlating
+each group's onset-strength envelope with its MIDI onsets places the best lag
+within 12--58\,ms after note-on for every class, consistent with instrument attack
+times and the estimator's one-frame bias; no group shows an offset. The audit
+script and report are in the repository. Slakh contains synthesized instrumental
 music; there is no reference vocal group in this evaluation.
 
 The historical summary reports 151 accompaniment pairs and 143 bass pairs in the

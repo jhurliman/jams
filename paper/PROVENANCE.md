@@ -404,6 +404,14 @@ Windows volume holding `checkpoints/`, `demix/`, `features/`, `mlflow/`, `rbma13
 | `~/ov1/` | `data/`, `gt_test/`, `gt_val_smoke/`, `out_conf/`, `out_smoke_conf/` | OV1 confirmatory run |
 | `~/.cache/huggingface/hub` | `models--adefossez--HTDemucs`, `models--taejunkim--allinone` (plus unrelated image models) | HT-Demucs and All-In-One weights; not hashed |
 
+Grouped-reference audit (2026-09-08, `paper/audit_grouped_refs.py` run on this host against
+`~/s7/jams/eval/data/slakh/redux`, report `paper/evidence/grouped_reference_audit.json`):
+445 groups; no phantom-MIDI or audio-without-MIDI stems, no truncation, no clipping
+(max summed peak 0.927), all WAVs PCM_16 and equal to recomputed sums to 1 LSB, no notes
+past audio end; onset/MIDI lags 12–58 ms by class (attack time + 1-frame bias), no offsets.
+This closes open item 8 for the references on this host; it does not prove the AWS/Lambda
+boxes built identical files, although the script and inputs are the same.
+
 No YourMT3+/mt3-infer cache exists on the host outside `~/s7/jams/.mt3_checkpoints`. The
 SCNet-separated stems of S4/T10 were not found (`/mnt/d/jams/stems_scratch` and `stems_json`
 were listed, not inspected). Open item 10 in §8 is closed; the remaining items stand.
@@ -422,6 +430,6 @@ were listed, not inspected). Open item 10 in §8 is closed; the remaining items 
    upstream publishes no digest.
 7. MD5 verification logs of the Slakh test audio/MIDI for the T1/S4/T10 boxes (only later runs
    recorded verification).
-8. Peak amplitudes / clipping status and durations of the 151 grouped `PCM_16` reference WAVs.
+8. ~~Peak amplitudes / clipping status and durations of the 151 grouped `PCM_16` reference WAVs.~~ Audited 2026-09-08 on aleph0 (§7); box-built copies not separately verified.
 9. Lakh source-MIDI overlap between the babyslakh dev tracks and the test split.
 10. ~~Everything on aleph0 (§7).~~ Inspected 2026-09-08; see §7.

@@ -64,7 +64,9 @@ with archived predictions (T2b), `python paper/rescore_t2b.py` rebuilds the grou
 Slakh references from the redux test MIDI (expected under `eval/data/slakh_home/`; see
 the script header) and reproduces every archived per-track value; its output is
 committed as `paper/evidence/rescore_t2b.json`. `paper/PROVENANCE.md` records
-checkpoint hashes, versions, and the unrecoverable items. Recovery of
+checkpoint hashes, versions, and the unrecoverable items. `paper/audit_grouped_refs.py`
+audits the grouped references (completeness, truncation, clipping, onset/MIDI alignment)
+where the redux and grouped files live; its report is `paper/evidence/grouped_reference_audit.json`. Recovery of
 predictions, references, run configurations and checkpoint identities, independent
 rescoring, and a durable evidence release remain necessary; see the ordered steps in
 [REVIEW.md](REVIEW.md). Dataset-acquisition scripts do not recover historical predictions.

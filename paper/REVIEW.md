@@ -28,7 +28,21 @@ records checkpoint hashes (SCNet, YourMT3+), Slakh archive digests, scorer versi
 and the items that are not recoverable (original command lines, basic-pitch and
 end-to-end predictions, box-side package versions). Items 1–3 below are done as far
 as the evidence allows; item 4 is open; item 5 is done for the score archives; item 6
-remains the author's. The manuscripts were updated to
+remains the author's.
+
+Item 4 was then completed on aleph0 against the grouped references the S7 run built
+with the same script (151 tracks, 445 groups): zero phantom-MIDI stems, zero
+audio-without-MIDI stems, zero truncation, zero clipped samples (max summed peak
+0.927), all grouped WAVs PCM_16 and equal to the recomputed float sums to 1 LSB, no
+notes past the audio end. Onset-envelope/MIDI cross-correlation over the full
+duration: 417/445 groups have their global maximum within 0–70 ms after note-on;
+per-class best near-zero lags are drums 12–23 ms, bass 23–58 ms, other 23–46 ms
+(instrument attack + ~1 frame estimator bias, calibrated at 11.6 ms on synthetic
+impulses). The 8 groups whose global maximum lies elsewhere are periodic drum/bass
+parts with a one-beat alias at most 21% stronger than the near-zero peak; 6 dense
+"other" groups have correlation below 0.3 (method-limited, not evidence of
+misalignment). No group shows an offset. Items 1–4 are therefore done as far as the
+evidence allows. The manuscripts were updated to
 match. Nothing in the paper depends on the project's S3 bucket.
 
 ## Main scientific judgment
@@ -100,7 +114,7 @@ audio again would not recover historical predictions or run configurations.
    package lockfiles, run commands, preprocessing and note-decoding parameters.
    Verify the babyslakh development IDs and source-MIDI overlap, not just filenames.
    Do not equate subprocess isolation with an immutable environment.
-4. **[Open; Slakh copy on aleph0 makes it feasible] Audit grouped references.** `acquire_slakh.py` can skip unreadable audio stems
+4. **[Done 2026-09-08 on aleph0 against the S7-built references; paper/audit_grouped_refs.py, paper/evidence/grouped_reference_audit.json] Audit grouped references.** `acquire_slakh.py` can skip unreadable audio stems
    independently of MIDI merging and truncates group audio to its shortest stem.
    Its default WAV write subtype can clip sums outside the PCM range. These are
    concrete risks to inspect in the recovered data, not observed corruption claims.
