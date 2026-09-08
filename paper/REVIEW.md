@@ -156,12 +156,18 @@ inspected. The arXiv source bundle was also compiled in a clean directory and it
 extracted text matched the repository PDF. Final logs contain no LaTeX warnings,
 undefined citations/references, or overfull/underfull boxes.
 
-Six integrity regressions pass: missing-archive refusal, mismatched IDs and support,
-invalid-score rejection, duplicate rows in both documented schemas, paired-bootstrap
-behavior, and the historical key scorer against mir_eval 0.8.2 for all 576 major/minor
-key pairs. Exactly 24 pairs differ, all same-mode +5-semitone estimates. These tests
-used an isolated numerical environment; they are not production-worker verification.
-The real archive command fails as intended because all four primary files are absent.
+Ten integrity regressions pass (as of the 2026-09-08 recovery): missing-archive
+refusal, mismatched IDs and support, invalid-score rejection, duplicate rows in both
+documented schemas, paired-bootstrap behavior, the historical key scorer against
+mir_eval 0.8.2 for all 576 major/minor key pairs (exactly 24 differ, all same-mode
++5-semitone estimates), validation of every published snapshot section, archive-level
+recomputation of the bass-reference and separator sections (an internally consistent
+snapshot edit is rejected), required contrast sections, and rejection of non-finite
+or incomplete SI-SDR archives and of archives whose digests differ from the recorded
+ones. These tests use an isolated numerical environment; they are not
+production-worker verification. `python paper/verify_results.py` now selects
+`paper/evidence` automatically and succeeds: all primary archives are committed
+(see the status update above); the missing-archive refusal is exercised by the tests.
 
 The project name is disambiguated from the existing
 [JAMS annotation library](https://github.com/marl/jams) in both manuscripts.
