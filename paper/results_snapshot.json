@@ -121,10 +121,10 @@
       0.0034,
       0.11
     ],
-    "postprocessing": "monophonic filtering and +12 semitone estimate shift; run arguments require verification"
+    "postprocessing": "+12 semitone estimate shift only (no monophonic filter); confirmed by rescoring the archived predictions (paper/evidence/rescore_t2b.json)"
   },
   "caveats": [
-    "Stored per-track scores were recovered from the author machine on 2026-09-08 and are committed under paper/evidence/; means and intervals above are recomputed from them. Independent rescoring from MIDI predictions is reported separately where predictions were archived (YourMT3+ reference input only); basic-pitch and end-to-end predictions were not archived.",
+    "Stored per-track scores were recovered from the author machine on 2026-09-08 and are committed under paper/evidence/; means and intervals above are recomputed from them. For T2b, the only arm with archived note predictions, rescoring from MIDI reproduces every archived per-track value (paper/evidence/rescore_t2b.json); basic-pitch and end-to-end predictions were not archived.",
     "Model inference was not rerun. Filenames and stored scores do not by themselves establish checkpoint identity; see paper/PROVENANCE.md.",
     "SCNet other SI-SDR is 11.77 in S4 and 11.76 in T10; do not silently treat rounded summaries as identical.",
     "Development reused test results. Intervals are conditional exploratory summaries, not confirmatory evidence."

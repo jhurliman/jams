@@ -290,13 +290,16 @@ sets. The tables and figure regenerate from a summary snapshot that records that
 verification. The repository is the only hosting dependency; no cloud object store
 is required to reproduce the analysis.
 
-What the archives do not contain: the basic-pitch and end-to-end note predictions
-were not saved, so those arms are verified at the stored-score level only. The
-YourMT3+ reference-input predictions were saved and are rescored against the
-grouped references independently of the stored fields; that comparison and the
-checkpoint and environment record are documented in the repository
-(\path{paper/PROVENANCE.md}). No model inference was rerun for this revision, and no
-missing measurement has been estimated or synthesized.
+The YourMT3+ reference-input predictions (run T2b) were also saved. Rescoring
+them from the raw note lists against independently rebuilt grouped Slakh
+references, with the same scorer and library versions, reproduces every archived
+per-track precision, recall, and F1 value exactly for all 151 accompaniment and 143
+bass pairs (\path{paper/rescore_t2b.py}). The basic-pitch and end-to-end note
+predictions were not saved, so those arms are verified at the stored-score level
+only. Checkpoint identities, library versions, decoding parameters, and the items
+that remain unrecoverable are recorded in \path{paper/PROVENANCE.md}. No model
+inference was rerun for this revision, and no missing measurement has been
+estimated or synthesized.
 
 \section*{Acknowledgments and AI use}
 We thank the authors and maintainers of the datasets, models, and evaluation
@@ -312,10 +315,12 @@ an author. The limits of the verification performed are stated above.
 \label{app:bass}
 The reference-input bass comparison has 143 eligible pairs in the archived
 statistics, with F1 0.7889 for basic-pitch and 0.8486 for YourMT3+; the reported
-paired difference is $+0.0597$ \ci{+0.0034}{+0.1100}. These scores follow the
-project's fixed $+12$-semitone shift of estimated bass notes and a monophonic
-post-filter. The service applies the shift in its orchestrator; the evaluation
-CLI also offers an additional shift, making exact run arguments material.
+paired difference is $+0.0597$ \ci{+0.0034}{+0.1100}. The YourMT3+ score follows
+a fixed $+12$-semitone shift of the estimated bass notes and no other
+post-processing: rescoring the archived predictions reproduces 0.8486 only with the
+shift alone, whereas adding the service's monophonic filter would give 0.8126. The
+service applies the shift in its orchestrator; the evaluation CLI also offers an
+additional shift, so the exact arguments matter and are now documented.
 The earlier manuscript called this a universal written-MIDI convention. The
 repository's empirical observation on a small preview subset does not establish
 that assertion. A renderer- and instrument-specific pitch audit, with shifted and

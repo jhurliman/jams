@@ -125,9 +125,10 @@ examining downstream notes in addition to listening to separated audio.
 The public repository contains the service, scoring code, experiment ledger, and
 the per-recording score archives behind this comparison, with checksums and a
 checker that rejects missing archives or mismatched track IDs before recomputing
-the means and intervals above. Stored scores are thereby recomputed, not
-reproduced: only the YourMT3+ reference-input predictions were archived for
-rescoring from MIDI, and no inference was rerun.
+the means and intervals above. For the one arm whose note predictions were
+archived (YourMT3+ on reference input), rescoring from the raw notes against
+rebuilt Slakh references reproduces every archived per-track value; the other
+arms are verified at the stored-score level, and no inference was rerun.
 
 The next evaluation should freeze the pipeline on a development split, compare
 direct and separated inputs on paired recordings, and measure note offsets,

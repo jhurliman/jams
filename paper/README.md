@@ -59,7 +59,12 @@ intervals (seed 0). Historical bootstrap row order is not known, so finite-boots
 endpoints can differ slightly even when data agree. Inspect those differences before
 updating the manuscript; nothing is overwritten automatically.
 
-This checks **stored scores**, not MIDI matching or model inference. Recovery of
+This checks **stored scores**, not MIDI matching or model inference. For the one arm
+with archived predictions (T2b), `python paper/rescore_t2b.py` rebuilds the grouped
+Slakh references from the redux test MIDI (expected under `eval/data/slakh_home/`; see
+the script header) and reproduces every archived per-track value; its output is
+committed as `paper/evidence/rescore_t2b.json`. `paper/PROVENANCE.md` records
+checkpoint hashes, versions, and the unrecoverable items. Recovery of
 predictions, references, run configurations and checkpoint identities, independent
 rescoring, and a durable evidence release remain necessary; see the ordered steps in
 [REVIEW.md](REVIEW.md). Dataset-acquisition scripts do not recover historical predictions.
