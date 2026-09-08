@@ -41,7 +41,10 @@ CLASSES = (
     "altintro",
     "altoutro",
 )
-AGGREGATES = ("pairwise_f", "beat_f", "bound_f_0.5")
+AGGREGATES = ("pairwise_f", "beat_f", "bound_f_0.5")  # paired deltas reported
+# Every per-track field a scored artifact carries; all are cross-checked against the
+# recomputation, not only the three reported aggregates.
+SCORED_METRICS = ("beat_f", "downbeat_f", "bound_f_0.5", "bound_f_3.0", "pairwise_f", "v_measure")
 N_BOOT = 10_000
 
 
@@ -213,7 +216,7 @@ def main() -> None:
                 f"equal the paired arm set (n={len(common)})"
             )
         for r in scored_rows:
-            for m in AGGREGATES:
+            for m in SCORED_METRICS:
                 a, b = r.get(m), computed[r["track_id"]].get(m)
                 for v in (a, b):
                     bad_type = isinstance(v, bool) or not isinstance(v, (int, float))
@@ -224,7 +227,10 @@ def main() -> None:
                         f"{label}: {r['track_id']} {m} scored={a} recomputed={b}; the scored "
                         "artifact does not correspond to the supplied raw predictions"
                     )
-        print(f"{label}: {len(ids)} tracks match the recomputed metrics")
+        print(
+            f"{label}: {len(ids)} tracks match the recomputation on all "
+            f"{len(SCORED_METRICS)} metrics"
+        )
     for m in AGGREGATES:
         deltas = [
             pt_arm[t][m] - pt_stock[t][m]
