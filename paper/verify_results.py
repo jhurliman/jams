@@ -265,13 +265,28 @@ def check_archives(data: dict, root: Path) -> dict:
                 round(stats["mean"], 4) != rec["mean"]
                 or [round(x, 4) for x in stats["ci"]] != rec["ci"]
                 or round(stats["win_fraction"], 4) != rec["win_fraction"]
+                or round(stats["loss_fraction"], 4) != rec["loss_fraction"]
             ):
                 raise ValueError(
                     f"Contrast {a} - {b}: recomputed {stats} disagrees with snapshot {rec}"
                 )
-    wins = sum(loaded["T2b"][t] > base[t] for t in base) / len(base)
-    if wins != data["reference_paired_delta"]["win_fraction"]:
-        raise ValueError("Reference-input win fraction disagrees with snapshot")
+    # The separately published reference contrast must equal the recomputed T2b - T1 and
+    # its duplicate paired_contrasts record.
+    rp = data["reference_paired_delta"]
+    ref = report["contrasts"]["T2b - T1"]
+    if (
+        round(ref["mean"], 4) != rp["mean"]
+        or [round(x, 4) for x in ref["ci"]] != rp["ci"]
+        or round(ref["win_fraction"], 4) != rp["win_fraction"]
+    ):
+        raise ValueError(f"reference_paired_delta {rp} disagrees with recomputed T2b - T1 {ref}")
+    dup = recorded.get("T2b - T1")
+    if dup is not None and (dup["mean"], dup["ci"], dup["win_fraction"]) != (
+        rp["mean"],
+        rp["ci"],
+        rp["win_fraction"],
+    ):
+        raise ValueError("reference_paired_delta and paired_contrasts['T2b - T1'] disagree")
     boot_kw = {k: data["bootstrap"][k] for k in ("resamples", "seed")}
     report["bass_reference"] = check_bass_reference(data, root, boot_kw)
     report["separator"] = check_separator(data, root, boot_kw)
@@ -381,6 +396,7 @@ def check_separator(data: dict, root: Path, boot_kw: dict) -> dict:
             not _close4(stats["mean"], rec["mean"])
             or [round(x, 4) for x in stats["ci"]] != rec["ci"]
             or not _close4(stats["win_fraction"], rec["win_fraction"])
+            or not _close4(stats["loss_fraction"], rec["loss_fraction"])
         ):
             raise ValueError(
                 f"separator_paired_delta {key}: recomputed {stats} disagrees with snapshot {rec}"
