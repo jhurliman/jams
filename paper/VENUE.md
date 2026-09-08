@@ -81,9 +81,18 @@ history. If the organizers decline, pursue the LBD demo and the transcription pa
    any actual human contributors or funding need to be added. Do not invent them.
 2. Archives recovered, committed under `paper/evidence/`, and verified (REVIEW.md status update); the MIDI-level rescore and provenance record are in progress.
    Build and read both PDFs. The arXiv source package build command is in [README.md](README.md).
-3. For LBD, validate the current interface on one authorized audio example, record
-   a short import/inspection/MIDI-export demonstration, and verify that its
-   performance claims match the submitted abstract. Avoid unsupported speed claims.
+3. LBD interface validation: **done 2026-09-08** on Slakh2100 test `Track01876`
+   (CC BY 4.0) in the annotator; every interface statement in `lbd/main.tex` was
+   checked against the running application (import, beat grid + segments, aligned
+   piano rolls, boundary/label editing, per-group MIDI export, stems via the service).
+   Walkthrough GIF, screenshots, exported MIDI, and the analyze JSON are in
+   `~/.claude/staging/lbd_demo/` (not committed). Demo checklist from that run:
+   pre-analyze the demo tracks (a 259 s track took ≈15.5 min with stems on an
+   Apple-Silicon laptop because YourMT3+ ran on CPU); keep the browser tab in the
+   foreground (a background tab defers audio loading); do a cold-start test of the
+   model-artifact downloads before travel; piano rolls have no playhead line of their
+   own; the annotator passes no genre, so tempo octave resolution is off for non-EDM
+   material. Avoid unsupported speed claims.
 4. Submit LBD before its rolling cap/deadline; pursue the MIREX inquiry in parallel.
 5. Deposit the empirical preprint when its evidence and human review are complete.
    Prepare an archival expansion only after the direct-mixture and fresh-corpus controls.
