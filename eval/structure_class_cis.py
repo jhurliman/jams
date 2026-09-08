@@ -45,15 +45,22 @@ N_BOOT = 10_000
 
 
 def load_preds(path: Path) -> tuple[dict, list[str]]:
-    """Return (predictions by track id, ids of rows that carry an ``error``)."""
+    """Return (predictions by track id, ids of rows that carry an ``error``).
+
+    A track id appearing in more than one successful row makes the arm ambiguous (the
+    result would depend on row order), so that is an error rather than last-wins.
+    """
     out, errors = {}, []
-    for line in open(path):
-        if line.strip():
-            r = json.loads(line)
-            if r.get("error"):
-                errors.append(r["track_id"])
-            else:
-                out[r["track_id"]] = r
+    with open(path) as fh:
+        for line in fh:
+            if line.strip():
+                r = json.loads(line)
+                if r.get("error"):
+                    errors.append(r["track_id"])
+                elif r["track_id"] in out:
+                    raise SystemExit(f"{path}: duplicate prediction rows for {r['track_id']}")
+                else:
+                    out[r["track_id"]] = r
     return out, errors
 
 
