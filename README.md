@@ -6,8 +6,13 @@ methods documented in the companion evaluation harness.
 
 **Publication review (September 2026):** the current [paper](paper/arxiv/main.pdf)
 is a retrospective Slakh2100 mix-to-MIDI study. [The audit](paper/REVIEW.md) corrects
-previous key-calibration, parity, and reproducibility claims. Reported experimental
-results below remain historical summaries pending release of per-track archives.
+previous key-calibration, parity, and reproducibility claims. The per-track evidence
+for the Slakh transcription/separation results and for the structure gates is
+committed under [`paper/evidence/`](paper/evidence/) and recomputed by
+`paper/verify_results.py` and `eval/structure_class_cis.py`; the key, tempo, and drum
+rows below remain ledger-reported summaries, and some raw inference artifacts
+(basic-pitch and end-to-end note predictions, separated stems, original command lines)
+were never archived — see [`paper/PROVENANCE.md`](paper/PROVENANCE.md).
 
 | Analysis | Method | Reported evaluation |
 |----------|--------|-----------------------|

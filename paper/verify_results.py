@@ -104,6 +104,10 @@ def check_snapshot(data: dict) -> dict:
         for r in data["transcription"]:
             if r.get("ci") is None or not r.get("sha256"):
                 raise ValueError(f"Recomputed snapshot row {r['id']} lacks ci/sha256")
+            if r.get("ci_provenance") != "recomputed_from_stored_scores":
+                raise ValueError(
+                    f"Recomputed snapshot row {r['id']} lacks the exact ci_provenance label"
+                )
         for r in data["separation"]:
             if not r.get("sha256") or (
                 "si_sdr_archive" in r and not r.get("si_sdr_archive_sha256")
@@ -259,7 +263,7 @@ def check_archives(data: dict, root: Path) -> dict:
             raise ValueError(
                 f"{r['id']}: archive SHA-256 {digest} differs from snapshot {r['sha256']}"
             )
-        if r.get("ci") is not None and r.get("ci_provenance") == "recomputed_from_stored_scores":
+        if r.get("ci") is not None:  # every published CI is compared, whatever its label says
             if [round(x, 4) for x in stats["ci"]] != [round(x, 4) for x in r["ci"]]:
                 raise ValueError(
                     f"{r['id']}: recomputed CI {stats['ci']} disagrees with snapshot {r['ci']}"

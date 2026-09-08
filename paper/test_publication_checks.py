@@ -163,6 +163,21 @@ class PublicationIntegrityTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "separation S1 drums_f1"):
             check_archives(bad, evidence)
 
+    def test_transcription_ci_is_compared_regardless_of_label(self):
+        import copy
+
+        evidence = HERE / "evidence"
+        good = json.loads((HERE / "results_snapshot.json").read_text())
+        bad = copy.deepcopy(good)
+        bad["transcription"][2]["ci"] = [0.40, 0.55]  # plausible, contains the S4 mean
+        del bad["transcription"][2]["ci_provenance"]
+        with self.assertRaisesRegex(ValueError, "ci_provenance"):
+            check_snapshot(bad)
+        bad["transcription"][2]["ci_provenance"] = "recomputed_from_stored_scores"
+        check_snapshot(bad)
+        with self.assertRaisesRegex(ValueError, "S4: recomputed CI"):
+            check_archives(bad, evidence)
+
     def test_contrast_sections_are_required(self):
         import copy
 
