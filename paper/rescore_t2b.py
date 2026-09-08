@@ -328,11 +328,12 @@ for r in results:
         }
 
 out = {
-    "method": "independent rescore of T2b from eval/data/results_aws/yourmt3_notes.jsonl",
+    "method": f"independent rescore of T2b from {NOTES_JSONL.relative_to(W)}",
     "date": "2026-09-08",
     "inputs": {
         "yourmt3_notes_jsonl": str(NOTES_JSONL.relative_to(W)),
         "yourmt3_notes_jsonl_sha256": sha,
+        "yourmt3_notes_jsonl_sha256_of": "decompressed JSONL contents (matches the original raw dump)",
         "yourmt3_notes_jsonl_rows": len(rows),
         "archive": str(ARCHIVE.relative_to(W)),
         "slakh_source": "slakh2100_flac_redux test/ MIDI + metadata.yaml + all_src.mid copied from LAN host aleph0:/home/jhurliman/s7/slakh_home (audio not copied; stems/*.flac presence taken from a directory listing of the same copy)",
