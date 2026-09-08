@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import statistics
 import sys
 from pathlib import Path
@@ -120,6 +121,7 @@ assert len(est_by) == len(rows), "duplicate (track, stem) rows in jsonl"
 
 archive = json.load(open(ARCHIVE))
 arch_by = {(r["track_id"], r["stem"]): r for r in archive["per_track"]}
+assert len(arch_by) == len(archive["per_track"]), "duplicate (track, stem) rows in the archive"
 pub = json.load(open(PUB))
 pub_ids = sorted(pub["archives"]["T2b"]["track_ids"])
 assert len(pub_ids) == 151
@@ -287,6 +289,11 @@ def compare(stem: str, variant: str) -> dict:
         if r["stem"] != stem or "scores" not in r or r["archived"] is None:
             continue
         s = r["scores"][variant]
+        for src, label in ((s, "recomputed"), (r["archived"], "archived")):
+            for k in ("note_f", "note_p", "note_r"):
+                v = src[k]
+                if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v):
+                    raise SystemExit(f"{r['track_id']}/{stem}: non-finite {label} {k}: {v!r}")
         vals.append(s["note_f"])
         arch_vals.append(r["archived"]["note_f"])
         diffs_f.append(abs(s["note_f"] - r["archived"]["note_f"]))
