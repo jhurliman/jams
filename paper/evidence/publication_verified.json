@@ -696,5 +696,247 @@
     "Stored scores were not rescored from MIDI or reproduced by inference.",
     "CIs use sorted track IDs; finite-bootstrap endpoints may differ from historical row order.",
     "Matching filenames alone does not establish correct dataset/checkpoint identity."
-  ]
+  ],
+  "bass_reference": {
+    "n": 143,
+    "basic_pitch_mean": 0.7888805288627315,
+    "yourmt3_mean": 0.8485927435657367,
+    "mean": 0.05971221470300508,
+    "ci": [
+      0.00343697092728901,
+      0.1100229089176319
+    ],
+    "win_fraction": 0.8741258741258742,
+    "track_ids": [
+      "Track01876",
+      "Track01877",
+      "Track01878",
+      "Track01881",
+      "Track01883",
+      "Track01884",
+      "Track01886",
+      "Track01887",
+      "Track01888",
+      "Track01889",
+      "Track01891",
+      "Track01892",
+      "Track01893",
+      "Track01895",
+      "Track01896",
+      "Track01897",
+      "Track01898",
+      "Track01899",
+      "Track01900",
+      "Track01901",
+      "Track01902",
+      "Track01903",
+      "Track01904",
+      "Track01905",
+      "Track01906",
+      "Track01907",
+      "Track01908",
+      "Track01911",
+      "Track01913",
+      "Track01916",
+      "Track01917",
+      "Track01918",
+      "Track01920",
+      "Track01925",
+      "Track01927",
+      "Track01928",
+      "Track01929",
+      "Track01930",
+      "Track01931",
+      "Track01932",
+      "Track01934",
+      "Track01935",
+      "Track01936",
+      "Track01937",
+      "Track01940",
+      "Track01943",
+      "Track01945",
+      "Track01947",
+      "Track01948",
+      "Track01950",
+      "Track01951",
+      "Track01952",
+      "Track01954",
+      "Track01955",
+      "Track01956",
+      "Track01957",
+      "Track01959",
+      "Track01960",
+      "Track01961",
+      "Track01962",
+      "Track01963",
+      "Track01965",
+      "Track01967",
+      "Track01968",
+      "Track01972",
+      "Track01973",
+      "Track01974",
+      "Track01975",
+      "Track01976",
+      "Track01977",
+      "Track01978",
+      "Track01980",
+      "Track01981",
+      "Track01982",
+      "Track01985",
+      "Track01986",
+      "Track01987",
+      "Track01989",
+      "Track01990",
+      "Track01993",
+      "Track01994",
+      "Track01995",
+      "Track01996",
+      "Track01997",
+      "Track01998",
+      "Track02000",
+      "Track02001",
+      "Track02002",
+      "Track02003",
+      "Track02004",
+      "Track02005",
+      "Track02007",
+      "Track02008",
+      "Track02010",
+      "Track02013",
+      "Track02014",
+      "Track02017",
+      "Track02018",
+      "Track02020",
+      "Track02023",
+      "Track02024",
+      "Track02026",
+      "Track02029",
+      "Track02030",
+      "Track02031",
+      "Track02032",
+      "Track02036",
+      "Track02037",
+      "Track02038",
+      "Track02040",
+      "Track02042",
+      "Track02044",
+      "Track02046",
+      "Track02047",
+      "Track02048",
+      "Track02049",
+      "Track02050",
+      "Track02051",
+      "Track02052",
+      "Track02054",
+      "Track02056",
+      "Track02061",
+      "Track02062",
+      "Track02063",
+      "Track02064",
+      "Track02067",
+      "Track02069",
+      "Track02070",
+      "Track02074",
+      "Track02079",
+      "Track02081",
+      "Track02082",
+      "Track02083",
+      "Track02084",
+      "Track02086",
+      "Track02088",
+      "Track02090",
+      "Track02092",
+      "Track02093",
+      "Track02094",
+      "Track02095",
+      "Track02096",
+      "Track02098"
+    ]
+  },
+  "separator": {
+    "rows": {
+      "S1": {
+        "path": "results_aws/slakh_test_e2e.json",
+        "sha256": "111626ff21e36d3005e5f60b9e5d2f16b98c3eacea132ba501ed8cddb39edb88",
+        "f1": {
+          "drums": 0.5844973509933775,
+          "bass": 0.5957469826527305,
+          "other": 0.4585288827799082
+        },
+        "si_sdr": {
+          "drums": {
+            "mean": 11.608086092715231,
+            "n": 151,
+            "source": "per_track"
+          },
+          "bass": {
+            "mean": 4.569412587412588,
+            "n": 143,
+            "source": "per_track"
+          },
+          "other": {
+            "mean": 10.125582781456954,
+            "n": 151,
+            "source": "per_track"
+          }
+        }
+      },
+      "S4": {
+        "path": "results_aws/sep_scnet_notes.json",
+        "sha256": "19397c11e7d3d6023e624db9056fce47bb8c498d1c261ba24c19aebaf7765e1b",
+        "f1": {
+          "drums": 0.5740788079470199,
+          "bass": 0.6447577730501667,
+          "other": 0.4732845091577621
+        },
+        "si_sdr": {
+          "drums": {
+            "mean": 14.31,
+            "n": null,
+            "source": "aggregate_only_archive"
+          },
+          "bass": {
+            "mean": 5.98,
+            "n": null,
+            "source": "aggregate_only_archive"
+          },
+          "other": {
+            "mean": 11.765,
+            "n": null,
+            "source": "aggregate_only_archive"
+          }
+        },
+        "si_sdr_archive_sha256": "34290c03c917fd688e97ca599a6061a6d1604bb29a51b730ab8b991a275bba9e"
+      }
+    },
+    "paired": {
+      "drums_onset_f1": {
+        "mean": -0.010418543046357623,
+        "ci": [
+          -0.020944569536423846,
+          0.0004000496688741621
+        ],
+        "win_fraction": 0.41721854304635764,
+        "loss_fraction": 0.5761589403973509
+      },
+      "other_f1": {
+        "mean": 0.014755626377853917,
+        "ci": [
+          0.011869164551920866,
+          0.0175986509305986
+        ],
+        "win_fraction": 0.8278145695364238,
+        "loss_fraction": 0.17218543046357615
+      },
+      "bass_f1": {
+        "mean": 0.049010790397436284,
+        "ci": [
+          0.033047233452082804,
+          0.06558504925856122
+        ],
+        "win_fraction": 0.6573426573426573,
+        "loss_fraction": 0.32867132867132864
+      }
+    }
+  }
 }

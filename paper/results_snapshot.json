@@ -96,7 +96,8 @@
       "drums_f1": 0.5845,
       "bass_f1": 0.5957,
       "other_f1": 0.4585,
-      "archive": "results_aws/slakh_test_e2e.json"
+      "archive": "results_aws/slakh_test_e2e.json",
+      "si_sdr_note": "per-track SI-SDR stored in the archive and recomputed"
     },
     {
       "id": "S4",
@@ -109,7 +110,9 @@
       "drums_f1": 0.5741,
       "bass_f1": 0.6448,
       "other_f1": 0.4733,
-      "archive": "results_aws/sep_scnet_notes.json"
+      "archive": "results_aws/sep_scnet_notes.json",
+      "si_sdr_archive": "results_aws/sep_scnet_sdr.json",
+      "si_sdr_note": "per-track SI-SDR not stored in the S4 archive; the aggregate file is checked instead (T10 stores per-track SCNet SI-SDR: 14.31/5.98/11.76)"
     }
   ],
   "bass_reference": {
@@ -135,7 +138,7 @@
     "archives_dir": "paper/evidence/results_aws",
     "checksums": "paper/evidence/SHA256SUMS",
     "command": "python paper/verify_results.py --data-dir paper/evidence",
-    "scope": "Means and paired percentile-bootstrap intervals recomputed from the stored per-track F1 values in the four primary archives (151 matched IDs, no duplicates, zero recorded failures). Not a rescore from MIDI and not a rerun of inference."
+    "scope": "Means and paired percentile-bootstrap intervals recomputed from the stored per-track values in the archives: the four accompaniment rows (151 matched IDs), the 143-pair bass reference, the S1/S4 separator F1 rows and paired deltas, and S1 per-track SI-SDR; S4 SI-SDR is checked against its aggregate-only archive. Not a rescore from MIDI and not a rerun of inference."
   },
   "paired_contrasts": [
     {

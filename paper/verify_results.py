@@ -27,7 +27,7 @@ def score(value: object) -> float:
     return float(value)
 
 
-def read_scores(path: Path, group: str = "other") -> dict[str, float]:
+def read_scores(path: Path, group: str = "other", key: str = "note_f") -> dict[str, float]:
     """Accept the ledger's nested evaluator format and flat YourMT3+ rescore format.
 
     None denotes an ineligible reference, never a model failure converted to zero.
@@ -57,7 +57,7 @@ def read_scores(path: Path, group: str = "other") -> dict[str, float]:
         if identity in seen:
             raise ValueError(f"{path}: duplicate row {identity}")
         seen.add(identity)
-        value = values.get("note_f")
+        value = values.get(key)
         if value is not None:
             if tid in result:
                 raise ValueError(f"{path}: duplicate score for {tid}/{group}")
@@ -207,7 +207,10 @@ def check_secondary_sections(data: dict, rows: dict) -> None:
 
 def check_archives(data: dict, root: Path) -> dict:
     rows = data["transcription"]
-    missing = [str(root / r["archive"]) for r in rows if not (root / r["archive"]).is_file()]
+    sep_rows = {r["id"]: r for r in data["separation"]}
+    needed = [r["archive"] for r in rows] + [r["archive"] for r in sep_rows.values()]
+    needed.append(sep_rows["S4"]["si_sdr_archive"])
+    missing = [str(root / a) for a in dict.fromkeys(needed) if not (root / a).is_file()]
     if missing:
         raise ValueError(
             "Required archives missing; no reproduction claim is possible:\n" + "\n".join(missing)
@@ -269,7 +272,120 @@ def check_archives(data: dict, root: Path) -> dict:
     wins = sum(loaded["T2b"][t] > base[t] for t in base) / len(base)
     if wins != data["reference_paired_delta"]["win_fraction"]:
         raise ValueError("Reference-input win fraction disagrees with snapshot")
+    boot_kw = {k: data["bootstrap"][k] for k in ("resamples", "seed")}
+    report["bass_reference"] = check_bass_reference(data, root, boot_kw)
+    report["separator"] = check_separator(data, root, boot_kw)
     return report
+
+
+def _close4(a: float, b: float) -> bool:
+    return round(a, 4) == round(b, 4)
+
+
+def check_bass_reference(data: dict, root: Path, boot_kw: dict) -> dict:
+    """Recompute the 143-pair bass comparison (T1 vs T2b, bass group) from the archives."""
+    rows = {r["id"]: r for r in data["transcription"]}
+    b = data["bass_reference"]
+    t1 = read_scores(root / rows["T1"]["archive"], group="bass")
+    t2 = read_scores(root / rows["T2b"]["archive"], group="bass")
+    ids, v1, v2 = paired_values(t1, t2, b["n"])
+    mean1, mean2 = sum(v1) / len(v1), sum(v2) / len(v2)
+    if abs(mean1 - b["basic_pitch"]) > 0.00005001 or abs(mean2 - b["yourmt3"]) > 0.00005001:
+        raise ValueError(f"bass_reference means {mean1:.6f}/{mean2:.6f} disagree with snapshot")
+    diffs = [y - x for x, y in zip(v1, v2, strict=True)]
+    stats = bootstrap(diffs, **boot_kw)
+    if (
+        not _close4(stats["mean"], b["paired_delta"])
+        or [round(x, 4) for x in stats["ci"]] != b["paired_ci"]
+    ):
+        raise ValueError(f"bass_reference paired delta {stats} disagrees with snapshot {b}")
+    return {
+        "n": len(ids),
+        "basic_pitch_mean": mean1,
+        "yourmt3_mean": mean2,
+        **stats,
+        "win_fraction": sum(d > 0 for d in diffs) / len(diffs),
+        "track_ids": ids,
+    }
+
+
+def check_separator(data: dict, root: Path, boot_kw: dict) -> dict:
+    """Recompute the S1/S4 separator table and paired deltas from the per-track archives."""
+    sep = {r["id"]: r for r in data["separation"]}
+    out: dict = {"rows": {}, "paired": {}}
+    per_track: dict[str, dict[str, dict[str, float]]] = {}
+    for sid, r in sep.items():
+        path = root / r["archive"]
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        scores = {
+            "drums": read_scores(path, group="drums", key="drum_onset_f"),
+            "bass": read_scores(path, group="bass"),
+            "other": read_scores(path, group="other"),
+        }
+        per_track[sid] = scores
+        row_report = {"path": r["archive"], "sha256": digest, "f1": {}, "si_sdr": {}}
+        for g, key in (("drums", "drums_f1"), ("bass", "bass_f1"), ("other", "other_f1")):
+            n_expected = 151 if g != "bass" else r["bass_n"]
+            if len(scores[g]) != n_expected:
+                raise ValueError(f"separation {sid} {g}: support {len(scores[g])} != {n_expected}")
+            mean = sum(scores[g].values()) / len(scores[g])
+            if abs(mean - r[key]) > 0.00005001:
+                raise ValueError(
+                    f"separation {sid} {key}: recomputed {mean:.6f} vs snapshot {r[key]}"
+                )
+            row_report["f1"][g] = mean
+        doc = json.loads(path.read_text())
+        has_sdr = any(isinstance(t.get("sdr"), dict) for t in doc["per_track"])
+        if has_sdr:
+            for g in ("drums", "bass", "other"):
+                vals = [
+                    t["sdr"][g]
+                    for t in doc["per_track"]
+                    if isinstance(t.get("sdr"), dict) and t["sdr"].get(g) is not None
+                ]
+                mean = sum(vals) / len(vals)
+                if abs(mean - r[f"{g}_si_sdr"]) > 0.0051:
+                    raise ValueError(
+                        f"separation {sid} {g}_si_sdr: recomputed {mean:.4f} vs snapshot"
+                    )
+                row_report["si_sdr"][g] = {"mean": mean, "n": len(vals), "source": "per_track"}
+        else:
+            agg_path = root / r["si_sdr_archive"]
+            agg = json.loads(agg_path.read_text())["si_sdr"]
+            for g in ("drums", "bass", "other"):
+                if abs(agg[g] - r[f"{g}_si_sdr"]) > 0.0051:
+                    raise ValueError(
+                        f"separation {sid} {g}_si_sdr: aggregate archive {agg[g]} vs snapshot"
+                    )
+                row_report["si_sdr"][g] = {
+                    "mean": agg[g],
+                    "n": None,
+                    "source": "aggregate_only_archive",
+                }
+            row_report["si_sdr_archive_sha256"] = hashlib.sha256(agg_path.read_bytes()).hexdigest()
+        out["rows"][sid] = row_report
+    spd = data.get("separator_paired_delta") or {}
+    for key, g, n in (
+        ("drums_onset_f1", "drums", 151),
+        ("other_f1", "other", 151),
+        ("bass_f1", "bass", 143),
+    ):
+        _, v1, v4 = paired_values(per_track["S1"][g], per_track["S4"][g], n)
+        diffs = [b - a for a, b in zip(v1, v4, strict=True)]
+        stats = bootstrap(diffs, **boot_kw)
+        stats["win_fraction"] = sum(d > 0 for d in diffs) / len(diffs)
+        stats["loss_fraction"] = sum(d < 0 for d in diffs) / len(diffs)
+        out["paired"][key] = stats
+        rec = spd.get(key)
+        if rec is not None and (
+            not _close4(stats["mean"], rec["mean"])
+            or [round(x, 4) for x in stats["ci"]] != rec["ci"]
+            or not _close4(stats["win_fraction"], rec["win_fraction"])
+        ):
+            raise ValueError(
+                f"separator_paired_delta {key}: recomputed {stats} disagrees with snapshot {rec}"
+            )
+    return out
 
 
 def main() -> None:

@@ -116,6 +116,32 @@ class PublicationIntegrityTests(unittest.TestCase):
             with self.subTest(case=name), self.assertRaises(ValueError):
                 check_snapshot(bad)
 
+    def test_archive_check_recomputes_bass_and_separator_sections(self):
+        """A snapshot edit that stays internally consistent must still fail against the archives."""
+        import copy
+
+        evidence = HERE / "evidence"
+        good = json.loads((HERE / "results_snapshot.json").read_text())
+        report = check_archives(good, evidence)
+        self.assertEqual(report["bass_reference"]["n"], 143)
+        self.assertEqual(
+            set(report["separator"]["paired"]), {"drums_onset_f1", "other_f1", "bass_f1"}
+        )
+        bad = copy.deepcopy(good)
+        bad["bass_reference"]["basic_pitch"] = 0.7890
+        bad["bass_reference"]["paired_delta"] = round(bad["bass_reference"]["yourmt3"] - 0.7890, 4)
+        check_snapshot(bad)  # internally consistent
+        with self.assertRaisesRegex(ValueError, "bass_reference"):
+            check_archives(bad, evidence)
+        bad = copy.deepcopy(good)
+        for r in bad["separation"]:
+            if r["id"] == "S1":
+                r["drums_f1"] = 0.5850
+        bad["separator_paired_delta"]["drums_onset_f1"]["mean"] = round(0.5741 - 0.5850, 4)
+        check_snapshot(bad)
+        with self.assertRaisesRegex(ValueError, "separation S1 drums_f1"):
+            check_archives(bad, evidence)
+
 
 if __name__ == "__main__":
     unittest.main()
