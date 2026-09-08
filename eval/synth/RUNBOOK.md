@@ -40,6 +40,16 @@ the CC0 scan-synth and preset seeding simply drop out). The wavetable/preset sou
 a non-shipped staging dir (git-ignored); only rendered audio + code + manifest ship — see the
 DATASET_CARD provenance manifest for repos, licenses, and pinned commit SHAs.
 
+## Reproducibility note
+
+Preset and wavetable paths are sorted before seeded selection. Earlier revisions used
+filesystem enumeration order, so equal seeds could choose different assets on another
+checkout. This correction can change renders for an existing seed. Render into a fresh
+output directory when comparing this revision; do not resume an older corpus into it.
+The seed alone does not pin plugin versions or bank contents: retain the asset revisions
+and plugin versions with the corpus. The existing resume check only checks output-file
+presence; it does not detect a changed generator or asset bank.
+
 ## Reproduce
 
 ```bash

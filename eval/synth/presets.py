@@ -1,10 +1,9 @@
-"""Phase-3 preset seeding: license-vetted ``.vital`` presets as sparse SCALAR "quality anchors".
+"""License-vetted ``.vital`` preset bank for full-state loading and scalar overlays.
 
-The Phase-1 spike proved DawDreamer cannot load a ``.vital`` (opaque VST3 binary state,
-``load_preset`` returns False), so we do NOT ship or inject preset FILES. Instead we parse each
-preset's JSON ``settings`` scalars and map them BY NAME to Vitalium's normalized VST3 params, to
-seed an otherwise-procedural Vitalium patch which is then band-jittered per family. Presets act as
-occasional anchors layered onto the procedural backbone, not a replacement.
+Full presets are loaded through ``vital_state`` and DawDreamer ``load_state``.
+The original ``load_preset`` experiment tested the wrong interface. Scalar overlays
+remain available for the procedural path; ``load_json`` supplies the full preset,
+including embedded wavetables, to the state loader.
 
 LICENSING (bound to the user's GIMP/Audacity doctrine): the rendered AUDIO is program output, so a
 GPL preset's copyleft does not propagate to it. We therefore may use GPL/CC0/Unlicense presets as
@@ -99,7 +98,7 @@ def _bank() -> list[dict]:
         return []
     seeds: list[dict] = []
     for pat, lic, allow in _SOURCES:
-        for f in glob.glob(os.path.join(_SRC, pat), recursive=True):
+        for f in sorted(glob.glob(os.path.join(_SRC, pat), recursive=True)):
             seed = _parse(f)
             if seed is None:
                 continue

@@ -1,10 +1,8 @@
 """CC0 wavetable oscillator — a numpy scan-synth engine over public-domain wavetables.
 
-The #1 realism lever: instead of only Vitalium's single built-in wavetable (which DawDreamer
-cannot swap — its VST3 state is opaque binary, see the Phase-1 spike in ``PRESET_SPIKE.md``),
-this reads real CC0 wavetables (``.vitaltable`` = int16 single-cycle frames) and plays them with
-a **band-limited** phase-accumulator scan oscillator. Because the wavetables are public-domain
-sample data used *inside our own procedural oscillator*, no derivative-work argument is needed.
+Reads CC0 ``.vitaltable`` single-cycle frames for the optional procedural
+scan oscillator. Full ``.vital`` presets, including their embedded wavetables, are
+loaded separately by ``vital_state`` through DawDreamer's ``load_state`` interface.
 
 Categories folding / FM / sync / phase-distortion / PPG are the Reese/growl/neuro fuel, so D&B
 bass patches are biased toward those. Tables that scan across many frames (the report's >2048-
@@ -58,7 +56,7 @@ def _index() -> list[tuple[str, str]]:
     pats = ["open-vital-resources/**/*.vitaltable", "vitalium-presets/**/*.vitaltable"]
     files: list[str] = []
     for p in pats:
-        files += glob.glob(os.path.join(_BANK, p), recursive=True)
+        files += sorted(glob.glob(os.path.join(_BANK, p), recursive=True))
     out = []
     for f in files:
         # category = lowercased path tail (parent dir + filename) for keyword matching
