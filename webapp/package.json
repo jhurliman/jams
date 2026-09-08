@@ -13,7 +13,8 @@
     "typecheck": "tsc -b --noEmit",
     "test": "tsx --test server/imports.test.ts",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "test:timeline": "node tests/timeline.browser.mjs"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",
@@ -34,6 +35,7 @@
     "eslint-plugin-react-hooks": "^5.1.0",
     "eslint-plugin-react-refresh": "^0.4.16",
     "globals": "^15.14.0",
+    "playwright": "^1.63.0",
     "prettier": "^3.4.2",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
