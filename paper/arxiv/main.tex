@@ -33,8 +33,10 @@ downstream onset F1, without establishing a statistically reliable reversal.
 These observations support measuring the complete cascade; they do not establish
 that separation improves transcription, and do not measure performance on real electronic dance music.
 We specify the scoring and aggregation conventions, commit the per-recording score
-archives with checksums, and recompute every reported interval from them; the
-remaining verification gap is that only one arm's note predictions were archived.
+archives for the Slakh comparisons with checksums, and recompute every mean and
+interval of those comparisons from them; the secondary key, tempo, drum, and
+structure results in the appendices remain reported values, and only one arm's
+note predictions were archived.
 \end{abstract}
 
 \section{Introduction}
@@ -299,9 +301,11 @@ paper are in the repository at \url{https://github.com/jhurliman/jams}. The five
 per-recording score archives (runs T1, T2b, S4, T10, and the HT-Demucs run S1) and
 the S4 SI-SDR aggregate are committed under \path{paper/evidence/} with SHA-256
 checksums, and \path{paper/verify_results.py} recomputes every mean and paired
-interval in this paper from them (accompaniment rows, the bass reference, and the
-separator table and deltas), refusing missing archives, duplicate rows, or
-mismatched track sets. The tables and figure regenerate from a summary snapshot that records that
+interval of the Slakh comparisons in Sections~3--4 from them (accompaniment rows,
+the bass reference, and the separator table and deltas), refusing missing
+archives, duplicate rows, or mismatched track sets. The key, tempo, drum, and
+structure intervals in the appendices are reported from the ledger and are not
+covered by this recomputation. The tables and figure regenerate from a summary snapshot that records that
 verification. The repository is the only hosting dependency; no cloud object store
 is required to reproduce the analysis.
 
