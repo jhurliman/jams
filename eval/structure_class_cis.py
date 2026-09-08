@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import random
 import statistics as st
 from pathlib import Path
@@ -182,6 +183,10 @@ def main() -> None:
         for r in scored_rows:
             for m in AGGREGATES:
                 a, b = r.get(m), computed[r["track_id"]].get(m)
+                for v in (a, b):
+                    bad_type = isinstance(v, bool) or not isinstance(v, (int, float))
+                    if v is not None and (bad_type or not math.isfinite(v)):
+                        raise SystemExit(f"{label}: {r['track_id']} {m} non-finite value {v!r}")
                 if (a is None) != (b is None) or (a is not None and abs(a - b) > 1e-9):
                     raise SystemExit(
                         f"{label}: {r['track_id']} {m} scored={a} recomputed={b}; the scored "
