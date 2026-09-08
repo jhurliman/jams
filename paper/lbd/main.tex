@@ -93,15 +93,17 @@ SCNet output & 0.4733 & 0.7877 \\
 \bottomrule
 \end{tabular}
 \caption{Reported mean onset-and-pitch F1 for accompaniment, $n=151$.
-These are historical summaries, not newly reproduced measurements.}
+Means and intervals are recomputed from committed per-track score archives;
+no inference was rerun.}
 \label{tab:comparison}
 \end{table}
 
 Replacing basic-pitch~\cite{bittner2022basicpitch} with YourMT3+ raises the reported
 mean by 0.3591 on reference input and 0.3144 after the same separator
-(Table~\ref{tab:comparison}). The archived reference-input paired 95\% bootstrap
-interval is [0.3471, 0.3713]; no paired end-to-end interval is available. The
-transcriber ordering persists after separation in this configuration. A stronger
+(Table~\ref{tab:comparison}). Paired 95\% bootstrap intervals recomputed from the
+committed per-track score archives are [0.3471, 0.3713] and [0.3017, 0.3271], with
+YourMT3+ ahead on all 151 pairs in both conditions. The transcriber ordering
+persists after separation in this configuration. A stronger
 transcriber on estimated stems exceeding a weaker model on reference stems is
 not evidence of exceeding an oracle bound.
 
@@ -113,19 +115,19 @@ YourMT3+ control, with an explicit instrument-to-group mapping, is needed to
 measure whether separation adds value.
 
 A separate historical separator comparison holds the transcribers fixed and
-reports higher drum SI-SDR for SCNet than HT-Demucs, but lower drum onset F1.
-Without paired uncertainty or a controlled mechanism test, this is a diagnostic
+reports higher drum SI-SDR for SCNet than HT-Demucs, but lower drum onset F1;
+the paired F1 difference is $-0.0104$ [$-0.0209$, $+0.0004$], an interval that
+includes zero. Without a controlled mechanism test, this is a diagnostic
 observation rather than a statistically established reversal. It motivates
 examining downstream notes in addition to listening to separated audio.
 
 \section{Evidence and next steps}
 The public repository contains the service, scoring code, experiment ledger, and
-aggregate statistics. The per-recording archives supporting this comparison were
-unavailable for the present revision and still require release. A committed
-summary snapshot regenerates the paper's presentation; a separate checker rejects
-missing archives and mismatched track IDs before recomputing stored-score means
-and intervals. This does not reproduce inference or establish that stored scores
-were computed correctly from MIDI.
+the per-recording score archives behind this comparison, with checksums and a
+checker that rejects missing archives or mismatched track IDs before recomputing
+the means and intervals above. Stored scores are thereby recomputed, not
+reproduced: only the YourMT3+ reference-input predictions were archived for
+rescoring from MIDI, and no inference was rerun.
 
 The next evaluation should freeze the pipeline on a development split, compare
 direct and separated inputs on paired recordings, and measure note offsets,
