@@ -84,24 +84,30 @@ def analyze_stems(
     transcriptions: list[dict] = list(sres["transcriptions"])
 
     # 1b. YourMT3+ pitched transcription (default): each pitched stem through the resident
-    # worker; the shared monophonic filter keeps bass/vocals single-voiced.
+    # worker; the shared monophonic filter keeps bass/vocals single-voiced. Notes carry the
+    # per-instrument GM `program` YourMT3+ detected (OV1 A-lab — the basic-pitch path emits
+    # no programs, so its transcriptions simply lack these fields).
     if transcriber == "yourmt3":
         for stem_type in _PITCHED_STEMS:
             wav = stem_paths.get(stem_type)
             if not wav:
                 continue
-            notes = _yourmt3_worker().analyze({"audio": wav})["notes"]
+            res = _yourmt3_worker().analyze({"audio": wav})
+            notes = res["notes"]
             if stem_type in gm.MONOPHONIC_STEMS:
                 notes = gm.monophonic_filter(notes)
-            transcriptions.append(
-                {
-                    "stem_type": stem_type,
-                    "gm_program": gm.GM_PROGRAM.get(stem_type, 0),
-                    "is_drums": False,
-                    "notes": notes,
-                    "method": "yourmt3",
-                }
-            )
+            t = {
+                "stem_type": stem_type,
+                "gm_program": gm.GM_PROGRAM.get(stem_type, 0),
+                "is_drums": False,
+                "notes": notes,
+                "method": "yourmt3",
+            }
+            # Recount per program AFTER the mono filter so the summary matches `notes`.
+            instruments = _instrument_summary(notes, res.get("instruments") or [])
+            if instruments:
+                t["instruments"] = instruments
+            transcriptions.append(t)
 
     # Written-pitch bass convention, applied exactly once whatever the transcriber.
     for t in transcriptions:
@@ -153,6 +159,24 @@ def analyze_stems(
         "method": method,
         "duration_sec": sres.get("duration_sec"),
     }
+
+
+def _instrument_summary(notes: list[dict], worker_instruments: list[dict]) -> list[dict]:
+    """Per-GM-program grouping of ``notes`` ({program, name, n_notes}, program-sorted).
+
+    Counts are recomputed from the (possibly mono-filtered) notes; instrument names come
+    from the worker's summary. Empty when the notes carry no ``program`` (e.g. basic-pitch).
+    """
+    names = {i["program"]: i["name"] for i in worker_instruments}
+    counts: dict[int, int] = {}
+    for n in notes:
+        program = n.get("program")
+        if program is not None:
+            counts[program] = counts.get(program, 0) + 1
+    return [
+        {"program": p, "name": names.get(p, ""), "n_notes": c}
+        for p, c in sorted(counts.items())
+    ]
 
 
 def _default_out_dir(path: str | None, stems: dict[str, str] | None, settings) -> str:

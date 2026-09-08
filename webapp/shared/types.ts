@@ -56,6 +56,19 @@ export interface StemNote {
   offset: number;
   pitch: number;
   velocity: number;
+  /** GM program (0-indexed) YourMT3+ assigned this note to; absent for transcribers
+   *  without instrument labels (basic-pitch, drums). */
+  program?: number;
+}
+
+/** Per-instrument grouping of a transcription's notes (YourMT3+ GM programs). */
+export interface StemInstrument {
+  /** General MIDI program (0-indexed). */
+  program: number;
+  /** GM instrument name, e.g. 'Acoustic Grand Piano'. */
+  name: string;
+  /** Notes in this transcription with this program. */
+  nNotes: number;
 }
 
 /** Per-stem MIDI transcription. `stemType` is one of 'drums' | 'bass' | 'other' | 'vocals'. */
@@ -65,6 +78,8 @@ export interface StemTranscription {
   isDrums: boolean;
   notes: StemNote[];
   method: string;
+  /** Per-GM-program summary of `notes` (YourMT3+ only; absent = no instrument labels). */
+  instruments?: StemInstrument[];
 }
 
 /** Read-only per-stem stem-separation + MIDI transcription result for a track. */

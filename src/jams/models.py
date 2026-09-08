@@ -71,6 +71,19 @@ class StemNote(BaseModel):
     offset: float = Field(description="Note-off time (seconds)")
     pitch: int = Field(ge=0, le=127, description="MIDI pitch; GM percussion note for drums")
     velocity: int = Field(ge=1, le=127)
+    program: int | None = Field(
+        default=None, ge=0, le=127,
+        description="GM program (0-indexed) of the instrument YourMT3+ assigned this note "
+        "to; absent for transcribers without instrument labels (basic-pitch, drums)",
+    )
+
+
+class StemInstrument(BaseModel):
+    """Per-instrument grouping of a transcription's notes (YourMT3+ GM programs)."""
+
+    program: int = Field(ge=0, le=127, description="General MIDI program (0-indexed)")
+    name: str = Field(examples=["Acoustic Grand Piano"], description="GM instrument name")
+    n_notes: int = Field(ge=1, description="Notes in this transcription with this program")
 
 
 class StemTranscription(BaseModel):
@@ -78,7 +91,12 @@ class StemTranscription(BaseModel):
     gm_program: int = Field(ge=0, le=127, description="General MIDI program (0-indexed)")
     is_drums: bool = Field(description="True => GM percussion on channel 10")
     notes: list[StemNote] = Field(default_factory=list)
-    method: str = Field(examples=["basic-pitch", "drum-cnn-v1"])
+    method: str = Field(examples=["yourmt3", "basic-pitch", "drum-cnn-v1"])
+    instruments: list[StemInstrument] | None = Field(
+        default=None,
+        description="Per-GM-program summary of `notes` (YourMT3+ only; absent = the "
+        "transcriber emits no instrument labels)",
+    )
 
 
 class StemAudio(BaseModel):

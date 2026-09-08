@@ -114,10 +114,17 @@ def test_analyze_stems_yourmt3_routing(monkeypatch, tmp_path, cmajor_wav):
     sep_only = {"stems": _STEMS_RESULT["stems"], "transcriptions": [], "duration_sec": 12.3}
     stems_w = _FakeWorker(sep_only)
     drum_w = _FakeWorker(_DRUM_RESULT)
-    ymt3 = _FakeWorker({"notes": [
-        {"onset": 0.0, "offset": 1.0, "pitch": 40, "velocity": 80},
-        {"onset": 0.5, "offset": 1.5, "pitch": 45, "velocity": 100},  # overlap, louder
-    ]})
+    ymt3 = _FakeWorker({
+        "notes": [
+            {"onset": 0.0, "offset": 1.0, "pitch": 40, "velocity": 80, "program": 33},
+            # overlap, louder
+            {"onset": 0.5, "offset": 1.5, "pitch": 45, "velocity": 100, "program": 34},
+        ],
+        "instruments": [
+            {"program": 33, "name": "Electric Bass (finger)", "n_notes": 1},
+            {"program": 34, "name": "Electric Bass (pick)", "n_notes": 1},
+        ],
+    })
     monkeypatch.setattr(S, "_stems_worker", lambda: stems_w)
     monkeypatch.setattr(S, "_drum_worker", lambda: drum_w)
     monkeypatch.setattr(S, "_yourmt3_worker", lambda: ymt3)
@@ -131,6 +138,72 @@ def test_analyze_stems_yourmt3_routing(monkeypatch, tmp_path, cmajor_wav):
     # mono-filter kept the louder overlapping note; orchestrator applied +12
     assert [n["pitch"] for n in bass["notes"]] == [45 + 12]
     assert out["method"] == "scnet_xl_ihf+yourmt3+drum-cnn-v1"
+    # instruments summary recounted AFTER the mono filter: program 33's note was dropped
+    assert bass["instruments"] == [
+        {"program": 34, "name": "Electric Bass (pick)", "n_notes": 1}
+    ]
+
+
+def test_yourmt3_programs_survive_round_trip(monkeypatch, tmp_path, cmajor_wav):
+    """Per-note GM programs + instruments summary survive worker -> payload -> schema."""
+    from jams.models import StemsResult
+
+    monkeypatch.setattr(S, "get_settings", lambda: Settings())  # yourmt3 default
+    sep_only = {
+        "stems": [{"stem_type": "other", "audio_path": "/t/other.wav"}],
+        "transcriptions": [], "duration_sec": 12.3,
+    }
+    ymt3 = _FakeWorker({
+        "notes": [
+            {"onset": 0.0, "offset": 0.4, "pitch": 60, "velocity": 90, "program": 0},
+            {"onset": 0.31, "offset": 0.9, "pitch": 64, "velocity": 80, "program": 0},
+            {"onset": 1.0, "offset": 1.5, "pitch": 55, "velocity": 70, "program": 27},
+        ],
+        "instruments": [
+            {"program": 0, "name": "Acoustic Grand Piano", "n_notes": 2},
+            {"program": 27, "name": "Electric Guitar (clean)", "n_notes": 1},
+        ],
+    })
+    monkeypatch.setattr(S, "_stems_worker", lambda: _FakeWorker(sep_only))
+    monkeypatch.setattr(S, "_yourmt3_worker", lambda: ymt3)
+
+    # quantize on: programs must survive the beat-grid snap too ("other" is polyphonic,
+    # so no mono filter — all 3 notes survive with their programs)
+    out = S.analyze_stems(cmajor_wav, out_dir=str(tmp_path),
+                          beats=[0.0, 0.5, 1.0, 1.5], quantize=True,
+                          transcribe_drums=False)
+
+    other = next(t for t in out["transcriptions"] if t["stem_type"] == "other")
+    assert [n["program"] for n in other["notes"]] == [0, 0, 27]
+    assert other["instruments"] == [
+        {"program": 0, "name": "Acoustic Grand Piano", "n_notes": 2},
+        {"program": 27, "name": "Electric Guitar (clean)", "n_notes": 1},
+    ]
+    # additive schema: the full payload validates and keeps the new fields
+    validated = StemsResult.model_validate(out)
+    vt = validated.transcriptions[0]
+    assert [n.program for n in vt.notes] == [0, 0, 27]
+    assert vt.instruments is not None and vt.instruments[0].name == "Acoustic Grand Piano"
+
+
+def test_basic_pitch_path_has_no_instrument_labels(monkeypatch, tmp_path, cmajor_wav):
+    """basic-pitch emits no programs: notes stay bare, no `instruments` key, schema OK."""
+    from jams.models import StemsResult
+
+    monkeypatch.setattr(S, "get_settings",
+                        lambda: Settings(stems_transcriber="basic-pitch"))
+    stems_w = _FakeWorker(_STEMS_RESULT)
+    monkeypatch.setattr(S, "_stems_worker", lambda: stems_w)
+    monkeypatch.setattr(S, "_drum_worker", lambda: _FakeWorker(_DRUM_RESULT))
+
+    out = S.analyze_stems(cmajor_wav, out_dir=str(tmp_path), quantize=False)
+
+    for t in out["transcriptions"]:
+        assert "instruments" not in t
+        assert all("program" not in n for n in t["notes"])
+    validated = StemsResult.model_validate(out)
+    assert all(t.instruments is None for t in validated.transcriptions)
+    assert all(n.program is None for t in validated.transcriptions for n in t.notes)
 
 
 def test_analyze_stems_oracle_mode(monkeypatch, tmp_path):
