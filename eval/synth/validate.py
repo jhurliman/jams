@@ -21,8 +21,7 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 
-_DEFAULT_WORKER = "/Users/jhurliman/Documents/Code/jhurliman/jams/.claude/worktrees/es2-dnb/" \
-                  "src/jams/data/stems_worker.py"
+_DEFAULT_WORKER = str(Path(__file__).resolve().parents[2] / "src/jams/data/stems_worker.py")
 STEMS_WORKER = os.environ.get("SYNTH_STEMS_WORKER", _DEFAULT_WORKER)
 _PITCHED = ("drums", "bass", "other")
 
@@ -44,26 +43,28 @@ def si_sdr(est: np.ndarray, ref: np.ndarray) -> float | None:
 
 
 def _stemsum_residual(track_dir: Path) -> float:
-    mix = _mono(str(track_dir / "mix_premaster.flac"))
+    mix, sr = sf.read(track_dir / "mix_premaster.flac", always_2d=True)
     recon = np.zeros_like(mix)
     for s in ("drums", "bass", "other", "vocals"):
-        y = _mono(str(track_dir / f"{s}.flac"))
-        n = min(len(recon), len(y))
-        recon[:n] += y[:n]
-    n = min(len(mix), len(recon))
-    res = mix[:n] - recon[:n]
+        y, stem_sr = sf.read(track_dir / f"{s}.flac", always_2d=True)
+        if y.shape != mix.shape or stem_sr != sr:
+            raise ValueError(f"{s}: stem shape/sample rate differs from premaster")
+        recon += y
+    # Test every channel: averaging to mono hides equal-and-opposite stereo errors.
+    res = mix - recon
     return round(float(20 * np.log10((np.sqrt((res ** 2).mean()) + 1e-12)
-                                     / (np.sqrt((mix[:n] ** 2).mean()) + 1e-12))), 1)
+                                     / (np.sqrt((mix ** 2).mean()) + 1e-12))), 1)
 
 
 class _SCNet:
     def __init__(self) -> None:
         self.proc = subprocess.Popen(
-            ["uv", "run", "--script", STEMS_WORKER, "--serve"],
+            ["uv", "run", "--python", "3.11", "--script", STEMS_WORKER, "--serve"],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
 
     def separate(self, audio: str, out_dir: str) -> dict[str, str]:
-        req = json.dumps({"audio": audio, "out_dir": out_dir, "model": "scnet_xl_ihf"})
+        req = json.dumps({"audio": audio, "out_dir": out_dir, "model": "scnet_xl_ihf",
+                          "transcribe": False})
         self.proc.stdin.write(req + "\n")
         self.proc.stdin.flush()
         line = self.proc.stdout.readline()
