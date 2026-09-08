@@ -54,6 +54,23 @@ N_FFT = 1024
 HOP = 512
 N_MELS = 40
 WIN_FRAMES = 256          # ~11.9 s
+
+
+def window_starts(n_frames: int, win: int = WIN_FRAMES, hop: int | None = None) -> list[int]:
+    """Sliding-window start frames; identical to jams.analysis.tempo_cnn.window_starts (#31).
+
+    Half-window hop from 0 plus a final window anchored at ``n_frames - win`` when the
+    hop grid does not reach it, so the tail of every track is evaluated. NOTE: the
+    archived TP1 evaluation (paper/EXPERIMENTS.md) predates this trailing window; re-running
+    the one-shot gate would include the final partial-hop segment of each track.
+    """
+    hop = hop or win // 2
+    if n_frames <= win:
+        return [0]
+    starts = list(range(0, n_frames - win + 1, hop))
+    if starts[-1] != n_frames - win:
+        starts.append(n_frames - win)
+    return starts
 BPM_MIN, BPM_MAX = 30, 285  # 256 classes, 1-BPM bins
 SEED = 0
 
@@ -283,7 +300,7 @@ def predict_track(model, X, dev):
 
     T = X.shape[1]
     wins = []
-    for s in range(0, max(1, T - WIN_FRAMES + 1), WIN_FRAMES // 2):
+    for s in window_starts(T):
         w = X[:, s:s + WIN_FRAMES]
         if w.shape[1] < WIN_FRAMES:
             w = np.pad(w, ((0, 0), (0, WIN_FRAMES - w.shape[1])))
