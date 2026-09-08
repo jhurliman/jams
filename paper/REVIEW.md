@@ -102,16 +102,21 @@ The principal numbers trace to ledger runs T1, T2b, S4, and T10 and the historic
 does not contain invented per-track observations. Rendering that snapshot is a build,
 not an experimental reproduction.
 
-The raw `eval/data/results_aws/` files are absent from the checkout and its history,
-and no GitHub release provides them. An anonymous request to the documented project
-S3 bucket was denied (403). An authorized archive export is needed; fetching dataset
-audio again would not recover historical predictions or run configurations.
+*Superseded 2026-09-08 (see the status update above).* At audit time the raw
+`eval/data/results_aws/` files were absent from the checkout and its history, no GitHub
+release provided them, and an anonymous request to the project S3 bucket was denied
+(403). They have since been recovered from the author machine and committed under
+`paper/evidence/` (the five score archives, the S4 SI-SDR aggregate, the raw YourMT3+
+reference-input predictions, and the structure gate arms). Still missing, and not
+recoverable from any known location: the basic-pitch and end-to-end (T1, S4, T10) note
+predictions, the SCNet-separated stems of S4/T10, the original command lines, and the
+box-side package versions (`paper/PROVENANCE.md` §8).
 
 ## Required before submitting the empirical preprint
 
 1. **[Done 2026-09-08] Recover the four primary result archives** listed in `results_snapshot.json`,
    plus their source MIDI predictions, reference manifests, and acquisition logs.
-   Run `python paper/verify_results.py --data-dir eval/data --output eval/data/publication_verified.json`.
+   Run `python paper/verify_results.py` (it now checks the committed archives under `paper/evidence/` by default).
    All four arms must contain the same 151 eligible accompaniment IDs, with no
    duplicate rows, missing predictions, or unexplained failures. Compare newly
    computed paired intervals with the archival summaries; investigate differences.
