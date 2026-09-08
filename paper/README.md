@@ -19,8 +19,8 @@ latexmk -pdf -interaction=nonstopmode -halt-on-error -cd paper/lbd/main.tex
 ```
 
 The first command validates **only the aggregate snapshot**. The second generates two
-TeX tables and one PDF figure from `results_snapshot.json`, whose provenance is
-`reported_not_recomputed`. Neither command reruns an experiment. The superseded key
+TeX tables and one PDF figure from `results_snapshot.json`, whose status is
+`stored_scores_recomputed` (its `verification` block records the recomputation). Neither command reruns an experiment. The superseded key
 forest/calibration figure is removed so it cannot silently return in a submission.
 The LBD manuscript fits within the 2026 limit of two scientific pages plus one
 optional references/acknowledgments/AI page. Inspect page layout after every edit.
@@ -33,9 +33,11 @@ integrity checks additionally need numpy and mir_eval==0.8.2:
 python -m unittest discover -s paper -p 'test_publication_checks.py' -v
 ```
 
-## Recover and verify the main results
+## Verify the main results
 
-Restore these files under `eval/data/` from an authorized project archive export:
+The per-recording score archives are committed under `paper/evidence/results_aws/`
+(SHA-256 sums in `paper/evidence/SHA256SUMS`; recovered from the author machine on
+2026-09-08). They are:
 
 - `results_aws/slakh_test_oracle.json` (T1, basic-pitch reference input)
 - `results_aws/yourmt3_oracle_per_track.json` (T2b, YourMT3+ reference input)
@@ -45,7 +47,7 @@ Restore these files under `eval/data/` from an authorized project archive export
 Then run:
 
 ```sh
-python paper/verify_results.py --data-dir eval/data --output eval/data/publication_verified.json
+python paper/verify_results.py --data-dir paper/evidence --output paper/evidence/publication_verified.json
 ```
 
 Missing archives, duplicate IDs, invalid scores, unmatched pairs, incorrect support,

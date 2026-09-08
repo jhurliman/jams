@@ -6,6 +6,25 @@ The revised paper is a **retrospective Slakh2100 component study**. Its empirica
 estimates remain reported historical results until the underlying archives are recovered.
 No model training or inference was rerun during this review.
 
+## Status update, 8 September 2026 (later the same day)
+
+Recovery of the primary archives is complete. The four per-track score archives,
+plus the HT-Demucs run S1, were found on the author's machine (`eval/data/results_aws/`,
+files dated 2–5 July 2026), committed under `paper/evidence/` with SHA-256 checksums,
+and `python paper/verify_results.py --data-dir paper/evidence` passes: 151 matched
+IDs in every arm, no duplicate rows, zero recorded failures, means equal to the
+four-decimal reported values, and the archived reference-input interval
+[0.3471, 0.3713] reproduced exactly. Intervals the audit listed as unavailable are
+now recomputed from stored scores: T10−S4 +0.3144 [0.3017, 0.3271] (YourMT3+ ahead on
+151/151), S4−T1 −0.0164 [−0.0193, −0.0136], T10−T2b −0.0611 [−0.0677, −0.0547], and
+drums S4−S1 −0.0104 [−0.0209, +0.0004] (includes zero). End-to-end bass support is 143
+in every arm. The complete Slakh2100-redux and the model caches were located on the
+author workstation (aleph0) and are being used for the MIDI-level rescore of T2b and
+for checkpoint hashes; `paper/PROVENANCE.md` records the outcome. Item 1 below is
+done and item 5 is done for the score archives (repository commit); items 2–4 are in
+progress on that basis; item 6 remains the author's. The manuscripts were updated to
+match. Nothing in the paper depends on the project's S3 bucket.
+
 ## Main scientific judgment
 
 The strongest existing comparison holds SCNet fixed and changes the accompaniment
@@ -59,32 +78,32 @@ audio again would not recover historical predictions or run configurations.
 
 ## Required before submitting the empirical preprint
 
-1. **Recover the four primary result archives** listed in `results_snapshot.json`,
+1. **[Done 2026-09-08] Recover the four primary result archives** listed in `results_snapshot.json`,
    plus their source MIDI predictions, reference manifests, and acquisition logs.
    Run `python paper/verify_results.py --data-dir eval/data --output eval/data/publication_verified.json`.
    All four arms must contain the same 151 eligible accompaniment IDs, with no
    duplicate rows, missing predictions, or unexplained failures. Compare newly
    computed paired intervals with the archival summaries; investigate differences.
-2. **Rescore from MIDI**, independently of stored `note_f` fields. Use the scorer
+2. **[In progress; feasible only for T2b, whose predictions were archived] Rescore from MIDI**, independently of stored `note_f` fields. Use the scorer
    in `eval/evaluate_transcription.py` with the exact grouped references. Confirm
    onset=50 ms, pitch=50 cents, offsets disabled, no beat quantization, and one-to-one
    matching. Publish per-track P/R/F, note counts, group eligibility, and failures.
    The new archive checker cannot establish this step by itself.
-3. **Pin provenance.** Record source-audio/annotation hashes, exact track lists and
+3. **[In progress; see PROVENANCE.md] Pin provenance.** Record source-audio/annotation hashes, exact track lists and
    split identities, checkpoint SHA-256 values, model/configuration revisions,
    package lockfiles, run commands, preprocessing and note-decoding parameters.
    Verify the babyslakh development IDs and source-MIDI overlap, not just filenames.
    Do not equate subprocess isolation with an immutable environment.
-4. **Audit grouped references.** `acquire_slakh.py` can skip unreadable audio stems
+4. **[Open; Slakh copy on aleph0 makes it feasible] Audit grouped references.** `acquire_slakh.py` can skip unreadable audio stems
    independently of MIDI merging and truncates group audio to its shortest stem.
    Its default WAV write subtype can clip sums outside the PCM range. These are
    concrete risks to inspect in the recovered data, not observed corruption claims.
    Log completeness, durations, peak amplitudes, and audio/MIDI alignment per group.
-5. **Release the evidence** with a durable version and checksums, excluding audio
+5. **[Done for score archives via repository commit; DOI deposit of larger artifacts pending] Release the evidence** with a durable version and checksums, excluding audio
    that cannot be redistributed. Replace the draft's pending-archive statement with
    the actual release URL only after it exists. Correct numbers if recomputation
    changes them; regenerate both PDFs.
-6. **Human author review.** Read the complete revised manuscript, validate the
+6. **[Open, author] Human author review.** Read the complete revised manuscript, validate the
    recovered evidence, confirm the author identity and disclosure, and approve the
    title. This AI-assisted revision does not represent a completed human sign-off.
 

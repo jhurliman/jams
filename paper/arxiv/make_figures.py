@@ -19,7 +19,7 @@ HERE = Path(__file__).resolve().parent
 def main() -> None:
     data = json.loads((HERE.parent / "results_snapshot.json").read_text())
     rows = data["transcription"]
-    if data["status"] != "reported_not_recomputed":
+    if data["status"] not in ("reported_not_recomputed", "stored_scores_recomputed"):
         raise ValueError("Review provenance labeling before changing the snapshot status")
     tables = HERE / "tables"
     figures = HERE / "figs"
@@ -69,7 +69,7 @@ def main() -> None:
     fig.savefig(figures / "fig_transcription.pdf", metadata={"CreationDate": None,
         "Title": "Reported Slakh2100 accompaniment transcription results"})
     plt.close(fig)
-    print("Rendered 2 tables and 1 figure from reported aggregate results; no experiments rerun.")
+    print(f"Rendered 2 tables and 1 figure from the {data['status']} snapshot; no experiments rerun.")
 
 
 if __name__ == "__main__":

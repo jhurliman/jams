@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Validate the reported snapshot; optionally recompute means/CIs from restored scores.
+"""Validate the reported snapshot and recompute means/CIs from the per-track score archives.
 
-Default mode checks only the committed summary. --data-dir requires all four primary
-archives and rejects incomplete or mismatched pairs. It never runs model inference or
+With a stored_scores_recomputed snapshot the archives default to paper/evidence/ and are
+always checked: every mean, interval, SHA-256, and paired contrast recorded in the snapshot
+must match the recomputation. --data-dir points at another root; it requires all four
+primary archives and rejects incomplete or mismatched pairs. It never runs model inference or
 proves that stored F1 values were correctly scored from MIDI. Requires numpy for CIs.
 """
 from __future__ import annotations
@@ -84,9 +86,20 @@ def bootstrap(values, resamples: int = 10_000, seed: int = 0):
     return {"mean": float(vals.mean()), "ci": [float(x) for x in np.percentile(means, [2.5, 97.5])]}
 
 
+STATUSES = ("reported_not_recomputed", "stored_scores_recomputed")
+
+
 def check_snapshot(data: dict) -> dict:
-    if data["status"] != "reported_not_recomputed":
+    if data["status"] not in STATUSES:
         raise ValueError("Snapshot provenance changed; review before use")
+    if data["status"] == "stored_scores_recomputed":
+        ver = data.get("verification") or {}
+        for key in ("report", "archives_dir", "checksums", "command", "scope"):
+            if not ver.get(key):
+                raise ValueError(f"Recomputed snapshot lacks verification.{key}")
+        for r in data["transcription"]:
+            if r.get("ci") is None or not r.get("sha256"):
+                raise ValueError(f"Recomputed snapshot row {r['id']} lacks ci/sha256")
     rows = {r["id"]: r for r in data["transcription"]}
     if set(rows) != {"T1", "T2b", "S4", "T10"} or len(data["transcription"]) != 4:
         raise ValueError("Expected four unique primary configurations")
@@ -106,6 +119,7 @@ def check_snapshot(data: dict) -> dict:
     if not subset_bound < 0.8328:
         raise ValueError("Unexpected subset-bound calculation")
     return {"status": "summary_consistent_archives_not_checked",
+            "snapshot_status": data["status"],
             "reference_delta": round(delta, 4),
             "end_to_end_delta": round(rows["T10"]["mean"] - rows["S4"]["mean"], 4),
             "old_key_subset_bound": subset_bound}
@@ -127,12 +141,28 @@ def check_archives(data: dict, root: Path) -> dict:
         stats = bootstrap(vals, **{k: data["bootstrap"][k] for k in ("resamples", "seed")})
         if abs(stats["mean"] - r["mean"]) > 0.00005001:
             raise ValueError(f"{r['id']}: recomputed {stats['mean']:.8f} disagrees with reported {r['mean']}")
+        digest = hashlib.sha256((root / r["archive"]).read_bytes()).hexdigest()
+        if r.get("sha256") and r["sha256"] != digest:
+            raise ValueError(f"{r['id']}: archive SHA-256 {digest} differs from snapshot {r['sha256']}")
+        if r.get("ci") is not None and r.get("ci_provenance") == "recomputed_from_stored_scores":
+            if [round(x, 4) for x in stats["ci"]] != [round(x, 4) for x in r["ci"]]:
+                raise ValueError(f"{r['id']}: recomputed CI {stats['ci']} disagrees with snapshot {r['ci']}")
         report["archives"][r["id"]] = {"path": r["archive"], "n": len(ids), **stats,
-            "sha256": hashlib.sha256((root / r["archive"]).read_bytes()).hexdigest(),
-            "track_ids": ids}
+            "sha256": digest, "track_ids": ids}
+    recorded = {c["comparison"]: c for c in data.get("paired_contrasts", [])}
     for a, b in (("T2b", "T1"), ("T10", "S4"), ("S4", "T1"), ("T10", "T2b")):
         _, va, vb = paired_values(loaded[a], loaded[b], 151)
-        report["contrasts"][f"{a} - {b}"] = bootstrap([x-y for x, y in zip(va, vb)])
+        diffs = [x - y for x, y in zip(va, vb)]
+        stats = bootstrap(diffs)
+        stats["win_fraction"] = sum(d > 0 for d in diffs) / len(diffs)
+        stats["loss_fraction"] = sum(d < 0 for d in diffs) / len(diffs)
+        report["contrasts"][f"{a} - {b}"] = stats
+        rec = recorded.get(f"{a} - {b}")
+        if rec is not None:
+            if (round(stats["mean"], 4) != rec["mean"]
+                    or [round(x, 4) for x in stats["ci"]] != rec["ci"]
+                    or round(stats["win_fraction"], 4) != rec["win_fraction"]):
+                raise ValueError(f"Contrast {a} - {b}: recomputed {stats} disagrees with snapshot {rec}")
     wins = sum(loaded["T2b"][t] > base[t] for t in base) / len(base)
     if wins != data["reference_paired_delta"]["win_fraction"]:
         raise ValueError("Reference-input win fraction disagrees with snapshot")
@@ -141,14 +171,19 @@ def check_archives(data: dict, root: Path) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--data-dir", type=Path, help="Restored eval/data root; requires all primary archives")
+    parser.add_argument("--data-dir", type=Path,
+                        help="Root containing results_aws/ archives (default: paper/evidence when the "
+                             "snapshot status is stored_scores_recomputed); requires all primary archives")
     parser.add_argument("--output", type=Path, help="Write a report only after all requested checks succeed")
     args = parser.parse_args()
     try:
         data = json.loads((HERE / "results_snapshot.json").read_text())
         result = check_snapshot(data)
-        if args.data_dir:
-            result = check_archives(data, args.data_dir)
+        data_dir = args.data_dir
+        if data_dir is None and data["status"] == "stored_scores_recomputed":
+            data_dir = HERE / "evidence"
+        if data_dir:
+            result = check_archives(data, data_dir)
     except (ValueError, KeyError, TypeError, OSError) as exc:
         parser.exit(1, f"Verification failed: {exc}\n")
     output = json.dumps(result, indent=2) + "\n"

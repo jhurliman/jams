@@ -1,28 +1,230 @@
 {
   "schema_version": 1,
-  "status": "reported_not_recomputed",
+  "status": "stored_scores_recomputed",
   "audit_date": "2026-09-08",
   "source_commit": "71e61b660a770f0c87539d23dce54f26da5ae032",
-  "sources": ["paper/EXPERIMENTS.md", "paper/STATS.md"],
+  "sources": [
+    "paper/EXPERIMENTS.md",
+    "paper/STATS.md"
+  ],
   "dataset": "Slakh2100-redux test",
   "metric": "macro per-track onset-and-pitch F1; onset 50 ms; pitch 50 cents; offsets ignored",
-  "bootstrap": {"resamples": 10000, "seed": 0, "unit": "track", "interval": "95% percentile"},
+  "bootstrap": {
+    "resamples": 10000,
+    "seed": 0,
+    "unit": "track",
+    "interval": "95% percentile"
+  },
   "transcription": [
-    {"id": "T1", "input": "Reference other", "model": "basic-pitch", "n": 151, "mean": 0.4897, "ci": [0.4742, 0.5055], "archive": "results_aws/slakh_test_oracle.json"},
-    {"id": "T2b", "input": "Reference other", "model": "YourMT3+", "n": 151, "mean": 0.8488, "ci": [0.8369, 0.8607], "archive": "results_aws/yourmt3_oracle_per_track.json"},
-    {"id": "S4", "input": "SCNet other", "model": "basic-pitch", "n": 151, "mean": 0.4733, "ci": null, "archive": "results_aws/sep_scnet_notes.json"},
-    {"id": "T10", "input": "SCNet other", "model": "YourMT3+", "n": 151, "mean": 0.7877, "ci": null, "archive": "results_aws/slakh_test_e2e_scnet_yourmt3.json"}
+    {
+      "id": "T1",
+      "input": "Reference other",
+      "model": "basic-pitch",
+      "n": 151,
+      "mean": 0.4897,
+      "ci": [
+        0.4742,
+        0.5055
+      ],
+      "archive": "results_aws/slakh_test_oracle.json",
+      "sha256": "03c9566fd53a78cdb16099e49f7ecb3077d5ca0205c444ddf8344592a700edb8",
+      "ci_provenance": "recomputed_from_stored_scores"
+    },
+    {
+      "id": "T2b",
+      "input": "Reference other",
+      "model": "YourMT3+",
+      "n": 151,
+      "mean": 0.8488,
+      "ci": [
+        0.8369,
+        0.8607
+      ],
+      "archive": "results_aws/yourmt3_oracle_per_track.json",
+      "sha256": "da4e13d00c301eb8a15fc9eaacdcd6cba5b790ef533e377e62c28d7658eb0061",
+      "ci_provenance": "recomputed_from_stored_scores"
+    },
+    {
+      "id": "S4",
+      "input": "SCNet other",
+      "model": "basic-pitch",
+      "n": 151,
+      "mean": 0.4733,
+      "ci": [
+        0.4581,
+        0.489
+      ],
+      "archive": "results_aws/sep_scnet_notes.json",
+      "sha256": "19397c11e7d3d6023e624db9056fce47bb8c498d1c261ba24c19aebaf7765e1b",
+      "ci_provenance": "recomputed_from_stored_scores"
+    },
+    {
+      "id": "T10",
+      "input": "SCNet other",
+      "model": "YourMT3+",
+      "n": 151,
+      "mean": 0.7877,
+      "ci": [
+        0.7742,
+        0.8011
+      ],
+      "archive": "results_aws/slakh_test_e2e_scnet_yourmt3.json",
+      "sha256": "7c12670cf69f75e389609ce2caf77826080984741aad284d2cd7a5c8745112cd",
+      "ci_provenance": "recomputed_from_stored_scores"
+    }
   ],
-  "reference_paired_delta": {"comparison": "T2b - T1", "n": 151, "mean": 0.3591, "ci": [0.3471, 0.3713], "win_fraction": 1.0},
+  "reference_paired_delta": {
+    "comparison": "T2b - T1",
+    "n": 151,
+    "mean": 0.3591,
+    "ci": [
+      0.3471,
+      0.3713
+    ],
+    "win_fraction": 1.0,
+    "provenance": "archived value; recomputed identically from stored scores"
+  },
   "separation": [
-    {"id": "S1", "model": "HT-Demucs", "nominal_tracks": 151, "bass_n": null, "drums_si_sdr": 11.61, "bass_si_sdr": 4.57, "other_si_sdr": 10.13, "drums_f1": 0.5845, "bass_f1": 0.5957, "other_f1": 0.4585},
-    {"id": "S4", "model": "SCNet", "nominal_tracks": 151, "bass_n": null, "drums_si_sdr": 14.31, "bass_si_sdr": 5.98, "other_si_sdr": 11.77, "drums_f1": 0.5741, "bass_f1": 0.6448, "other_f1": 0.4733}
+    {
+      "id": "S1",
+      "model": "HT-Demucs",
+      "nominal_tracks": 151,
+      "bass_n": 143,
+      "drums_si_sdr": 11.61,
+      "bass_si_sdr": 4.57,
+      "other_si_sdr": 10.13,
+      "drums_f1": 0.5845,
+      "bass_f1": 0.5957,
+      "other_f1": 0.4585,
+      "archive": "results_aws/slakh_test_e2e.json"
+    },
+    {
+      "id": "S4",
+      "model": "SCNet",
+      "nominal_tracks": 151,
+      "bass_n": 143,
+      "drums_si_sdr": 14.31,
+      "bass_si_sdr": 5.98,
+      "other_si_sdr": 11.77,
+      "drums_f1": 0.5741,
+      "bass_f1": 0.6448,
+      "other_f1": 0.4733,
+      "archive": "results_aws/sep_scnet_notes.json"
+    }
   ],
-  "bass_reference": {"n": 143, "basic_pitch": 0.7889, "yourmt3": 0.8486, "paired_delta": 0.0597, "paired_ci": [0.0034, 0.1100], "postprocessing": "monophonic filtering and +12 semitone estimate shift; run arguments require verification"},
+  "bass_reference": {
+    "n": 143,
+    "basic_pitch": 0.7889,
+    "yourmt3": 0.8486,
+    "paired_delta": 0.0597,
+    "paired_ci": [
+      0.0034,
+      0.11
+    ],
+    "postprocessing": "monophonic filtering and +12 semitone estimate shift; run arguments require verification"
+  },
   "caveats": [
-    "Per-recording archives were unavailable for the revision; none of these experimental estimates or intervals was independently recomputed.",
-    "End-to-end counts are ledger claims; exact eligible IDs must be matched when archives are restored.",
+    "Stored per-track scores were recovered from the author machine on 2026-09-08 and are committed under paper/evidence/; means and intervals above are recomputed from them. Independent rescoring from MIDI predictions is reported separately where predictions were archived (YourMT3+ reference input only); basic-pitch and end-to-end predictions were not archived.",
+    "Model inference was not rerun. Filenames and stored scores do not by themselves establish checkpoint identity; see paper/PROVENANCE.md.",
     "SCNet other SI-SDR is 11.77 in S4 and 11.76 in T10; do not silently treat rounded summaries as identical.",
     "Development reused test results. Intervals are conditional exploratory summaries, not confirmatory evidence."
-  ]
+  ],
+  "verification": {
+    "date": "2026-09-08",
+    "report": "paper/evidence/publication_verified.json",
+    "archives_dir": "paper/evidence/results_aws",
+    "checksums": "paper/evidence/SHA256SUMS",
+    "command": "python paper/verify_results.py --data-dir paper/evidence",
+    "scope": "Means and paired percentile-bootstrap intervals recomputed from the stored per-track F1 values in the four primary archives (151 matched IDs, no duplicates, zero recorded failures). Not a rescore from MIDI and not a rerun of inference."
+  },
+  "paired_contrasts": [
+    {
+      "comparison": "T2b - T1",
+      "label": "transcriber, reference input",
+      "n": 151,
+      "mean": 0.3591,
+      "ci": [
+        0.3471,
+        0.3713
+      ],
+      "win_fraction": 1.0,
+      "loss_fraction": 0.0
+    },
+    {
+      "comparison": "T10 - S4",
+      "label": "transcriber, SCNet input",
+      "n": 151,
+      "mean": 0.3144,
+      "ci": [
+        0.3017,
+        0.3271
+      ],
+      "win_fraction": 1.0,
+      "loss_fraction": 0.0
+    },
+    {
+      "comparison": "S4 - T1",
+      "label": "separation effect, basic-pitch",
+      "n": 151,
+      "mean": -0.0164,
+      "ci": [
+        -0.0193,
+        -0.0136
+      ],
+      "win_fraction": 0.106,
+      "loss_fraction": 0.894
+    },
+    {
+      "comparison": "T10 - T2b",
+      "label": "separation effect, YourMT3+",
+      "n": 151,
+      "mean": -0.0611,
+      "ci": [
+        -0.0677,
+        -0.0547
+      ],
+      "win_fraction": 0.0132,
+      "loss_fraction": 0.9868
+    }
+  ],
+  "separator_paired_delta": {
+    "comparison": "S4 - S1 (SCNet minus HT-Demucs), transcribers fixed",
+    "drums_onset_f1": {
+      "comparison": "S4 - S1",
+      "label": "drums onset F1",
+      "n": 151,
+      "mean": -0.0104,
+      "ci": [
+        -0.0209,
+        0.0004
+      ],
+      "win_fraction": 0.4172,
+      "loss_fraction": 0.5762
+    },
+    "other_f1": {
+      "comparison": "S4 - S1",
+      "label": "other note F1",
+      "n": 151,
+      "mean": 0.0148,
+      "ci": [
+        0.0119,
+        0.0176
+      ],
+      "win_fraction": 0.8278,
+      "loss_fraction": 0.1722
+    },
+    "bass_f1": {
+      "comparison": "S4 - S1",
+      "label": "bass note F1",
+      "n": 143,
+      "mean": 0.049,
+      "ci": [
+        0.033,
+        0.0656
+      ],
+      "win_fraction": 0.6573,
+      "loss_fraction": 0.3287
+    },
+    "note": "Recomputed from stored per-track scores in the two archives; drum SI-SDR per track is not stored in S4, so no paired SI-SDR interval is given."
+  }
 }

@@ -79,7 +79,7 @@ history. If the organizers decline, pursue the LBD demo and the transcription pa
 
 1. Review the revised title, sole-author line and full AI statement; confirm whether
    any actual human contributors or funding need to be added. Do not invent them.
-2. Recover and verify the four primary archives as specified in [REVIEW.md](REVIEW.md).
+2. Archives recovered, committed under `paper/evidence/`, and verified (REVIEW.md status update); the MIDI-level rescore and provenance record are in progress.
    Build and read both PDFs. The arXiv source package build command is in [README.md](README.md).
 3. For LBD, validate the current interface on one authorized audio example, record
    a short import/inspection/MIDI-export demonstration, and verify that its

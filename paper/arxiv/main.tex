@@ -32,9 +32,9 @@ A second comparison finds opposite directions of change in drum SI-SDR and
 downstream onset F1, without establishing a statistically reliable reversal.
 These observations support measuring the complete cascade; they do not establish
 that separation improves transcription, and do not measure performance on real electronic dance music.
-We specify the scoring and aggregation conventions and distinguish public summary
-statistics from per-recording archives that still need to be released for independent
-recomputation.
+We specify the scoring and aggregation conventions, commit the per-recording score
+archives with checksums, and recompute every reported interval from them; the
+remaining verification gap is that only one arm's note predictions were archived.
 \end{abstract}
 
 \section{Introduction}
@@ -129,10 +129,9 @@ music; there is no reference vocal group in this evaluation.
 The historical summary reports 151 accompaniment pairs and 143 bass pairs in the
 reference-input comparison. A missing reference group is excluded from that
 group's mean; an existing reference with no predicted notes scores zero. Failures
-and missing groups must therefore be reported separately. The end-to-end ledger
-records 151 completed multitracks and zero pipeline failures, but does not preserve
-the bass support count in its summary. We do not infer that count from the number
-of mixtures.
+and missing groups must therefore be reported separately. The end-to-end archives
+record 151 completed multitracks, zero pipeline failures, and 143 eligible bass
+pairs, the same support as the reference-input comparison.
 
 These are retrospective development results. The ledger records selection of
 components after examining Slakh test performance. It does not establish an
@@ -182,9 +181,9 @@ These details distinguish the implementation from other SDR protocols.
 \begin{table}[t]
 \centering\small
 \caption{Reported accompaniment (other) onset-and-pitch F1 on Slakh2100-redux,
-$n=151$. Reference input is the summed ground-truth group. Brackets are archived
-95\% bootstrap intervals; intervals were not available for the end-to-end rows.
-T1/T2b/S4/T10 identify runs in the project ledger.}
+$n=151$. Reference input is the summed ground-truth group. Brackets are 95\%
+percentile bootstrap intervals (10,000 track resamples, seed 0) recomputed from the
+committed per-track score archives. T1/T2b/S4/T10 identify runs in the project ledger.}
 \label{tab:transcription}
 \input{tables/transcription.tex}
 \end{table}
@@ -193,25 +192,26 @@ T1/T2b/S4/T10 identify runs in the project ledger.}
 \includegraphics[width=0.82\linewidth]{figs/fig_transcription.pdf}
 \caption{The transcriber comparison under two input conditions
 (Table~\ref{tab:transcription}). Separation is fixed for the mix-input condition.
-Only reference-input intervals are available; dots without intervals should not
-be read as more precise. Values are drawn from the committed summary snapshot,
-not recomputed predictions.}
+Intervals are recomputed from the committed per-track score archives; no
+predictions were regenerated.}
 \label{fig:transcription}
 \end{figure}
 
 With reference accompaniment as input, the recorded mean F1 is 0.4897 for
 basic-pitch and 0.8488 for YourMT3+ (Table~\ref{tab:transcription}). The archived
 paired difference is $+0.3591$ \ci{+0.3471}{+0.3713}, with YourMT3+ ahead on all
-151 reported pairs. This is the strongest numerical contrast in the existing
-summaries, although independent recomputation requires the original per-recording
-outputs.
+151 pairs. This is the strongest numerical contrast in the study; recomputation
+from the committed per-track archive reproduces the archived mean and interval
+exactly.
 
-After the same SCNet separator, the scores are 0.4733 and 0.7877, a difference of
-$+0.3144$. Relative to each model's reference-input score, separation is associated
-with decreases of 0.0164 for basic-pitch and 0.0611 for YourMT3+. The larger
-absolute decrease for YourMT3+ does not reverse the model ordering. No paired
-interval for these end-to-end contrasts is available in the public record; we
-report them descriptively.
+After the same SCNet separator, the scores are 0.4733 and 0.7877, a paired
+difference of $+0.3144$ \ci{+0.3017}{+0.3271}, again with YourMT3+ ahead on all
+151 pairs. Relative to each model's reference-input score, separation is associated
+with a decrease of $0.0164$ \ci{0.0136}{0.0193} for basic-pitch (lower on 135 of
+151 tracks) and $0.0611$ \ci{0.0547}{0.0677} for YourMT3+ (lower on 149). The
+larger absolute decrease for YourMT3+ does not reverse the model ordering. These
+intervals are recomputed from the stored per-track scores; they inherit every
+caveat of the original runs.
 
 YourMT3+ after separation also exceeds basic-pitch on reference stems by 0.2980.
 This compares two complete configurations with different transcribers, not a
@@ -225,18 +225,20 @@ gain comes from architecture alone.
 \begin{table}[t]
 \centering\small
 \caption{Reported separator comparison with basic-pitch for pitched groups and
-the historical ADTOF port for drums, on the same nominal 151-track test split.
-The eligible bass count is not archived in these summaries. Differences and
-confidence intervals must be recomputed on exact matched IDs before inferential use.}
+the historical ADTOF port for drums, on the same 151-track test split (143
+eligible bass pairs in both archives). Paired differences recomputed from the
+per-track archives, SCNet minus HT-Demucs: other $+0.0148$ \ci{+0.0119}{+0.0176},
+bass $+0.0490$ \ci{+0.0330}{+0.0656}, drums $-0.0104$ \ci{-0.0209}{+0.0004}.}
 \label{tab:separation}
 \input{tables/separation.tex}
 \end{table}
 SCNet has higher reported mean SI-SDR than HT-Demucs for all three groups
 (Table~\ref{tab:separation}). Its downstream F1 is also higher for other and bass.
 On drums, however, SI-SDR increases from 11.61 to 14.31\,dB while onset F1 decreases
-from 0.5845 to 0.5741. The opposite directions in these averages are an observed
-discrepancy, not a demonstrated population-level reversal: paired uncertainty for
-the 0.0104 F1 difference is missing.
+from 0.5845 to 0.5741. The paired drum difference recomputed from the two archives
+is $-0.0104$ \ci{-0.0209}{+0.0004}, with SCNet lower on 87 of 151 tracks and
+higher on 63; the interval includes zero. The opposite directions in these averages
+are therefore an observed discrepancy, not a demonstrated population-level reversal.
 
 Differences in transient preservation are one possible explanation, but this
 experiment does not isolate them. Decoder thresholds, interference, temporal
@@ -278,16 +280,23 @@ scoring, and model provenance, while leaving the benefit of separation over dire
 transcription unresolved.
 
 \section*{Code and data availability}
-Source code, the experiment ledger, and reported aggregate results are available
-at \url{https://github.com/jhurliman/jams}. This revision audits repository snapshot
-\texttt{71e61b6}. The per-recording evaluation archives referenced by that snapshot
-are not committed or attached to a public release; the documented project object
-store was not accessible for this review. The tables and figure in this revision
-regenerate from an explicitly labeled summary snapshot. That is not a reproduction
-of model inference or of the archived confidence intervals. Releasing the original
-predictions, manifests, exact checkpoint identifiers, and environment records is
-necessary for independent recomputation. No missing measurements have been estimated
-or synthesized to fill this gap.
+Source code, the experiment ledger, and the evidence behind every number in this
+paper are in the repository at \url{https://github.com/jhurliman/jams}. The five
+per-recording score archives (runs T1, T2b, S4, T10, and the HT-Demucs run S1) are
+committed under \path{paper/evidence/} with SHA-256 checksums, and
+\path{paper/verify_results.py} recomputes the means and paired intervals in this
+paper from them, refusing missing archives, duplicate rows, or mismatched track
+sets. The tables and figure regenerate from a summary snapshot that records that
+verification. The repository is the only hosting dependency; no cloud object store
+is required to reproduce the analysis.
+
+What the archives do not contain: the basic-pitch and end-to-end note predictions
+were not saved, so those arms are verified at the stored-score level only. The
+YourMT3+ reference-input predictions were saved and are rescored against the
+grouped references independently of the stored fields; that comparison and the
+checkpoint and environment record are documented in the repository
+(\path{paper/PROVENANCE.md}). No model inference was rerun for this revision, and no
+missing measurement has been estimated or synthesized.
 
 \section*{Acknowledgments and AI use}
 We thank the authors and maintainers of the datasets, models, and evaluation
