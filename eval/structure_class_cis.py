@@ -101,7 +101,17 @@ def main() -> None:
     ap.add_argument(
         "--manifest",
         type=Path,
-        default=Path(__file__).parent / "data/raveform/manifest.jsonl",
+        default=Path(__file__).resolve().parents[1]
+        / "paper/evidence/structure/raveform_eval_manifest.jsonl",
+        help="frozen evaluation manifest (fold membership + reference paths); default: the "
+        "committed folds-1/2 manifest, so the held-out sets do not depend on current audio",
+    )
+    ap.add_argument(
+        "--data-home",
+        type=Path,
+        default=Path(__file__).parent / "data/raveform",
+        help="Raveform annotation root for relative beats_csv paths "
+        "(populate with `eval/acquire_raveform.py --no-audio`)",
     )
     ap.add_argument("--out", type=Path, default=None)
     ap.add_argument(
@@ -113,8 +123,30 @@ def main() -> None:
 
     import evaluate_structure as es  # noqa: PLC0415 — sibling module, heavy imports
 
-    rows = [json.loads(x) for x in open(args.manifest) if x.strip()]
-    rows = {r["track_id"]: r for r in rows if r.get("fold") == args.fold and r.get("audio_exists")}
+    with open(args.manifest) as fh:
+        rows = [json.loads(x) for x in fh if x.strip()]
+    rows = [r for r in rows if "track_id" in r]  # the frozen manifest starts with a header row
+    # Eligibility is the frozen flag ("eligible": audio retrievable at gate time), falling back
+    # to a live manifest's audio_exists; it must not depend on what is downloadable today.
+    rows = {
+        r["track_id"]: r
+        for r in rows
+        if r.get("fold") == args.fold and r.get("eligible", r.get("audio_exists"))
+    }
+    missing_refs = []
+    for r in rows.values():
+        csv = Path(r["beats_csv"])
+        if not csv.is_absolute():
+            csv = args.data_home / csv
+            r["beats_csv"] = str(csv)
+        if not csv.exists():
+            missing_refs.append(r["track_id"])
+    if missing_refs:
+        raise SystemExit(
+            f"{len(missing_refs)} of {len(rows)} eligible fold-{args.fold} tracks lack their "
+            f"Raveform beat CSV under {args.data_home} (e.g. {missing_refs[:3]}); run "
+            "`uv run --extra eval eval/acquire_raveform.py --no-audio` (annotations only)."
+        )
 
     arm, arm_errors = load_preds(args.arm)
     stock, stock_errors = load_preds(args.stock)

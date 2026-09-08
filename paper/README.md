@@ -70,9 +70,14 @@ committed as `paper/evidence/rescore_t2b.json`; the raw predictions it rescores 
 committed compressed (`paper/evidence/results_aws/yourmt3_notes.jsonl.gz`), so only the
 Slakh redux test MIDI must be acquired. The structure gate arms (raw predictions and
 scored JSONs) are under `paper/evidence/structure/`, and
-`./eval/structure_class_cis.py --arm … --stock … --fold N --manifest …` recomputes the
-Appendix C intervals from them, failing unless both arms cover the eligible fold and any
-supplied scored JSON matches the recomputation per track (outputs `cis_*.json` there). `paper/PROVENANCE.md` records
+`./eval/structure_class_cis.py --arm … --stock … --fold N` recomputes the Appendix C
+intervals from them against the committed frozen fold manifest
+(`paper/evidence/structure/raveform_eval_manifest.jsonl`: fold membership, section
+references, and the eligibility flag as of the July 2026 gates, so the 165/162-track
+sets do not depend on which videos are downloadable today); only the Raveform beat CSVs
+are needed locally (`uv run --extra eval eval/acquire_raveform.py --no-audio`, or
+`--data-home`). It fails unless both arms cover the eligible fold and any supplied scored
+JSON matches the recomputation per track (outputs `cis_*.json` there). `paper/PROVENANCE.md` records
 checkpoint hashes, versions, and the unrecoverable items. `paper/audit_grouped_refs.py`
 audits the grouped references (completeness, truncation, clipping, onset/MIDI alignment)
 where the redux and grouped files live; its report is `paper/evidence/grouped_reference_audit.json`. Recovery of
