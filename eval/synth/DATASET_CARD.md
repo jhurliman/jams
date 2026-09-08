@@ -41,13 +41,45 @@ count + roles, sidechain style (DnB duck vs housier pump) + depth, master loudne
 
 ### Multi-engine timbral diversity (the #1 synth→real transfer lever)
 
-Every melodic voice is a **procedurally randomized** patch (no factory-preset content) drawn
-across **three distinct synthesis engines**, so the corpus is not monotimbral:
+Every melodic voice is a **procedurally randomized** patch drawn across **four distinct synthesis
+engines**, so the corpus is not monotimbral:
 
 - **Surge XT** — per-track randomized osc engine (Classic subtractive, Wavetable, Window, Modern,
   FM2/FM3, Twist macro, String physical-model), filter model, waveshaper, unison, envelopes.
 - **Dexed** — DX7-style **FM** (randomized algorithm feedback, operator ratios/levels/envelopes).
-- **Vitalium** — **wavetable** (randomized wave-frame morph, spectral unison, filter, envelopes).
+- **Vitalium** — **wavetable** (spectral unison, routed multimode filter, distortion, envelopes).
+  Optionally **preset-seeded at FULL FIDELITY**: a license-vetted `.vital` preset is loaded whole —
+  its real embedded **wavetable** and all params — via `load_state`, then band-jittered in the JSON
+  before loading (see the ingestion section).
+- **CC0 wavetable scan-synth** — a numpy band-limited oscillator that plays **real public-domain
+  wavetables** (folding / FM / sync / phase-distortion / PPG etc. — the Reese/growl/neuro fuel).
+  An independent procedural timbre source; preset fidelity no longer depends on it.
+
+**Preset / wavetable ingestion (corrected root cause + full-fidelity design).** An initial spike
+concluded DawDreamer could carry only scalar params (not a preset's wavetable) into Vitalium —
+because it fed raw `.vital` bytes to `load_preset` (returns `False`) and STANDARD-base64-decoded the
+state chunk (→ garbage that looked binary). **That was wrong.** The correct path is `load_state`:
+Vitalium's VST3 state chunk (`VC2!` + LE-uint32 XML length + `<VST3PluginState><IComponent>…`) has
+its `<IComponent>` in **JUCE `MemoryBlock` base64** (custom alphabet `".A–Za–z0–9+"`, LSB-first,
+`<len>.<data>`), which decodes to the literal `.vital` JSON — wavetables included — plus a fixed
+32-byte `…JUCEPrivateData` trailer. So we craft a loadable state from any `.vital` JSON (XML
+skeleton + trailer derived at runtime from one `save_state`, nothing hardcoded) and `load_state` it
+→ the preset renders at **full fidelity through the unmodified GPL plugin**. Verified end-to-end:
+splicing a pure square into a preset's osc-1 wavetable renders the textbook odd-harmonics spectrum;
+distinct presets yield large cross-spectral distances (real wavetables carried).
+
+Preset seeding therefore now (a) loads the real wavetable + full patch, and (b) applies the banded
+per-family jitter to the JSON `settings` values **before** encoding (osc frame/level/detune, filter
+cutoff/res, amp ADSR, FX dry/wet — in native Vital units, role-clamped); discrete / enum / routing /
+topology / sync / stereo / `effect_chain_order` keys are **never** jittered, preserving the preset's
+wavetables and structural character. Separately, the spike fixed three latent no-ops in the
+procedural (non-seeded) Vitalium patch (filter never routed → cutoff/res inert; Osc 2 switch off →
+a set osc-2 level silent; distortion type None → distortion amount inert).
+
+**Licensing unchanged:** an **unmodified**, redistributable GPL Vitalium binary is fed its own
+native state; the rendered AUDIO is program output, so GPL/CC0/Unlicense preset seeds do not
+propagate copyleft to it (GIMP/Audacity doctrine). `.vital` files are render **inputs** staged
+outside the shipped corpus and are **never** redistributed; only rendered audio ships.
 
 Drums combine our original DSP kit with **real one-shots from two kits** (per-hit pitch/gain
 jitter + round-robin to kill the machine-gun tell), re-sequenced into D&B patterns:
@@ -104,6 +136,31 @@ by seed. `split.json` records the exact `train`/`val` track-id lists and a `val_
   from the probe's 1.8 dB via the richer mid arrangement + convolution reverb. Full per-track
   numbers in `validation_report.json`.
 
+### Wavetable + preset realism upgrade — controlled A/B (this revision)
+
+Matched 12-track batch (one per sub-style ×2, identical seeds), CC0-wavetable scan-synth + preset
+seeding **OFF vs ON** (Vitalium filter/osc-2/distortion routing fixes present in both arms, so this
+isolates the *source* lever). SCNet XL IHF SI-SDR (dB), lower = harder to separate = closer to
+real-music difficulty. The CC0-bass mix fraction (`_WT_BASS_PROB` in `bass.py`) was **tuned to
+`0.33`** to land the bass median near the ~8 dB target (a deliberate split between the OFF baseline
+12.9 and the aggressive-mix 6.4):
+
+| stem | before (OFF) | after (ON, `_WT_BASS_PROB=0.33`) | Δ median |
+|---|---|---|---|
+| drums | 14.1 | 13.5 | −0.6 |
+| bass  | 12.9 | **9.3** (mean 8.5) | −3.6 |
+| other | 5.5 | 4.3 | −1.2 |
+
+Adding the real CC0 wavetables (biased to folding/FM/sync/phase "neuro" tables) + preset-seeded
+Vitalium moves **bass and other harder** while drums stay put and the stem-sum residual stays
+perfect (on-disk FLAC-16 −76…−79 dB; float ≈ −219 dB) — still firmly in regime (a), not broken,
+not trivially clean. The distinct public-domain wavetable spectra are exactly the dense,
+hard-to-separate bass the ES2 fine-tune targets. **Tuning note:** at n=12 the bass median is
+noise-dominated and steep in the mix fraction (`0.33`→9.3, `0.34`→6.5, `0.35`→6.4 medians), so
+`_WT_BASS_PROB=0.33` (bass median 9.3 / **mean 8.5 ≈ 8**) is the chosen operating point; raise it
+toward 0.35 for a harder bass, lower it toward 0 to approach the 12.9 baseline. Both arms' full
+numbers: `es2_valbatch/sisdr_report.json` (staged, not shipped).
+
 ## Asset / license ledger
 
 | Asset | License | URL | Use |
@@ -112,11 +169,39 @@ by seed. `split.json` records the exact `train`/`val` track-id lists and a `val_
 | TidalCycles TR-808 (sounds-tr808-fischer) | **CC0-1.0** | github.com/tidalcycles/sounds-tr808-fischer | real CC0 808 one-shots, re-sequenced |
 | Surge XT | GPL-3 + output grant | surge-synthesizer.github.io | bass + synth voices (procedural params) |
 | Dexed | GPL-3 | asb2m10.github.io/dexed | FM voices (own patches) |
-| Vitalium (DISTRHO/Vital, NO_AUTH) | GPL-3 | github.com/DISTRHO/DISTRHO-Ports | wavetable voices (content-free, own params) |
+| Vitalium (DISTRHO/Vital, NO_AUTH) | GPL-3 | github.com/DISTRHO/DISTRHO-Ports | wavetable voices (content-free procedural params; full-fidelity preset seeds via `load_state`) |
 | DawDreamer | MIT | github.com/DBraun/DawDreamer | offline render engine |
 
-Excluded on license grounds: any copyrighted "Amen" recording; Cymatics packs (EULA bars
-redistributing isolated sounds — a separation stem *is* the sample); anything NonCommercial/unclear.
+### Synth-source provenance manifest (CC0 wavetables + preset render-seeds)
+
+New in this revision. **Only rendered audio ships**; the wavetable/preset source files are cloned
+into a non-shipped staging dir (`SYNTH_WT_BANK` / `SYNTH_PRESET_SRC`, default under `~/.claude/`,
+git-ignored) and used purely as render inputs. Each source's LICENSE was verified on disk; commit
+SHAs are pinned below.
+
+| Source repo | License | Commit SHA | Use | Notes |
+|---|---|---|---|---|
+| atsushieno/open-vital-resources | **CC0-1.0** (wavetables); README text CC-BY 4.0 | `8c31ac1940173bb89ea342293236a6a96f8c97d0` | ~1.26k CC0 wavetables → numpy scan-synth osc | Kimura Taro Free Wavetables + WAVEEDIT ONLINE, both CC0 (README-declared) |
+| christ-offer/vitalium-presets | **CC0-1.0** | `8c6c93cb7763d684b6ef66f700e71d9a4814471f` | CC0 wavetables + 3 CC0 preset scalar-seeds | LICENSE = CC0 on disk |
+| Mxm40b/vital-presets | **Unlicense** | `1a1edf22f54d9d2d4433cca3f9a1f09e383118e0` | 104 preset scalar-seeds | author spot-check: only `author=="mxmfrpr"` (uploader) used; 9 ambiguous `"me"` excluded |
+| abstractionmage/Vital-Presets | **CC0-1.0** | `023763ab9b394f5adf65089def75f6a4f6e3aa85` | 8 CC0 preset scalar-seeds | LICENSE = CC0 on disk |
+| nahush2321/Vitalium-presets | **GPL-3.0** | `025728f9a630d921050cf7eac0d514baee6b6994` | 221 preset scalar-seeds | self-made Vitalium-native; **audio-only** position below |
+
+**GPL preset → audio-only position (binding).** The rendered AUDIO is *program output*: a GPL
+preset used as a render seed does not propagate its copyleft to the rendered stem, exactly as GIMP
+(GPL) images and Audacity (GPL) audio are the user's to license. We therefore use GPL presets as
+render seeds but **never ship/redistribute the modified `.vital` files** — they stay staged outside
+the corpus. (We additionally only import scalar params, never the preset's embedded wavetable,
+because the host cannot load it anyway — see the spike above.)
+
+**CC0 attribution (courtesy).** CC0/Public-Domain requires no attribution, but we gratefully credit
+the wavetable authors: Kimura Taro (kimurataro.com/free-wavetables), WAVEEDIT ONLINE
+(waveeditonline.com), @atsushieno (open-vital-resources), and christ-offer (vitalium-presets).
+
+Excluded on license grounds: **Vital's own factory presets** (separate non-redistributable
+license); any no-license / commercial-EULA / CC-BY-SA / NonCommercial preset or wavetable packs;
+any copyrighted "Amen" recording; Cymatics packs (EULA bars redistributing isolated sounds — a
+separation stem *is* the sample); anything NonCommercial/unclear.
 
 ## Known limitations (honest)
 

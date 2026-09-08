@@ -10,9 +10,15 @@ from __future__ import annotations
 import numpy as np
 
 from . import arrange, patches, theory
+from . import presets as _presets
+from . import vital_state as _vs
+from . import wavetable as _wt
 from .surge import render_layer
 
 SR = 44100
+
+# Fraction of Vitalium voices seeded from a license-vetted preset anchor (sparse quality anchors).
+_PRESET_SEED_PROB = 0.4
 
 
 # --- Note generation ---------------------------------------------------------
@@ -91,24 +97,28 @@ def _notes_for(spec, tl, rng, role: str) -> list:
     return _sustained_notes(spec, tl, rng, role, 2, 55, 76)
 
 
-# Per-role synth-engine weights (subtractive/wavetable Surge, FM Dexed, wavetable Vitalium).
+# Per-role synth-engine weights. Engines: subtractive/wavetable Surge, FM Dexed, Vitalium
+# (built-in wavetable), and `cc0wt` — the numpy CC0-wavetable scan-synth (real public-domain
+# tables, the #1 timbre lever). `cc0wt` is weighted highest for the atmos/formant-rich roles.
 _ENG_W = {
-    "pad": {"surge": 3, "vitalium": 3, "dexed": 1},
-    "reese_pad": {"surge": 2, "vitalium": 2, "dexed": 1},
-    "stab": {"surge": 3, "vitalium": 2, "dexed": 1},
-    "lead": {"surge": 2, "vitalium": 2, "dexed": 2},
-    "pluck": {"surge": 3, "vitalium": 2, "dexed": 1},
-    "atmos": {"surge": 1, "vitalium": 3, "dexed": 1},
-    "rhodes": {"surge": 1, "vitalium": 1, "dexed": 4},
+    "pad": {"surge": 3, "vitalium": 2, "dexed": 1, "cc0wt": 2},
+    "reese_pad": {"surge": 2, "vitalium": 2, "dexed": 1, "cc0wt": 2},
+    "stab": {"surge": 3, "vitalium": 2, "dexed": 1, "cc0wt": 2},
+    "lead": {"surge": 2, "vitalium": 2, "dexed": 2, "cc0wt": 2},
+    "pluck": {"surge": 3, "vitalium": 1, "dexed": 1, "cc0wt": 2},
+    "atmos": {"surge": 1, "vitalium": 2, "dexed": 1, "cc0wt": 3},
+    "rhodes": {"surge": 1, "vitalium": 1, "dexed": 4, "cc0wt": 1},
 }
 
 
-def _pick_engine(role: str, rng, dexed_ok: bool, vit_ok: bool) -> str:
-    w = dict(_ENG_W.get(role, {"surge": 3, "vitalium": 1, "dexed": 1}))
+def _pick_engine(role: str, rng, dexed_ok: bool, vit_ok: bool, cc0wt_ok: bool) -> str:
+    w = dict(_ENG_W.get(role, {"surge": 3, "vitalium": 1, "dexed": 1, "cc0wt": 1}))
     if not dexed_ok:
         w.pop("dexed", None)
     if not vit_ok:
         w.pop("vitalium", None)
+    if not cc0wt_ok:
+        w.pop("cc0wt", None)
     names = list(w)
     wt = np.array([w[n] for n in names], dtype=float)
     return names[int(rng.choice(len(names), p=wt / wt.sum()))]
@@ -127,17 +137,33 @@ def render_other_bus(spec, tl, rng, dexed=None, vitalium=None) -> tuple[np.ndarr
 
     dexed_ok = dexed is not None and dexed.available()
     vit_ok = vitalium is not None and vitalium.available()
+    cc0wt_ok = _wt.available()
+    preset_ok = _presets.available()
     for role in spec.synth_roles:
         notes = _notes_for(spec, tl, rng, role)
         if not notes:
             continue
-        engine = _pick_engine(role, rng, dexed_ok, vit_ok)
+        engine = _pick_engine(role, rng, dexed_ok, vit_ok, cc0wt_ok)
         if engine == "dexed":
             audio = fit(dexed.render(notes, secs, rng))
             descriptors.append({"role": role, "engine": "dexed-fm"})
+        elif engine == "cc0wt":
+            audio = fit(_wt.render(notes, secs, rng, role))
+            descriptors.append({"role": role, "engine": "cc0-wavetable"})
         elif engine == "vitalium":
-            audio = fit(vitalium.render(notes, secs, rng, role))
-            descriptors.append({"role": role, "engine": "vitalium-wt"})
+            seed = _presets.pick(rng) if (preset_ok and rng.random() < _PRESET_SEED_PROB) else None
+            pj = _presets.load_json(seed) if (seed and _vs.available()) else None
+            if pj is not None:
+                # full-fidelity: load the preset's real wavetable + params via load_state, jittered
+                audio = fit(_vs.render(notes, secs, rng, role, pj))
+                descriptors.append({"role": role, "engine": "vitalium-fullstate",
+                                    "preset_seeded": True, "preset": seed.get("_name"),
+                                    "preset_license": seed.get("_license")})
+            else:
+                audio = fit(vitalium.render(notes, secs, rng, role, seed=seed))
+                descriptors.append({"role": role, "engine": "vitalium-wt",
+                                    "preset_seeded": bool(seed),
+                                    "preset": (seed or {}).get("_name")})
         else:
             cfg, desc = patches.rand_synth_cfg(role, rng)
             audio = fit(render_layer(cfg, notes, secs, role))
