@@ -6,13 +6,21 @@ const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.m
 
 /** Non-passive wheel zoom/pan for the whole data-viz stack. Attaching this to the shared
  *  container (rather than only the waveform canvas) means ⌘/Ctrl+wheel zoom and plain-wheel
- *  pan work while hovering ANY row — the waveform or any stem lane — and, because every row
+ *  pan work over every row. Vertical wheel gestures scroll overflowing stem lanes;
+ *  Shift+wheel pans there. Because every row
  *  reads the same store view transform, they all move together. */
 export function useTimelineWheel(ref: React.RefObject<HTMLElement | null>): void {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
+      // Keep overflowing stem rows reachable with a vertical wheel gesture.
+      // Shift+wheel (or horizontal trackpad movement) still pans the timeline.
+      const lanes = e.target instanceof Element ? e.target.closest('.stemlanes') : null;
+      if (!e.ctrlKey && !e.metaKey && !e.shiftKey && lanes &&
+          lanes.scrollHeight > lanes.clientHeight && Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        return;
+      }
       e.preventDefault();
       const ed = useEditor.getState();
       if (e.ctrlKey || e.metaKey) {

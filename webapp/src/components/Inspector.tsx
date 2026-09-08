@@ -99,7 +99,7 @@ export function Inspector({ audio }: { audio: AudioControls }) {
             <li>Drag a segment boundary to move it</li>
             <li>Double-click empty space to add a beat; double-click a beat to delete</li>
             <li>Alt-click a beat to cycle its bar position</li>
-            <li>⌘/Ctrl + wheel to zoom · wheel to pan</li>
+            <li>⌘/Ctrl + wheel to zoom · Shift+wheel to pan; wheel scrolls stem rows</li>
             <li>
               <strong>E</strong> toggles the read-only model prediction lane (eval) under the ruler
             </li>
