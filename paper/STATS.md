@@ -42,3 +42,4 @@ Paired per-track note-F (onset+pitch, 50 ms/50 c, offsets ignored), oracle (grou
 | other (n=151) | 0.4897 [0.4742, 0.5055] | 0.8488 [0.8369, 0.8607] | +0.3591 [+0.3471, +0.3713] | 100% |
 
 Reference-input supports differ: bass n=143, other n=151. Intervals are unadjusted exploratory summaries. Bass includes an empirical +12-semitone estimate shift and monophonic filtering, requiring an audio/MIDI audit; this is not a universal MIDI convention.
+*Correction (2026-09-08):* the archived T2b bass scores contain the +12 shift only, **not** the monophonic filter; rescoring the raw predictions reproduces 0.8486 with the shift alone, and 0.8126 with the production filter added (see `paper/evidence/rescore_t2b.json`).

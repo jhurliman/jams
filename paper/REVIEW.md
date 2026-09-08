@@ -19,10 +19,16 @@ now recomputed from stored scores: T10−S4 +0.3144 [0.3017, 0.3271] (YourMT3+ a
 151/151), S4−T1 −0.0164 [−0.0193, −0.0136], T10−T2b −0.0611 [−0.0677, −0.0547], and
 drums S4−S1 −0.0104 [−0.0209, +0.0004] (includes zero). End-to-end bass support is 143
 in every arm. The complete Slakh2100-redux and the model caches were located on the
-author workstation (aleph0) and are being used for the MIDI-level rescore of T2b and
-for checkpoint hashes; `paper/PROVENANCE.md` records the outcome. Item 1 below is
-done and item 5 is done for the score archives (repository commit); items 2–4 are in
-progress on that basis; item 6 remains the author's. The manuscripts were updated to
+author workstation (aleph0). Using its Slakh MIDI, the T2b predictions were rescored
+against independently rebuilt grouped references: all 151 other and 143 bass rows
+match the archive exactly (`paper/rescore_t2b.py`, `paper/evidence/rescore_t2b.json`).
+That rescore also fixed one documentation error: the archived bass number uses the
++12 shift only, without the monophonic filter STATS.md claimed. `paper/PROVENANCE.md`
+records checkpoint hashes (SCNet, YourMT3+), Slakh archive digests, scorer versions,
+and the items that are not recoverable (original command lines, basic-pitch and
+end-to-end predictions, box-side package versions). Items 1–3 below are done as far
+as the evidence allows; item 4 is open; item 5 is done for the score archives; item 6
+remains the author's. The manuscripts were updated to
 match. Nothing in the paper depends on the project's S3 bucket.
 
 ## Main scientific judgment
@@ -84,12 +90,12 @@ audio again would not recover historical predictions or run configurations.
    All four arms must contain the same 151 eligible accompaniment IDs, with no
    duplicate rows, missing predictions, or unexplained failures. Compare newly
    computed paired intervals with the archival summaries; investigate differences.
-2. **[In progress; feasible only for T2b, whose predictions were archived] Rescore from MIDI**, independently of stored `note_f` fields. Use the scorer
+2. **[Done 2026-09-08 for T2b, the only arm with archived predictions: all 294 rows reproduced exactly; see paper/rescore_t2b.py] Rescore from MIDI**, independently of stored `note_f` fields. Use the scorer
    in `eval/evaluate_transcription.py` with the exact grouped references. Confirm
    onset=50 ms, pitch=50 cents, offsets disabled, no beat quantization, and one-to-one
    matching. Publish per-track P/R/F, note counts, group eligibility, and failures.
    The new archive checker cannot establish this step by itself.
-3. **[In progress; see PROVENANCE.md] Pin provenance.** Record source-audio/annotation hashes, exact track lists and
+3. **[Done 2026-09-08 to the extent recoverable; PROVENANCE.md lists verified hashes and the open items] Pin provenance.** Record source-audio/annotation hashes, exact track lists and
    split identities, checkpoint SHA-256 values, model/configuration revisions,
    package lockfiles, run commands, preprocessing and note-decoding parameters.
    Verify the babyslakh development IDs and source-MIDI overlap, not just filenames.
