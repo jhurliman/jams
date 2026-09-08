@@ -86,16 +86,76 @@ def _warn_if_cpu_with_gpu() -> None:
         )
 
 
+_device = None
+
+
+def _select_device() -> str:
+    """cuda -> mps -> cpu. mt3-infer's own "auto" only knows cuda-or-cpu, so on Apple
+    Silicon it silently runs the autoregressive decoder on CPU (~2.5x slower than MPS,
+    measured 26 s vs 10 s per 60 s of audio on an M-series laptop)."""
+    global _device
+    if _device is None:
+        import torch
+
+        if torch.cuda.is_available():
+            _device = "cuda"
+        elif getattr(torch.backends, "mps", None) is not None and torch.backends.mps.is_available():
+            _device = "mps"
+            # The T5 decoder's KV cache grows every step, so each step allocates new,
+            # differently sized tensors that the MPS caching allocator never reuses. On a
+            # note-dense segment that reached ~38 GB and swapped (128 s for one 60 s window on
+            # a 34 GB M2 Max). Capping the allocator forces block recycling: 20 s, 3.5 GB.
+            # 15% of a 34 GB machine (3.7 GiB) OOMs on that window, so cap by an absolute
+            # budget rather than a bare fraction; JAMS_MPS_MEMORY_GB overrides.
+            budget = float(os.environ.get("JAMS_MPS_MEMORY_GB", "8")) * 1e9
+            frac = min(0.9, budget / torch.mps.recommended_max_memory())
+            torch.mps.set_per_process_memory_fraction(frac)
+            print(f"[yourmt3] mps allocator cap: {frac:.2f} of recommended working set",
+                  file=sys.stderr, flush=True)
+        else:
+            _device = "cpu"
+        print(f"[yourmt3] device: {_device}", file=sys.stderr, flush=True)
+    return _device
+
+
+def _model(device: str):
+    """mt3-infer's cached model for `device` (same call `transcribe()` makes internally).
+    On MPS the adapter's fixed batch of 8 segments fragments the allocator during the
+    autoregressive decode; a smaller batch keeps the footprint under the cap."""
+    from mt3_infer import load_model
+
+    m = load_model(model="yourmt3", device=device)
+    if device == "mps" and not getattr(m, "_jams_mps_batch", False):
+        orig = m.model.inference_file
+        bsz = int(os.environ.get("JAMS_YOURMT3_MPS_BATCH", "4"))
+
+        def inference_file(bsz=bsz, audio_segments=None, _orig=orig, _bsz=bsz):
+            return _orig(bsz=_bsz, audio_segments=audio_segments)
+
+        m.model.inference_file = inference_file
+        m._jams_mps_batch = True
+    return m
+
+
 def transcribe_pitched(wav: str) -> list[dict]:
     """Transcribe one stem with YourMT3+; flat (instrument-agnostic) non-drum notes."""
     import librosa
     import pretty_midi
-    from mt3_infer import transcribe
 
     _warn_if_cpu_with_gpu()
     y, _ = librosa.load(wav, sr=16000, mono=True)
     try:
-        midi = transcribe(y, model="yourmt3", sr=16000)  # mido MidiFile
+        try:
+            midi = _model(_select_device()).transcribe(y, sr=16000)  # mido MidiFile
+        except RuntimeError as exc:
+            if _select_device() != "mps" or "out of memory" not in str(exc).lower():
+                raise
+            import torch
+
+            torch.mps.empty_cache()
+            print("[yourmt3] MPS out of memory on this stem; retrying on CPU",
+                  file=sys.stderr, flush=True)
+            midi = _model("cpu").transcribe(y, sr=16000)
     except Exception as exc:
         if "clone" in str(exc).lower() or "lfs" in str(exc).lower():
             raise RuntimeError(
