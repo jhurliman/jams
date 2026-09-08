@@ -408,9 +408,23 @@ Grouped-reference audit (2026-09-08, `paper/audit_grouped_refs.py` run on this h
 `~/s7/jams/eval/data/slakh/redux`, report `paper/evidence/grouped_reference_audit.json`):
 445 groups; no phantom-MIDI or audio-without-MIDI stems, no truncation, no clipping
 (max summed peak 0.927), all WAVs PCM_16 and equal to recomputed sums to 1 LSB, no notes
-past audio end; onset/MIDI lags 12–58 ms by class (attack time + 1-frame bias), no offsets.
+past audio end. Onset-envelope/MIDI cross-correlation: 417/445 groups have their global
+maximum within 0–70 ms after note-on (12–58 ms by class: attack time + 1-frame estimator
+bias); for the other 28 (22 drums, 3 bass, 3 other; one-beat aliases on periodic parts) and
+for 6 low-correlation dense groups the method cannot exclude an offset, though none shows a
+consistent shift.
 This closes open item 8 for the references on this host; it does not prove the AWS/Lambda
 boxes built identical files, although the script and inputs are the same.
+
+Structure gate arms (2026-09-08): the raw per-track predictions of every gate arm
+(`gate_st3.jsonl`, `gate_st4.jsonl`, `gate_ft1_fixed.jsonl`, `gate_ft2_fixed.jsonl` from
+`s3://jams-mir-eval-usw2/gates/`; `gate_stock.jsonl` and `gate_stock1.jsonl` from this
+host's home directory) and the four scored JSONs are committed under
+`paper/evidence/structure/`. `eval/structure_class_cis.py` recomputes the Appendix C
+intervals from them (`cis_*.json` alongside): 165/165 fold-2 and 162/162 fold-1
+coverage, zero error rows, and the scored artifacts equal the recomputed per-track
+metrics. No stock-arm scored JSON was ever produced; the stock metrics are recomputed
+from `gate_stock*.jsonl`.
 
 No YourMT3+/mt3-infer cache exists on the host outside `~/s7/jams/.mt3_checkpoints`. The
 SCNet-separated stems of S4/T10 were not found (`/mnt/d/jams/stems_scratch` and `stems_json`

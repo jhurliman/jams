@@ -19,9 +19,9 @@ EVIDENCE = W / "paper" / "evidence"
 EVAL = W / "eval"
 DATA_HOME = EVAL / "data" / "slakh_home"
 REF_OUT = EVAL / "data" / "slakh_rescore"  # merged group MIDI written here (gitignored)
-NOTES_JSONL = EVAL / "data" / "results_aws" / "yourmt3_notes.jsonl"
-ARCHIVE = EVAL / "data" / "results_aws" / "yourmt3_oracle_per_track.json"
-SCORES = EVAL / "data" / "results_aws" / "yourmt3_scores.json"
+NOTES_JSONL = EVIDENCE / "results_aws" / "yourmt3_notes.jsonl.gz"  # committed, gzip of the raw dump
+ARCHIVE = EVIDENCE / "results_aws" / "yourmt3_oracle_per_track.json"
+SCORES = EVIDENCE / "results_aws" / "yourmt3_scores.json"
 PUB = EVIDENCE / "publication_verified.json"
 REMOTE_STEMS = EVIDENCE / "slakh_test_stems_listing.txt"
 OUT_JSON = EVIDENCE / "rescore_t2b.json"
@@ -106,8 +106,15 @@ except Exception as exc:  # noqa: BLE001
 
 
 # --- inputs -----------------------------------------------------------------
-sha = hashlib.sha256(NOTES_JSONL.read_bytes()).hexdigest()
-rows = [json.loads(x) for x in NOTES_JSONL.read_text().splitlines() if x.strip()]
+import gzip
+
+_raw = (
+    gzip.decompress(NOTES_JSONL.read_bytes())
+    if NOTES_JSONL.suffix == ".gz"
+    else NOTES_JSONL.read_bytes()
+)
+sha = hashlib.sha256(_raw).hexdigest()  # digest of the uncompressed dump
+rows = [json.loads(x) for x in _raw.decode().splitlines() if x.strip()]
 est_by = {(r["track_id"], r["stem"]): r["notes"] for r in rows}
 assert len(est_by) == len(rows), "duplicate (track, stem) rows in jsonl"
 
@@ -129,8 +136,18 @@ print(f"remote audio stems: {len(remote_audio)}", file=sys.stderr)
 ds = mirdata.initialize("slakh", data_home=str(DATA_HOME), version="2100-redux")
 index_fetched = False
 if not Path(ds.index_path).exists():
+    import time
+
     print("=> fetching mirdata slakh index (small JSON only)", file=sys.stderr)
-    ds.download(partial_download=["index"])
+    for attempt in range(1, 6):  # Zenodo intermittently returns 5xx; retry with backoff
+        try:
+            ds.download(partial_download=["index"])
+            break
+        except Exception as exc:  # noqa: BLE001
+            if attempt == 5:
+                sys.exit(f"could not fetch the mirdata slakh index after 5 attempts: {exc}")
+            print(f"   index fetch failed ({exc}); retrying in {15 * attempt}s", file=sys.stderr)
+            time.sleep(15 * attempt)
     index_fetched = True
 print(f"index: {ds.index_path}", file=sys.stderr)
 
