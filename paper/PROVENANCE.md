@@ -424,7 +424,10 @@ host's home directory) and the four scored JSONs are committed under
 intervals from them (`cis_*.json` alongside): 165/165 fold-2 and 162/162 fold-1
 coverage, zero error rows, and the scored artifacts equal the recomputed per-track
 metrics. No stock-arm scored JSON was ever produced; the stock metrics are recomputed
-from `gate_stock*.jsonl`.
+from `gate_stock*.jsonl`. The held-out sets are fixed by the committed
+`raveform_eval_manifest.jsonl` (folds 1–2, section references inline, `eligible` = audio
+retrievable at gate time; Raveform annotations are MIT-licensed), so the recomputation
+needs only the Raveform beat CSVs, not the audio.
 
 No YourMT3+/mt3-infer cache exists on the host outside `~/s7/jams/.mt3_checkpoints`. The
 SCNet-separated stems of S4/T10 were not found (`/mnt/d/jams/stems_scratch` and `stems_json`
