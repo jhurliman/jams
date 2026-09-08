@@ -408,7 +408,13 @@ def check_separator(data: dict, root: Path, boot_kw: dict) -> dict:
                 row_report["si_sdr"][g] = {"mean": mean, "n": len(vals), "source": "per_track"}
         else:
             agg_path = root / r["si_sdr_archive"]
-            agg = json.loads(agg_path.read_text())["si_sdr"]
+            agg_doc = json.loads(agg_path.read_text())
+            if agg_doc.get("n") != r["nominal_tracks"] or agg_doc.get("missing", 0) != 0:
+                raise ValueError(
+                    f"separation {sid}: aggregate SI-SDR archive reports n={agg_doc.get('n')} "
+                    f"missing={agg_doc.get('missing')}, expected n={r['nominal_tracks']} missing=0"
+                )
+            agg = agg_doc["si_sdr"]
             for g in ("drums", "bass", "other"):
                 v = agg[g]
                 if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v):

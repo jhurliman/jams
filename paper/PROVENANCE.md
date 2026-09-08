@@ -311,7 +311,7 @@ with `bsz=8` (ledger-quoted from `e2e.log`).
 | mirdata index | Zenodo `10.5281/zenodo.14009687`, "mirdata-slakh_index_2100-redux", file `slakh_index_2100-redux.json` 11,010,681 B, MD5 `7eaefceadb16f1d3621b5dce4b7867c3` (the ledger's "canonical CC BY index (Zenodo 14009687)" is this per-file MD5 index; a copy of the same size sits at `s3://jams-mir-eval-usw2/ov1/scripts/slakh_index_redux.json`) | Zenodo API; S3 listing | verified |
 | Loader | `mirdata.initialize("slakh", version="2100-redux")`, mirdata 1.0.0 in `uv.lock` at all three commits | `eval/acquire_slakh.py:205-207`; `uv.lock` | verified |
 | Split selection | `--subset full --split test`; rows kept where `mtrack.split == "test"`; `audio_exists` rows only | `acquire_slakh.py:252, 296` | verified |
-| Track IDs (151) | `Track01876 … Track02098` (151 IDs; the full sorted list is in `eval/data/publication_verified.json` under each archive's `track_ids`; all four archives carry the identical list) | `publication_verified.json` | verified |
+| Track IDs (151) | `Track01876 … Track02098` (151 IDs; the full sorted list is in `paper/evidence/publication_verified.json` under each archive's `track_ids`; all four archives carry the identical list) | `publication_verified.json` | verified |
 | Per-file verification on the boxes | T1/S4/T10 boxes: **UNKNOWN** (no md5 log in S3 for those runs). Later runs recorded verification: D1 gate — "Slakh test audio fetched per-file from the gated HF mirror and md5-verified bit-identical to the canonical CC BY index (Zenodo 14009687)" (`EXPERIMENTS.md` D1 execution notes); OV1 — `ov1_fetch.py` verifies every audio/MIDI/metadata file's MD5 against the index and exits non-zero on mismatch (script text read from S3); S7 — "mixes from the md5-verified d1gate copy, GT stems+MIDI from the OV1 conf-test staging on aleph0" (`EXPERIMENTS.md` S7 data) | ledger-quoted |
 | Local copy of the redux test set | none on this Mac (`eval/data/slakh/redux/` absent; `oracle_redux.partial.jsonl` is an 80-byte stub) | `ls` | verified absent |
 
@@ -361,7 +361,7 @@ with `bsz=8` (ledger-quoted from `e2e.log`).
 
 | artifact | identity (URL / repo / file) | hash | version / revision | source of the fact | status |
 |---|---|---|---|---|---|
-| T1 archive | `eval/data/results_aws/slakh_test_oracle.json` | SHA-256 `03c9566f…edb8` | mtime 2026-07-02 04:31 | shasum; publication_verified.json | verified |
+| T1 archive | `paper/evidence/results_aws/slakh_test_oracle.json` | SHA-256 `03c9566f…edb8` | mtime 2026-07-02 04:31 | shasum; publication_verified.json | verified |
 | T2b archive | `…/yourmt3_oracle_per_track.json` | `da4e13d0…0061` | 2026-07-05 18:31 | shasum | verified |
 | S4 archive | `…/sep_scnet_notes.json` (+ `sep_scnet_sdr.json` `34290c03…ba9e`) | `19397c11…5e1b` | 2026-07-02 16:42 | shasum | verified |
 | T10 archive | `…/slakh_test_e2e_scnet_yourmt3.json` | `7c12670c…12cd` | 2026-07-05 22:46 | shasum; S3 `lambda/e2eval/` | verified |

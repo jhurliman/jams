@@ -232,12 +232,26 @@ def main() -> None:
             f"{len(SCORED_METRICS)} metrics"
         )
     for m in AGGREGATES:
-        deltas = [
-            pt_arm[t][m] - pt_stock[t][m]
+        # Every paired track must carry a finite value from both arms; a None (no beats or
+        # segments, or intervals the scorer rejected) would silently shrink the support
+        # while the coverage checks above still report the full fold.
+        missing = [
+            t
             for t in common
-            if pt_arm[t][m] is not None and pt_stock[t][m] is not None
+            for v in (pt_arm[t][m], pt_stock[t][m])
+            if v is None
+            or isinstance(v, bool)
+            or not isinstance(v, (int, float))
+            or not math.isfinite(v)
         ]
+        if missing and not args.allow_partial:
+            raise SystemExit(
+                f"{m}: {len(set(missing))} paired tracks lack a finite score in one arm "
+                f"(e.g. {sorted(set(missing))[:5]}); re-run with --allow-partial to drop them"
+            )
+        deltas = [pt_arm[t][m] - pt_stock[t][m] for t in common if t not in set(missing)]
         results[m] = boot_ci(deltas, rng)
+        results[m]["dropped"] = len(set(missing))
 
     print(json.dumps(results, indent=1))
     if args.out:
