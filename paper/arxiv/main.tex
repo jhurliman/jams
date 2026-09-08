@@ -311,8 +311,10 @@ interval of Appendix~C from them with complete held-out coverage, cross-checking
 the archived scored artifacts per track. The key, tempo, and drum intervals in
 the appendices are reported from the ledger and are not covered by this
 recomputation. The tables and figure regenerate from a summary snapshot that records that
-verification. The repository is the only hosting dependency; no cloud object store
-is required to reproduce the analysis.
+verification. Reproducing the analysis needs no private cloud storage: everything
+beyond the repository comes from public dataset downloads (the Slakh2100-redux test
+MIDI and metadata from Zenodo for the rescore, and the Raveform annotation archive
+for the structure recomputation); no audio is required for either.
 
 The YourMT3+ reference-input predictions (run T2b) were also saved. Rescoring
 them from the raw note lists against independently rebuilt grouped Slakh
