@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 
+import { apiFetch } from '../api.ts';
 import { loadCachedPeaks, storeCachedPeaks } from '../peakCache.ts';
 
 export interface BandSet {
@@ -66,7 +67,9 @@ export function usePeaks(
 }
 
 async function analyze(url: string): Promise<Peaks> {
-  const bytes = await (await fetch(url)).arrayBuffer();
+  const res = await apiFetch(url);
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  const bytes = await res.arrayBuffer();
   const decodeCtx = new OfflineAudioContext(1, 1, ANALYSIS_SR);
   const buffer = await decodeCtx.decodeAudioData(bytes);
 

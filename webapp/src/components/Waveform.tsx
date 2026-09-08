@@ -202,7 +202,8 @@ export function Waveform({ peaks, audio }: Props) {
     [peaks],
   );
 
-  // --- composite: blit cached static layer, then draw the (cheap, moving) playhead ---
+  // --- composite: blit the cached static layer. The moving playback line is a separate
+  //     full-height DOM overlay (see Playhead) that spans the waveform AND the stem lanes. ---
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -251,18 +252,7 @@ export function Waveform({ peaks, audio }: Props) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, dw, dh);
     ctx.drawImage(off, 0, 0);
-
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const px = (audio.audioRef.current?.currentTime ?? 0) * view.pxPerSec - view.scrollLeft;
-    if (px >= 0 && px <= W) {
-      ctx.strokeStyle = '#39d353';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(px, 0);
-      ctx.lineTo(px, H);
-      ctx.stroke();
-    }
-  }, [peaks, audio, renderStatic]);
+  }, [peaks, renderStatic]);
 
   drawRef.current = draw;
 
@@ -277,18 +267,8 @@ export function Waveform({ peaks, audio }: Props) {
     draw();
   }, [draw, annotation, view, selectedSegment, selectedBeat, prediction, showEval, rev]);
 
-  // The playhead is read imperatively from the audio element, so seeks while paused
-  // change no React state and the draw effect above never fires. Redraw on `seeked`
-  // (covers every seek source: waveform clicks, transport buttons, keyboard).
-  useEffect(() => {
-    const el = audio.audioRef.current;
-    if (!el) return;
-    const onSeeked = () => drawRef.current();
-    el.addEventListener('seeked', onSeeked);
-    return () => el.removeEventListener('seeked', onSeeked);
-  }, [audio.audioRef, annotation]);
-
-  // Playback loop: advance playhead + auto-scroll to keep it on screen.
+  // Playback loop: auto-scroll to keep the (overlay) playhead on screen. Every scrollLeft
+  // change flows through the shared view transform, moving all rows + the playhead together.
   useEffect(() => {
     if (!audio.isPlaying) return;
     let raf = 0;
@@ -418,26 +398,8 @@ export function Waveform({ peaks, audio }: Props) {
     else ed.addBeat(xToTime(x));
   };
 
-  // Non-passive wheel: prevent the browser pinch-zoom; zoom (ctrl) or pan.
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      const ed = useEditor.getState();
-      if (e.ctrlKey || e.metaKey) {
-        const rect = canvas.getBoundingClientRect();
-        ed.zoomAround(Math.exp(-e.deltaY * 0.006), e.clientX - rect.left);
-      } else {
-        const { view: v, meta } = ed;
-        const max = meta ? Math.max(0, meta.durationSec * v.pxPerSec - v.viewportWidth) : 0;
-        const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-        ed.setView({ scrollLeft: clampNum(v.scrollLeft + delta, 0, max) });
-      }
-    };
-    canvas.addEventListener('wheel', onWheel, { passive: false });
-    return () => canvas.removeEventListener('wheel', onWheel);
-  }, []);
+  // Wheel zoom/pan is handled once for the whole data-viz stack (see useTimelineWheel),
+  // so it acts over the waveform and every stem lane alike.
 
   return (
     <div ref={containerRef} className="waveform">
