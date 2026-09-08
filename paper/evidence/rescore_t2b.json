@@ -9,7 +9,7 @@
   "slakh_source": "slakh2100_flac_redux test/ MIDI + metadata.yaml + all_src.mid copied from LAN host aleph0:/home/jhurliman/s7/slakh_home (audio not copied; stems/*.flac presence taken from a directory listing of the same copy)",
   "slakh_local": "eval/data/slakh_home",
   "mirdata_index": "/Users/jhurliman/.cache/uv/archive-v0/B5o2Cq2vV4SQqXu6P-L_G/lib/python3.13/site-packages/mirdata/datasets/indexes/slakh_index_2100-redux.json",
-  "mirdata_index_fetched_now": true
+  "mirdata_index_fetched_now": false
  },
  "scoring": {
   "scorer": "eval/evaluate_transcription.py (imported)",
@@ -21692,5 +21692,10 @@
     "note_r": 0.9836065573770492
    }
   }
- ]
+ ],
+ "gate": {
+  "passed": true,
+  "failures": [],
+  "rule": "all eligibility checks true; supports 151/143; no per-track issues; other(raw) and bass(shift12) P/R/F within 1e-6 of the archive on every track"
+ }
 }

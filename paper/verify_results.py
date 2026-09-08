@@ -7,6 +7,7 @@ must match the recomputation. --data-dir points at another root; it requires all
 primary archives and rejects incomplete or mismatched pairs. It never runs model inference or
 proves that stored F1 values were correctly scored from MIDI. Requires numpy for CIs.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -68,8 +69,10 @@ def read_scores(path: Path, group: str = "other") -> dict[str, float]:
 
 def paired_values(a: dict[str, float], b: dict[str, float], n: int):
     if set(a) != set(b):
-        raise ValueError(f"Unmatched IDs: A-only={sorted(set(a)-set(b))[:10]}, "
-                         f"B-only={sorted(set(b)-set(a))[:10]}")
+        raise ValueError(
+            f"Unmatched IDs: A-only={sorted(set(a) - set(b))[:10]}, "
+            f"B-only={sorted(set(b) - set(a))[:10]}"
+        )
     if len(a) != n:
         raise ValueError(f"Expected {n} eligible pairs, found {len(a)}")
     ids = sorted(a)
@@ -78,6 +81,7 @@ def paired_values(a: dict[str, float], b: dict[str, float], n: int):
 
 def bootstrap(values, resamples: int = 10_000, seed: int = 0):
     import numpy as np
+
     vals = np.asarray(values, dtype=float)
     if vals.ndim != 1 or not len(vals) or not np.isfinite(vals).all():
         raise ValueError("Bootstrap requires a nonempty finite vector")
@@ -114,55 +118,154 @@ def check_snapshot(data: dict) -> dict:
     delta = rows["T2b"]["mean"] - rows["T1"]["mean"]
     if not math.isclose(delta, data["reference_paired_delta"]["mean"], abs_tol=1e-8):
         raise ValueError("Inconsistent reference-input contrast")
+    check_secondary_sections(data, rows)
     # Falsifies the old exclusion-only explanation under its own assumptions.
     subset_bound = 604 * 0.746 / 567
     if not subset_bound < 0.8328:
         raise ValueError("Unexpected subset-bound calculation")
-    return {"status": "summary_consistent_archives_not_checked",
-            "snapshot_status": data["status"],
-            "reference_delta": round(delta, 4),
-            "end_to_end_delta": round(rows["T10"]["mean"] - rows["S4"]["mean"], 4),
-            "old_key_subset_bound": subset_bound}
+    return {
+        "status": "summary_consistent_archives_not_checked",
+        "snapshot_status": data["status"],
+        "reference_delta": round(delta, 4),
+        "end_to_end_delta": round(rows["T10"]["mean"] - rows["S4"]["mean"], 4),
+        "old_key_subset_bound": subset_bound,
+    }
+
+
+def _interval(
+    name: str, mean: float, ci, lo_bound: float | None = None, hi_bound: float | None = None
+) -> None:
+    lo, hi = ci
+    for v in (mean, lo, hi):
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v):
+            raise ValueError(f"{name}: non-numeric or non-finite value {v!r}")
+        if lo_bound is not None and v < lo_bound or hi_bound is not None and v > hi_bound:
+            raise ValueError(f"{name}: value {v} outside [{lo_bound}, {hi_bound}]")
+    if not lo <= mean <= hi:
+        raise ValueError(f"{name}: mean {mean} outside interval [{lo}, {hi}]")
+
+
+def check_secondary_sections(data: dict, rows: dict) -> None:
+    """Every numeric section make_figures.py or the manuscript consumes, not only the four rows."""
+    sep = {r["id"]: r for r in data["separation"]}
+    if set(sep) != {"S1", "S4"} or len(data["separation"]) != 2:
+        raise ValueError("Expected separation rows S1 and S4")
+    for r in sep.values():
+        for g in ("drums", "bass", "other"):
+            v = r[f"{g}_si_sdr"]
+            if (
+                isinstance(v, bool)
+                or not isinstance(v, (int, float))
+                or not math.isfinite(v)
+                or not -10 <= v <= 40
+            ):
+                raise ValueError(f"separation {r['id']} {g}_si_sdr implausible: {v!r}")
+            score(r[f"{g}_f1"])
+        if r["nominal_tracks"] != 151 or (r["bass_n"] is not None and not 0 < r["bass_n"] <= 151):
+            raise ValueError(f"separation {r['id']}: unexpected support")
+    if not math.isclose(sep["S4"]["other_f1"], rows["S4"]["mean"], abs_tol=5e-5):
+        raise ValueError("separation S4 other_f1 disagrees with transcription row S4")
+    b = data["bass_reference"]
+    for k in ("basic_pitch", "yourmt3"):
+        score(b[k])
+    if b["n"] != 143 or round(b["yourmt3"] - b["basic_pitch"], 4) != round(b["paired_delta"], 4):
+        raise ValueError("bass_reference support or paired delta inconsistent")
+    _interval("bass_reference", b["paired_delta"], b["paired_ci"], -1, 1)
+    rp = data["reference_paired_delta"]
+    _interval("reference_paired_delta", rp["mean"], rp["ci"], -1, 1)
+    if not 0 <= rp["win_fraction"] <= 1:
+        raise ValueError("reference_paired_delta win_fraction outside [0, 1]")
+    for c in data.get("paired_contrasts", []):
+        a, _, bb = c["comparison"].partition(" - ")
+        if a not in rows or bb not in rows or c["n"] != 151:
+            raise ValueError(f"paired contrast {c['comparison']}: unknown rows or support")
+        if abs((rows[a]["mean"] - rows[bb]["mean"]) - c["mean"]) > 1.5e-4:
+            raise ValueError(f"paired contrast {c['comparison']}: mean inconsistent with row means")
+        _interval(c["comparison"], c["mean"], c["ci"], -1, 1)
+        if (
+            not 0 <= c["win_fraction"] <= 1
+            or not 0 <= c["loss_fraction"] <= 1
+            or c["win_fraction"] + c["loss_fraction"] > 1 + 1e-9
+        ):
+            raise ValueError(f"paired contrast {c['comparison']}: win/loss fractions invalid")
+    spd = data.get("separator_paired_delta")
+    if spd:
+        for key, n_expected in (("drums_onset_f1", 151), ("other_f1", 151), ("bass_f1", 143)):
+            c = spd[key]
+            if c["n"] != n_expected:
+                raise ValueError(f"separator_paired_delta {key}: support {c['n']} != {n_expected}")
+            _interval(f"separator_paired_delta {key}", c["mean"], c["ci"], -1, 1)
+        # Row means and paired means are rounded independently: allow one unit in the 4th place.
+        for key, g in (
+            ("other_f1", "other_f1"),
+            ("drums_onset_f1", "drums_f1"),
+            ("bass_f1", "bass_f1"),
+        ):
+            if abs((sep["S4"][g] - sep["S1"][g]) - spd[key]["mean"]) > 1.5e-4:
+                raise ValueError(f"separator_paired_delta {key} inconsistent with separation rows")
 
 
 def check_archives(data: dict, root: Path) -> dict:
     rows = data["transcription"]
     missing = [str(root / r["archive"]) for r in rows if not (root / r["archive"]).is_file()]
     if missing:
-        raise ValueError("Required archives missing; no reproduction claim is possible:\n" + "\n".join(missing))
+        raise ValueError(
+            "Required archives missing; no reproduction claim is possible:\n" + "\n".join(missing)
+        )
     loaded = {r["id"]: read_scores(root / r["archive"]) for r in rows}
-    report = {"status": "stored_scores_recomputed", "archives": {}, "contrasts": {},
-              "limitations": ["Stored scores were not rescored from MIDI or reproduced by inference.",
-                 "CIs use sorted track IDs; finite-bootstrap endpoints may differ from historical row order.",
-                 "Matching filenames alone does not establish correct dataset/checkpoint identity."]}
+    report = {
+        "status": "stored_scores_recomputed",
+        "archives": {},
+        "contrasts": {},
+        "limitations": [
+            "Stored scores were not rescored from MIDI or reproduced by inference.",
+            "CIs use sorted track IDs; finite-bootstrap endpoints may differ from historical row order.",
+            "Matching filenames alone does not establish correct dataset/checkpoint identity.",
+        ],
+    }
     base = loaded["T1"]
     for r in rows:
         ids, _, vals = paired_values(base, loaded[r["id"]], r["n"])
         stats = bootstrap(vals, **{k: data["bootstrap"][k] for k in ("resamples", "seed")})
         if abs(stats["mean"] - r["mean"]) > 0.00005001:
-            raise ValueError(f"{r['id']}: recomputed {stats['mean']:.8f} disagrees with reported {r['mean']}")
+            raise ValueError(
+                f"{r['id']}: recomputed {stats['mean']:.8f} disagrees with reported {r['mean']}"
+            )
         digest = hashlib.sha256((root / r["archive"]).read_bytes()).hexdigest()
         if r.get("sha256") and r["sha256"] != digest:
-            raise ValueError(f"{r['id']}: archive SHA-256 {digest} differs from snapshot {r['sha256']}")
+            raise ValueError(
+                f"{r['id']}: archive SHA-256 {digest} differs from snapshot {r['sha256']}"
+            )
         if r.get("ci") is not None and r.get("ci_provenance") == "recomputed_from_stored_scores":
             if [round(x, 4) for x in stats["ci"]] != [round(x, 4) for x in r["ci"]]:
-                raise ValueError(f"{r['id']}: recomputed CI {stats['ci']} disagrees with snapshot {r['ci']}")
-        report["archives"][r["id"]] = {"path": r["archive"], "n": len(ids), **stats,
-            "sha256": digest, "track_ids": ids}
+                raise ValueError(
+                    f"{r['id']}: recomputed CI {stats['ci']} disagrees with snapshot {r['ci']}"
+                )
+        report["archives"][r["id"]] = {
+            "path": r["archive"],
+            "n": len(ids),
+            **stats,
+            "sha256": digest,
+            "track_ids": ids,
+        }
     recorded = {c["comparison"]: c for c in data.get("paired_contrasts", [])}
     for a, b in (("T2b", "T1"), ("T10", "S4"), ("S4", "T1"), ("T10", "T2b")):
         _, va, vb = paired_values(loaded[a], loaded[b], 151)
         diffs = [x - y for x, y in zip(va, vb)]
-        stats = bootstrap(diffs)
+        stats = bootstrap(diffs, **{k: data["bootstrap"][k] for k in ("resamples", "seed")})
         stats["win_fraction"] = sum(d > 0 for d in diffs) / len(diffs)
         stats["loss_fraction"] = sum(d < 0 for d in diffs) / len(diffs)
         report["contrasts"][f"{a} - {b}"] = stats
         rec = recorded.get(f"{a} - {b}")
         if rec is not None:
-            if (round(stats["mean"], 4) != rec["mean"]
-                    or [round(x, 4) for x in stats["ci"]] != rec["ci"]
-                    or round(stats["win_fraction"], 4) != rec["win_fraction"]):
-                raise ValueError(f"Contrast {a} - {b}: recomputed {stats} disagrees with snapshot {rec}")
+            if (
+                round(stats["mean"], 4) != rec["mean"]
+                or [round(x, 4) for x in stats["ci"]] != rec["ci"]
+                or round(stats["win_fraction"], 4) != rec["win_fraction"]
+            ):
+                raise ValueError(
+                    f"Contrast {a} - {b}: recomputed {stats} disagrees with snapshot {rec}"
+                )
     wins = sum(loaded["T2b"][t] > base[t] for t in base) / len(base)
     if wins != data["reference_paired_delta"]["win_fraction"]:
         raise ValueError("Reference-input win fraction disagrees with snapshot")
@@ -171,10 +274,15 @@ def check_archives(data: dict, root: Path) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--data-dir", type=Path,
-                        help="Root containing results_aws/ archives (default: paper/evidence when the "
-                             "snapshot status is stored_scores_recomputed); requires all primary archives")
-    parser.add_argument("--output", type=Path, help="Write a report only after all requested checks succeed")
+    parser.add_argument(
+        "--data-dir",
+        type=Path,
+        help="Root containing results_aws/ archives (default: paper/evidence when the "
+        "snapshot status is stored_scores_recomputed); requires all primary archives",
+    )
+    parser.add_argument(
+        "--output", type=Path, help="Write a report only after all requested checks succeed"
+    )
     args = parser.parse_args()
     try:
         data = json.loads((HERE / "results_snapshot.json").read_text())
