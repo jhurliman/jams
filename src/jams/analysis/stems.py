@@ -36,6 +36,10 @@ _STEMS_WORKER = _DATA / "stems_worker.py"
 _DRUM_WORKER = _DATA / "drum_worker.py"
 _YOURMT3_WORKER = _DATA / "yourmt3_worker.py"
 
+# All three worker scripts support 3.11. Select it explicitly: uv can otherwise
+# inherit an incompatible project .python-version or UV_PYTHON from the caller.
+_WORKER_PYTHON = "3.11"
+
 _PITCHED_STEMS = ("bass", "other", "vocals")
 
 _STEM_SORT = {"drums": 0, "bass": 1, "other": 2, "vocals": 3}
@@ -182,7 +186,7 @@ class _Worker:
 
     def _spawn(self) -> None:
         uv = getattr(get_settings(), self._uv_setting)
-        cmd = [uv, "run", "--script", str(self._script), "--serve"]
+        cmd = [uv, "run", "--python", _WORKER_PYTHON, "--script", str(self._script), "--serve"]
         logger.info("Starting %s worker: %s", self._label, " ".join(cmd))
         self._proc = subprocess.Popen(  # noqa: S603 - args are not user-controlled
             cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1,
@@ -209,11 +213,16 @@ class _Worker:
             if not line:  # worker died mid-request; respawn once and retry
                 logger.warning("%s worker unresponsive; respawning", self._label)
                 self._spawn()
-                line = self._round_trip(request)
+                try:
+                    line = self._round_trip(request)
+                except (BrokenPipeError, ValueError, OSError):
+                    line = ""
         if not line:
             raise RuntimeError(
                 f"{self._label} worker produced no output. Is `uv` installed and on PATH "
-                "(JAMS_STEMS_UV)?"
+                f"({self._uv_setting})? Worker Python {_WORKER_PYTHON} is selected explicitly; "
+                "check uv's stderr for interpreter or dependency resolution errors. "
+                "The caller's .python-version and UV_PYTHON must not select the worker interpreter."
             )
         resp = json.loads(line)
         if not resp.get("ok"):
