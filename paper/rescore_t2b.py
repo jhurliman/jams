@@ -244,6 +244,13 @@ checks = {
     "bass_empty_tracks": sorted(set(test_ids) - set(eligible["bass"])),
     "audio_flag_mismatches": audio_flag_mismatch,
 }
+# The two input artifacts must contain exactly the expected (track, stem) keys: 151 other +
+# 143 bass, nothing else (a stray or misspelled stem row would otherwise be ignored).
+_expected_keys = {(t, "other") for t in eligible["other"]} | {(t, "bass") for t in eligible["bass"]}
+checks["jsonl_keys_eq_expected_294"] = set(est_by) == _expected_keys
+checks["archive_keys_eq_expected_294"] = set(arch_by) == _expected_keys
+checks["unexpected_jsonl_keys"] = sorted(map(list, set(est_by) - _expected_keys))[:10]
+checks["unexpected_archive_keys"] = sorted(map(list, set(arch_by) - _expected_keys))[:10]
 print(json.dumps(checks, indent=1), file=sys.stderr)
 
 # --- scoring ------------------------------------------------------------------
@@ -391,6 +398,8 @@ for key in (
     "other_eligible_eq_pub_151",
     "other_eligible_eq_archive_other_ids",
     "other_eligible_eq_jsonl_other_ids",
+    "jsonl_keys_eq_expected_294",
+    "archive_keys_eq_expected_294",
     "bass_eligible_eq_archive_bass_ids",
     "bass_eligible_eq_jsonl_bass_ids",
 ):
