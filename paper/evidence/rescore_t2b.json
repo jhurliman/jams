@@ -1,15 +1,16 @@
 {
- "method": "independent rescore of T2b from eval/data/results_aws/yourmt3_notes.jsonl",
+ "method": "independent rescore of T2b from paper/evidence/results_aws/yourmt3_notes.jsonl.gz",
  "date": "2026-09-08",
  "inputs": {
-  "yourmt3_notes_jsonl": "eval/data/results_aws/yourmt3_notes.jsonl",
+  "yourmt3_notes_jsonl": "paper/evidence/results_aws/yourmt3_notes.jsonl.gz",
   "yourmt3_notes_jsonl_sha256": "7a0c95f25142e63b7de470ac3a39c98a0a8baf9d66360c45d33f0f74060ce9c1",
+  "yourmt3_notes_jsonl_sha256_of": "decompressed JSONL contents (matches the original raw dump)",
   "yourmt3_notes_jsonl_rows": 294,
-  "archive": "eval/data/results_aws/yourmt3_oracle_per_track.json",
+  "archive": "paper/evidence/results_aws/yourmt3_oracle_per_track.json",
   "slakh_source": "slakh2100_flac_redux test/ MIDI + metadata.yaml + all_src.mid copied from LAN host aleph0:/home/jhurliman/s7/slakh_home (audio not copied; stems/*.flac presence taken from a directory listing of the same copy)",
   "slakh_local": "eval/data/slakh_home",
-  "mirdata_index": "/Users/jhurliman/.cache/uv/archive-v0/B5o2Cq2vV4SQqXu6P-L_G/lib/python3.13/site-packages/mirdata/datasets/indexes/slakh_index_2100-redux.json",
-  "mirdata_index_fetched_now": false
+  "mirdata_index": "/Users/jhurliman/Documents/Code/jhurliman/jams/.claude/worktrees/hard-deps/.venv/lib/python3.13/site-packages/mirdata/datasets/indexes/slakh_index_2100-redux.json",
+  "mirdata_index_fetched_now": true
  },
  "scoring": {
   "scorer": "eval/evaluate_transcription.py (imported)",
