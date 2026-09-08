@@ -32,14 +32,17 @@ AGGREGATES = ("pairwise_f", "beat_f", "bound_f_0.5")
 N_BOOT = 10_000
 
 
-def load_preds(path: Path) -> dict:
-    out = {}
+def load_preds(path: Path) -> tuple[dict, list[str]]:
+    """Return (predictions by track id, ids of rows that carry an ``error``)."""
+    out, errors = {}, []
     for line in open(path):
         if line.strip():
             r = json.loads(line)
-            if not r.get("error"):
+            if r.get("error"):
+                errors.append(r["track_id"])
+            else:
                 out[r["track_id"]] = r
-    return out
+    return out, errors
 
 
 def track_class_cov(pred: dict, ref_int, ref_lab, want: str) -> float | None:
@@ -79,6 +82,11 @@ def main() -> None:
         default=Path(__file__).parent / "data/raveform/manifest.jsonl",
     )
     ap.add_argument("--out", type=Path, default=None)
+    ap.add_argument(
+        "--allow-partial",
+        action="store_true",
+        help="intersect the arms even if they do not both cover the eligible fold (default: fail)",
+    )
     args = ap.parse_args()
 
     import evaluate_structure as es  # noqa: PLC0415 — sibling module, heavy imports
@@ -90,10 +98,31 @@ def main() -> None:
         if r.get("fold") == args.fold and r.get("audio_exists")
     }
 
-    arm = load_preds(args.arm)
-    stock = load_preds(args.stock)
-    common = sorted(set(arm) & set(stock) & set(rows))
-    print(f"paired tracks: {len(common)}")
+    arm, arm_errors = load_preds(args.arm)
+    stock, stock_errors = load_preds(args.stock)
+    eligible = set(rows)
+    problems = []
+    if arm_errors:
+        problems.append(f"{len(arm_errors)} error rows in --arm: {sorted(arm_errors)[:10]}")
+    if stock_errors:
+        problems.append(f"{len(stock_errors)} error rows in --stock: {sorted(stock_errors)[:10]}")
+    for name, ids in (("--arm", set(arm)), ("--stock", set(stock))):
+        if ids != eligible:
+            problems.append(
+                f"{name} tracks differ from the eligible fold-{args.fold} manifest: "
+                f"missing {sorted(eligible - ids)[:10]} extra {sorted(ids - eligible)[:10]}"
+            )
+    if problems and not args.allow_partial:
+        raise SystemExit(
+            "Both gate arms must cover exactly the eligible held-out tracks with no error rows "
+            "(the ST-v3/ST-v4 ledger entries are 165-track comparisons). Problems:\n  - "
+            + "\n  - ".join(problems)
+            + "\nRe-run with --allow-partial to intersect anyway (the output then describes a subset)."
+        )
+    common = sorted(set(arm) & set(stock) & eligible)
+    if problems:
+        print("WARNING: partial comparison; " + "; ".join(problems))
+    print(f"paired tracks: {len(common)} of {len(eligible)} eligible")
 
     refs = {}
     for tid in common:

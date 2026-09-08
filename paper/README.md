@@ -18,9 +18,12 @@ latexmk -pdf -interaction=nonstopmode -halt-on-error -cd paper/arxiv/main.tex
 latexmk -pdf -interaction=nonstopmode -halt-on-error -cd paper/lbd/main.tex
 ```
 
-The first command validates **only the aggregate snapshot**. The second generates two
-TeX tables and one PDF figure from `results_snapshot.json`, whose status is
-`stored_scores_recomputed` (its `verification` block records the recomputation). Neither command reruns an experiment. The superseded key
+The first command validates the summary snapshot and, because its status is
+`stored_scores_recomputed`, automatically checks it against the committed archives in
+`paper/evidence/` (digests, track sets and supports, means, intervals, paired contrasts,
+bass reference, separator table); it fails on any mismatch. The second generates two
+TeX tables and one PDF figure from `results_snapshot.json` (its `verification` block
+records the recomputation). Neither command reruns an experiment. The superseded key
 forest/calibration figure is removed so it cannot silently return in a submission.
 The LBD manuscript fits within the 2026 limit of two scientific pages plus one
 optional references/acknowledgments/AI page. Inspect page layout after every edit.
