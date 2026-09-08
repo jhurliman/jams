@@ -1,4 +1,10 @@
-# Eval harness — reproduce & push the accuracy
+# Evaluation harness
+
+**Publication correction (8 September 2026):** these tables are historical development
+results, not independently reproduced measurements or cross-paper rankings. The
+current [audit](../paper/REVIEW.md) documents benchmark reuse, score conventions,
+and missing per-track archives. The focused [paper](../paper/arxiv/main.pdf) and
+[archive verification instructions](../paper/README.md) supersede prior claims.
 
 Benchmarks the production `jams.detect_key` / `jams.detect_tempo` against expert-labeled
 ground truth in the electronic/DJ domain. All scripts run in the project env (so they
@@ -17,57 +23,60 @@ uv run --extra eval eval/build_corrections.py   # regenerate tempo_corrections.c
 > retired essentia/TempoCNN systems and need a historical checkout to run
 > (`essentia-tensorflow` left the project deps when those systems were replaced by the
 > bundled CNNs). Their measured numbers remain in `paper/EXPERIMENTS.md` and the tables
-> below. `stats_significance.py` still runs today — it replays the archived fusion heads
-> from banked features, no essentia needed.
+> below. `stats_significance.py` replays archived fusion heads
+> when the required private/ignored feature archives are restored, without essentia.
+> A new `--out` path is required; the historical STATS.md cannot be overwritten.
 
 ## Dataset
 
 [**GiantSteps Key**](https://github.com/GiantSteps/giantsteps-key-dataset) — 600 EDM
 Beatport previews with expert key labels (+ Beatport tempo), loaded via `mirdata`. Audio
 is freely downloadable from Zenodo. 567 usable after dropping 33 atonal/ambiguous labels;
-458 have tempo. `eval/data/` is regenerable and gitignored.
+458 have tempo. `eval/data/` is gitignored. Acquisition scripts can retrieve source data, but do not
+recover historical predictions, manifests, model environments or private archives.
 
-## Headline results (full set)
+## Historical fusion/tempo results (usable subsets)
 
-| Metric | librosa baseline | **jams (SOTA)** |
+| Metric | librosa baseline | **historical jams configuration** |
 |--------|------------------|-----------------|
-| Key MIREX | 0.614 | **0.801** |
-| Key exact | 0.529 | **0.743** |
+| Key legacy symmetric-fifth (n=567) | 0.614 | **0.812** |
+| Key exact | 0.529 | **0.757** |
 | Tempo Acc1 (raw labels) | 0.830 | 0.921 |
 | **Tempo Acc1 (corrected labels + full-tempo)** | 0.830 | **0.965** |
 
-Methods: key = Essentia `edma`; tempo = pretrained TempoCNN `deepsquare` + genre-aware
-octave resolution. Chosen by `benchmark_*`; both beat librosa, RhythmExtractor2013,
-Percival, and madmom (see git history / the comparison scripts).
+Methods: key = Essentia `edma` + S-KEY **fusion** (learned mode + rerank heads, fit on
+GS-MTG only — see `paper/EXPERIMENTS.md` K6 and `paper/STATS.md` for CIs); tempo =
+pretrained TempoCNN `deepsquare` + genre-aware octave resolution. Chosen by
+`benchmark_*`; both beat librosa, RhythmExtractor2013, Percival, and madmom-tempo (see
+git history / the comparison scripts).
 
-## Key: honest protocol + S-KEY fusion
+## Key: historical S-KEY fusion and development history
 
-**Contamination disclosure.** The original mode-refinement model (`mode_model.json`,
-`train_mode_model.py`) was 5-fold cross-validated *and refit* on GiantSteps Key — the
-test set. Its 0.801 weighted was a fair CV generalization estimate but is not comparable
-to published numbers (which train elsewhere and test once on GiantSteps Key). Fixed by
-adopting the literature protocol: train on **GiantSteps-MTG-Keys** (`acquire_gsmtg.py`,
-1,157 high-confidence single-key Beatport previews), evaluate **once** on GiantSteps Key.
+The original mode-refinement model (`mode_model.json`, `train_mode_model.py`) was
+cross-validated and refit on GiantSteps Key. Later models used MTG/Beatport-side
+training data, but prior benchmark error analysis informed further development.
+This history prevents treating the whole project as blind to GiantSteps Key.
 
-The production pipeline now fuses edma with **S-KEY** (Kong et al., ICASSP 2025;
-`deezer/skey`, MIT, checkpoint in-package, provably uncontaminated — self-supervised on
-Deezer's catalog): a mode head (chroma cues + edma confidence + S-KEY posterior features)
-and a rerank head (keep refined edma vs switch to S-KEY). Thresholds and model selection
-by 5-fold CV on GS-MTG only; the exported heads ship at `src/jams/data/key_fusion.json`.
+The retired fusion combined edma and S-KEY with mode and reranking heads. The
+exported heads remain at `src/jams/data/key_fusion.json`; the current service uses
+K10. Reported training-ID disjointness does not prove recording-level nonoverlap
+for all external pretrained systems. Historical weighted scores below use fifth
+credit in both directions; mir_eval 0.8.2 uses +7 only.
 
-GiantSteps Key (567 tracks, single evaluation):
+GiantSteps Key (567-track historical usable subset):
 
-| system | MIREX weighted | exact |
+| system | Legacy symmetric-fifth weighted | exact |
 |--------|---------------:|------:|
 | edma raw | 0.7589 | 0.6878 |
 | legacy mode model (contaminated — reference only) | 0.801 | 0.743 |
 | honest mode retrain (GS-MTG) | 0.8095 | 0.7531 |
 | S-KEY standalone | 0.8168 | 0.7478 |
-| **production fusion (mode + rerank)** | **0.8123** | **0.7566** |
+| **retired fusion (mode + rerank)** | **0.8123** | **0.7566** |
 
-Honest published SOTA: Korzeniowski & Widmer 2018 (madmom CNN) 74.6 weighted,
-InceptionKeyNet 75.68, KeyMyna 75.91. The pair's oracle ceiling is 0.868 — remaining
-fusion headroom. (Experiment scripts to be added to `eval/` in a follow-up.)
+No ranking against published full-set scores follows from this table. The earlier
+claim that .746 → .8328 is caused solely by removing tracks is mathematically
+inconsistent with nonnegative scores and also compares a published single model
+with madmom's default ensemble. See [the full correction](../paper/REVIEW.md).
 
 ## Label corrections
 
@@ -118,7 +127,7 @@ metrics automatically. `--target {jams,genre,ref,none}` sets the beat-tracking B
 `none` (model-native, the paper's protocol), `jams` (jams' TempoCNN), `genre` (TempoCNN folded
 into the track's genre octave — D&B etc.), or `ref` (dataset BPM, the octave-correct ceiling).
 
-### SOTA reproduced — Raveform held-out 8-fold CV
+### Historical Raveform subset evaluation with held-out fold models
 
 The EDM-trained ensemble loads locally via a state-dict remap (no training; see
 `structure_worker.py`). Scored with each track's **held-out** `all-fold{fold}`:
@@ -136,10 +145,11 @@ to `> 0.0` (2–3× over-segmentation → HR 0.53; now a tunable default 0.2), a
 against the coarse beat-CSV `section` column instead of canonical `segments.json` (which preserves
 same-label phrase boundaries — embed as `row["sections"]`).
 
-**Held-out CV understates production.** Each CV track is scored by a single held-out fold; the
-shipped model is the 8-fold `all-all` ensemble, which is more robust (e.g. D&B track 0098: 0.228
-under its held-out fold → **0.964** under `all-all`). Raveform can't honestly eval `all-all`
-(contamination), so production D&B is better than the CV row suggests — measure it on an external set.
+The table uses 104 tracks and does not establish reproduction of the paper's full
+benchmark. V-measure and the paper's Sf entry are also different metrics. The
+production `all-all` ensemble includes training exposure to Raveform examples;
+its improvements on those examples do not establish better generalization. Use
+an external corpus to compare it with fold models.
 
 ### Harmonix status — disabled by default
 

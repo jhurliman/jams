@@ -2,13 +2,23 @@
 
 On-demand **music-information-retrieval API** for DJ / electronic music. Point it at a
 track and get its **key**, **tempo**, and (optionally) **song structure** — using the
-SOTA-on-GiantSteps methods benchmarked in the companion eval harness.
+methods documented in the companion evaluation harness.
 
-| Analysis | Method | Accuracy (GiantSteps) |
+**Publication review (September 2026):** the current [paper](paper/arxiv/main.pdf)
+is a retrospective Slakh2100 mix-to-MIDI study. [The audit](paper/REVIEW.md) corrects
+previous key-calibration, parity, and reproducibility claims. The per-track evidence
+for the Slakh transcription/separation results and for the structure gates is
+committed under [`paper/evidence/`](paper/evidence/) and recomputed by
+`paper/verify_results.py` and `eval/structure_class_cis.py`; the key, tempo, and drum
+rows below remain ledger-reported summaries, and some raw inference artifacts
+(basic-pitch and end-to-end note predictions, separated stems, original command lines)
+were never archived — see [`paper/PROVENANCE.md`](paper/PROVENANCE.md).
+
+| Analysis | Method | Reported evaluation |
 |----------|--------|-----------------------|
-| Key | **24-class key CNN (ours, MIT — K10)** | MIREX **0.832** / exact **0.780** (honest protocol) |
+| Key | **24-class key CNN (ours, MIT — K10)** | Legacy symmetric-fifth **0.832** / exact **0.780** (GiantSteps n=567; development reused this benchmark) |
 | Tempo | **256-class tempo CNN (ours, MIT — TP1)** + genre-aware octave resolution | Acc1 **0.967** (corrected labels, n=458) |
-| Structure | **All-In-One EDM ensemble on-device** (Apple-Silicon/MPS) | Raveform held-out CV reproduces SOTA (see `eval/`) |
+| Structure | **All-In-One EDM ensemble on-device** (Apple-Silicon/MPS) | Raveform 104-track fold-model evaluation (see `eval/`); no same-protocol SOTA claim |
 | Stems → MIDI | **SCNet XL IHF** 4-stem split + per-stem transcription (**YourMT3+**; **our drum CRNN, MIT — D1** → General MIDI) | Slakh test **e2e** (mix→MIDI): other **0.79** / bass 0.66 note-F, 14.3 dB drums SI-SDR; drums onset-F **0.767** Slakh-oracle / **0.818** E-GMD (see `eval/`) |
 
 There are deliberately **no silent fallbacks**: a broken install raises a clear error
@@ -113,18 +123,21 @@ Key comes from our own **24-class key CNN** (K10 — MIT weights, ~0.1 M params,
 Log-CQT input, pitch-shift augmentation, trained on the public Beatport corpus underlying
 GiantSteps-MTG-Keys.
 
-**Honest protocol** (the literature standard): train only on **GiantSteps-MTG-Keys**-side
-data, evaluate once on **GiantSteps Key** — one pre-registered shot per system.
+The final K10 model was trained on Beatport/MTG-side data with recorded disjoint
+track IDs. Earlier project models and error analyses used GiantSteps Key, so the
+overall development process was not benchmark-blind. The following historical
+scores give fifth credit in both directions and differ from mir_eval 0.8.2.
 
-| system | MIREX weighted | exact |
+| system | Legacy symmetric-fifth weighted | exact |
 |--------|---------------:|------:|
 | edma raw | 0.759 | 0.688 |
 | S-KEY standalone | 0.817 | 0.748 |
 | edma + S-KEY fusion (retired) | 0.812 | 0.757 |
 | **key CNN (shipped)** | **0.832** | **0.780** |
 
-Honest published SOTA on GiantSteps Key is ~0.76 weighted (Korzeniowski 74.6,
-InceptionKeyNet 75.7, KeyMyna 75.9) — every row above clears it. The retired fusion
+These rows do not establish superiority to published systems: model identity,
+subset membership, annotations, scoring and development history must match. The
+previous subset-only calibration explanation was invalid; see [the audit](paper/REVIEW.md). The retired fusion
 system's heads remain at `src/jams/data/key_fusion.json` for reproducing the baseline
 rows via `eval/stats_significance.py`; it no longer runs in the service.
 
@@ -140,9 +153,10 @@ is a **self-contained `uv` script** that bootstraps its own environment; jams la
 and keeps the models resident. **Requirement:** `uv` on PATH and an Apple-Silicon Mac. Structure
 is opt-in per request (`structure=true`).
 
-On Raveform's held-out 8-fold CV this reproduces the paper's SOTA (beat 0.978 / downbeat 0.964 /
-boundary HR 0.755 / pairwise 0.825), and the production ensemble is more robust still — see
-`eval/README.md`.
+The ledger reports a 104-track evaluation with the corresponding held-out fold models
+(beat 0.978 / downbeat 0.964 / boundary HR 0.755 / pairwise 0.825). This is not a
+matched reproduction of the published full evaluation. The production ensemble
+needs an external test set; see `eval/README.md`.
 
 `target_bpm` (jams' octave-resolved tempo, fed automatically when you request `tempo` + `structure`)
 is a *secondary* octave-correction safety net: it post-hoc rescales the beat grid only on a clean

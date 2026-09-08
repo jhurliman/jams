@@ -12,6 +12,7 @@
 #   "soundfile>=0.12",
 # ]
 # ///
+# pyright: reportMissingImports=false
 """YourMT3+ pitched-stem transcription worker for jams.
 
 Transcribes a (separated) pitched stem to note events with **YourMT3+** (Chang et al.,
