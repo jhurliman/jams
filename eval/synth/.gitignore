@@ -1,0 +1,10 @@
+# ES2 generator is dataset-generation tooling: the rendered corpus + downloaded/derived assets
+# are regenerable and NOT committed. Only code + manifests + dataset card ship.
+corpus/
+assets/
+*.flac
+*.wav
+*.pkl
+*.log
+.venv/
+__pycache__/
