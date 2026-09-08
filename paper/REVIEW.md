@@ -38,11 +38,12 @@ notes past the audio end. Onset-envelope/MIDI cross-correlation over the full
 duration: 417/445 groups have their global maximum within 0–70 ms after note-on;
 per-class best near-zero lags are drums 12–23 ms, bass 23–58 ms, other 23–46 ms
 (instrument attack + ~1 frame estimator bias, calibrated at 11.6 ms on synthetic
-impulses). The 8 groups whose global maximum lies elsewhere are periodic drum/bass
-parts with a one-beat alias at most 21% stronger than the near-zero peak; 6 dense
-"other" groups have correlation below 0.3 (method-limited, not evidence of
-misalignment). No group shows an offset. Items 1–4 are therefore done as far as the
-evidence allows. The manuscripts were updated to
+impulses). The other 28 groups have their global maximum outside that window: on
+strongly periodic drum/bass parts the peak sits at a one-beat multiple (for 8 of
+them the near-zero peak is below 90% of the global one, at worst 79%), and 6 dense
+"other" groups have correlation below 0.3 throughout. For those 28 the method
+cannot exclude an offset, although none shows a consistent shift; the manuscript
+states it that way. Items 1–4 are therefore done as far as the evidence allows. The manuscripts were updated to
 match. Nothing in the paper depends on the project's S3 bucket.
 
 ## Main scientific judgment

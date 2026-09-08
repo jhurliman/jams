@@ -294,11 +294,12 @@ transcription unresolved.
 \section*{Code and data availability}
 Source code, the experiment ledger, and the evidence behind every number in this
 paper are in the repository at \url{https://github.com/jhurliman/jams}. The five
-per-recording score archives (runs T1, T2b, S4, T10, and the HT-Demucs run S1) are
-committed under \path{paper/evidence/} with SHA-256 checksums, and
-\path{paper/verify_results.py} recomputes the means and paired intervals in this
-paper from them, refusing missing archives, duplicate rows, or mismatched track
-sets. The tables and figure regenerate from a summary snapshot that records that
+per-recording score archives (runs T1, T2b, S4, T10, and the HT-Demucs run S1) and
+the S4 SI-SDR aggregate are committed under \path{paper/evidence/} with SHA-256
+checksums, and \path{paper/verify_results.py} recomputes every mean and paired
+interval in this paper from them (accompaniment rows, the bass reference, and the
+separator table and deltas), refusing missing archives, duplicate rows, or
+mismatched track sets. The tables and figure regenerate from a summary snapshot that records that
 verification. The repository is the only hosting dependency; no cloud object store
 is required to reproduce the analysis.
 
