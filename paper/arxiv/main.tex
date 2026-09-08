@@ -131,11 +131,13 @@ sums to one quantization step, and no note beyond the audio end. Cross-correlati
 each group's onset-strength envelope with its MIDI onsets over $\pm$500\,ms puts
 the global maximum between 0 and 70\,ms after note-on for 417 of the 445 groups
 (class-wise 12--58\,ms, consistent with instrument attack times plus the
-estimator's one-frame bias). The other 28 have a global peak at a one-beat
-multiple on strongly periodic drum or bass parts, exceeding the near-zero peak by
-at most 21\%, or a correlation below 0.3 on dense sustained accompaniment; the
-audit cannot exclude an offset for those 28 by this method, though none shows a
-consistent shift. The audit script and report are in the repository. Slakh contains synthesized instrumental
+estimator's one-frame bias). The other 28 (22 drums, 3 bass, 3 other) have their
+global peak elsewhere, at a one-beat multiple on periodic parts; for 20 of them the
+near-zero peak is within 10\% of the global one and for 8 it is at 79--90\%.
+Separately, six dense accompaniment groups have correlation below 0.3 throughout
+(five of them with near-zero maxima), so the estimate is uninformative there. For
+these groups the method cannot exclude an offset, though none shows a consistent
+shift. The audit script and report are in the repository. Slakh contains synthesized instrumental
 music; there is no reference vocal group in this evaluation.
 
 The historical summary reports 151 accompaniment pairs and 143 bass pairs in the

@@ -134,6 +134,26 @@ class PublicationIntegrityTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "bass_reference"):
             check_archives(bad, evidence)
         bad = copy.deepcopy(good)
+        bad["reference_paired_delta"]["ci"] = [0.30, 0.40]  # plausible, contains 0.3591
+        for c in bad["paired_contrasts"]:
+            if c["comparison"] == "T2b - T1":
+                c["ci"] = [0.30, 0.40]
+        check_snapshot(bad)
+        with self.assertRaisesRegex(ValueError, "T2b - T1"):
+            check_archives(bad, evidence)
+        bad = copy.deepcopy(good)
+        for c in bad["paired_contrasts"]:
+            if c["comparison"] == "S4 - T1":
+                c["loss_fraction"] = 0.5
+        check_snapshot(bad)
+        with self.assertRaisesRegex(ValueError, "S4 - T1"):
+            check_archives(bad, evidence)
+        bad = copy.deepcopy(good)
+        bad["separator_paired_delta"]["drums_onset_f1"]["loss_fraction"] = 0.5
+        check_snapshot(bad)
+        with self.assertRaisesRegex(ValueError, "drums_onset_f1"):
+            check_archives(bad, evidence)
+        bad = copy.deepcopy(good)
         for r in bad["separation"]:
             if r["id"] == "S1":
                 r["drums_f1"] = 0.5850
