@@ -413,6 +413,22 @@ if checks["audio_flag_mismatches"]:
     failures.append(f"audio_rendered flag mismatches: {checks['audio_flag_mismatches']}")
 if issues:
     failures.append(f"{len(issues)} per-track issues (missing ref/est/archive rows)")
+# The archive's own summary header must agree with its rows and with the recomputation.
+if archive.get("n_rows") != 294:
+    failures.append(f"archive header n_rows={archive.get('n_rows')!r}, expected 294")
+if archive.get("missing", None) != 0:
+    failures.append(f"archive header missing={archive.get('missing')!r}, expected 0")
+for stem, variant in (("other", "raw"), ("bass", "shift12")):
+    hdr = (archive.get("aggregate_note_f") or {}).get(stem)
+    rec = summary[stem][variant]["recomputed_mean_note_f"]
+    arc = summary[stem][variant]["archived_mean_note_f"]
+    if not isinstance(hdr, (int, float)) or isinstance(hdr, bool) or not math.isfinite(hdr):
+        failures.append(f"archive header aggregate_note_f[{stem}] is not a finite number: {hdr!r}")
+    elif rec is None or round(hdr, 4) != round(rec, 4) or round(hdr, 4) != round(arc, 4):
+        failures.append(
+            f"archive header aggregate_note_f[{stem}]={hdr} disagrees with per-track means "
+            f"(archived {arc}, recomputed {rec})"
+        )
 for stem, variant, n_expected in (("other", "raw", 151), ("bass", "shift12", 143)):
     c = summary[stem][variant]
     if c["n"] != n_expected:
