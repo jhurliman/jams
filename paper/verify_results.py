@@ -175,7 +175,15 @@ def check_secondary_sections(data: dict, rows: dict) -> None:
     _interval("reference_paired_delta", rp["mean"], rp["ci"], -1, 1)
     if not 0 <= rp["win_fraction"] <= 1:
         raise ValueError("reference_paired_delta win_fraction outside [0, 1]")
-    for c in data.get("paired_contrasts", []):
+    contrasts = data.get("paired_contrasts")
+    expected = {"T2b - T1", "T10 - S4", "S4 - T1", "T10 - T2b"}
+    if (
+        not isinstance(contrasts, list)
+        or {c.get("comparison") for c in contrasts} != expected
+        or len(contrasts) != 4
+    ):
+        raise ValueError(f"paired_contrasts must record exactly {sorted(expected)}")
+    for c in contrasts:
         a, _, bb = c["comparison"].partition(" - ")
         if a not in rows or bb not in rows or c["n"] != 151:
             raise ValueError(f"paired contrast {c['comparison']}: unknown rows or support")
@@ -189,6 +197,8 @@ def check_secondary_sections(data: dict, rows: dict) -> None:
         ):
             raise ValueError(f"paired contrast {c['comparison']}: win/loss fractions invalid")
     spd = data.get("separator_paired_delta")
+    if not isinstance(spd, dict) or not {"drums_onset_f1", "other_f1", "bass_f1"} <= set(spd):
+        raise ValueError("separator_paired_delta must record drums_onset_f1, other_f1, and bass_f1")
     if spd:
         for key, n_expected in (("drums_onset_f1", 151), ("other_f1", 151), ("bass_f1", 143)):
             c = spd[key]
@@ -251,7 +261,7 @@ def check_archives(data: dict, root: Path) -> dict:
             "sha256": digest,
             "track_ids": ids,
         }
-    recorded = {c["comparison"]: c for c in data.get("paired_contrasts", [])}
+    recorded = {c["comparison"]: c for c in data["paired_contrasts"]}
     for a, b in (("T2b", "T1"), ("T10", "S4"), ("S4", "T1"), ("T10", "T2b")):
         _, va, vb = paired_values(loaded[a], loaded[b], 151)
         diffs = [x - y for x, y in zip(va, vb)]
@@ -358,6 +368,13 @@ def check_separator(data: dict, root: Path, boot_kw: dict) -> dict:
                     for t in doc["per_track"]
                     if isinstance(t.get("sdr"), dict) and t["sdr"].get(g) is not None
                 ]
+                for v in vals:
+                    if (
+                        isinstance(v, bool)
+                        or not isinstance(v, (int, float))
+                        or not math.isfinite(v)
+                    ):
+                        raise ValueError(f"separation {sid} {g}: non-finite SI-SDR value {v!r}")
                 mean = sum(vals) / len(vals)
                 if abs(mean - r[f"{g}_si_sdr"]) > 0.0051:
                     raise ValueError(
@@ -368,6 +385,9 @@ def check_separator(data: dict, root: Path, boot_kw: dict) -> dict:
             agg_path = root / r["si_sdr_archive"]
             agg = json.loads(agg_path.read_text())["si_sdr"]
             for g in ("drums", "bass", "other"):
+                v = agg[g]
+                if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v):
+                    raise ValueError(f"separation {sid} {g}: non-finite aggregate SI-SDR {v!r}")
                 if abs(agg[g] - r[f"{g}_si_sdr"]) > 0.0051:
                     raise ValueError(
                         f"separation {sid} {g}_si_sdr: aggregate archive {agg[g]} vs snapshot"
@@ -379,7 +399,7 @@ def check_separator(data: dict, root: Path, boot_kw: dict) -> dict:
                 }
             row_report["si_sdr_archive_sha256"] = hashlib.sha256(agg_path.read_bytes()).hexdigest()
         out["rows"][sid] = row_report
-    spd = data.get("separator_paired_delta") or {}
+    spd = data["separator_paired_delta"]
     for key, g, n in (
         ("drums_onset_f1", "drums", 151),
         ("other_f1", "other", 151),

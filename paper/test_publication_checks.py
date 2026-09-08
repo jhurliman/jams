@@ -153,6 +153,7 @@ class PublicationIntegrityTests(unittest.TestCase):
         check_snapshot(bad)
         with self.assertRaisesRegex(ValueError, "drums_onset_f1"):
             check_archives(bad, evidence)
+
         bad = copy.deepcopy(good)
         for r in bad["separation"]:
             if r["id"] == "S1":
@@ -161,6 +162,33 @@ class PublicationIntegrityTests(unittest.TestCase):
         check_snapshot(bad)
         with self.assertRaisesRegex(ValueError, "separation S1 drums_f1"):
             check_archives(bad, evidence)
+
+    def test_contrast_sections_are_required(self):
+        import copy
+
+        good = json.loads((HERE / "results_snapshot.json").read_text())
+        for key in ("paired_contrasts", "separator_paired_delta"):
+            bad = copy.deepcopy(good)
+            del bad[key]
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                check_snapshot(bad)
+        bad = copy.deepcopy(good)
+        bad["paired_contrasts"] = bad["paired_contrasts"][:3]
+        with self.assertRaisesRegex(ValueError, "paired_contrasts"):
+            check_snapshot(bad)
+
+    def test_non_finite_si_sdr_in_archive_is_rejected(self):
+        import shutil
+
+        good = json.loads((HERE / "results_snapshot.json").read_text())
+        with tempfile.TemporaryDirectory() as root:
+            shutil.copytree(HERE / "evidence" / "results_aws", Path(root) / "results_aws")
+            s1 = Path(root) / "results_aws" / "slakh_test_e2e.json"
+            doc = json.loads(s1.read_text())
+            doc["per_track"][0]["sdr"]["drums"] = float("nan")
+            s1.write_text(json.dumps(doc))
+            with self.assertRaisesRegex(ValueError, "non-finite"):
+                check_archives(good, Path(root))
 
 
 if __name__ == "__main__":
