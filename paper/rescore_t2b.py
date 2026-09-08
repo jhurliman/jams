@@ -117,14 +117,19 @@ _raw = (
 sha = hashlib.sha256(_raw).hexdigest()  # digest of the uncompressed dump
 rows = [json.loads(x) for x in _raw.decode().splitlines() if x.strip()]
 est_by = {(r["track_id"], r["stem"]): r["notes"] for r in rows}
-assert len(est_by) == len(rows), "duplicate (track, stem) rows in jsonl"
+if len(est_by) != len(rows):
+    sys.exit(f"duplicate (track, stem) rows in {NOTES_JSONL}: {len(rows) - len(est_by)}")
 
 archive = json.load(open(ARCHIVE))
 arch_by = {(r["track_id"], r["stem"]): r for r in archive["per_track"]}
-assert len(arch_by) == len(archive["per_track"]), "duplicate (track, stem) rows in the archive"
+if len(arch_by) != len(archive["per_track"]):
+    sys.exit(
+        f"duplicate (track, stem) rows in {ARCHIVE}: {len(archive['per_track']) - len(arch_by)}"
+    )
 pub = json.load(open(PUB))
 pub_ids = sorted(pub["archives"]["T2b"]["track_ids"])
-assert len(pub_ids) == 151
+if len(pub_ids) != 151:
+    sys.exit(f"publication_verified.json lists {len(pub_ids)} T2b track ids, expected 151")
 
 remote_audio = set()
 for line in REMOTE_STEMS.read_text().splitlines():
@@ -231,6 +236,10 @@ checks = {
     == sorted(t for (t, s) in arch_by if s == "bass"),
     "bass_eligible_eq_jsonl_bass_ids": sorted(eligible["bass"])
     == sorted(t for (t, s) in est_by if s == "bass"),
+    "other_eligible_eq_archive_other_ids": sorted(eligible["other"])
+    == sorted(t for (t, s) in arch_by if s == "other"),
+    "other_eligible_eq_jsonl_other_ids": sorted(eligible["other"])
+    == sorted(t for (t, s) in est_by if s == "other"),
     "other_empty_tracks": sorted(set(test_ids) - set(eligible["other"])),
     "bass_empty_tracks": sorted(set(test_ids) - set(eligible["bass"])),
     "audio_flag_mismatches": audio_flag_mismatch,
@@ -380,6 +389,8 @@ failures: list[str] = []
 for key in (
     "mirdata_test_ids_eq_pub_151",
     "other_eligible_eq_pub_151",
+    "other_eligible_eq_archive_other_ids",
+    "other_eligible_eq_jsonl_other_ids",
     "bass_eligible_eq_archive_bass_ids",
     "bass_eligible_eq_jsonl_bass_ids",
 ):

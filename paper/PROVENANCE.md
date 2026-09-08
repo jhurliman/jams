@@ -23,20 +23,21 @@ inspected in this session (see §7). Nothing was re-run; no model inference was 
 
 ## 1. Result archives (the four principal files)
 
-The four archive files exist in `eval/data/results_aws/` in both the main checkout and this
-worktree (the directory is gitignored; REVIEW.md's statement that they are "absent from the
-checkout and its history" refers to git history, not the working tree). Their SHA-256 values,
-computed here, equal the values stored in `eval/data/publication_verified.json`
-(`status: "stored_scores_recomputed"`).
+The four archive files were recovered from the author machine's ignored
+`eval/data/results_aws/` (REVIEW.md's "absent from the checkout and its history" referred to
+the repository history) and are **committed under `paper/evidence/results_aws/`**, with the
+SI-SDR aggregate, the compressed raw YourMT3+ predictions, and `SHA256SUMS`. Their SHA-256
+values equal those recorded in `paper/evidence/publication_verified.json`
+(`status: "stored_scores_recomputed"`) and in `paper/results_snapshot.json`.
 
-| id | file (`eval/data/results_aws/`) | bytes | mtime (main checkout, local) | SHA-256 | status |
+| id | file (`paper/evidence/results_aws/`) | bytes | mtime (original copy, local) | SHA-256 | status |
 |---|---|---:|---|---|---|
 | T1 | `slakh_test_oracle.json` | 94,745 | 2026-07-02 04:31 | `03c9566fd53a78cdb16099e49f7ecb3077d5ca0205c444ddf8344592a700edb8` | verified (shasum; = publication_verified.json) |
 | T2b | `yourmt3_oracle_per_track.json` | 50,575 | 2026-07-05 18:31 | `da4e13d00c301eb8a15fc9eaacdcd6cba5b790ef533e377e62c28d7658eb0061` | verified |
 | S4 | `sep_scnet_notes.json` | 94,598 | 2026-07-02 16:42 | `19397c11e7d3d6023e624db9056fce47bb8c498d1c261ba24c19aebaf7765e1b` | verified |
 | T10 | `slakh_test_e2e_scnet_yourmt3.json` | 108,954 | 2026-07-05 22:46 | `7c12670cf69f75e389609ce2caf77826080984741aad284d2cd7a5c8745112cd` | verified |
 
-Companion files (same directory), hashed here:
+Companion files (`paper/evidence/results_aws/`; gate files under `paper/evidence/structure/`), hashed here:
 
 | file | bytes | SHA-256 | content (verified by reading) |
 |---|---:|---|---|
