@@ -40,6 +40,8 @@
   "bass_eligible_n": 143,
   "bass_eligible_eq_archive_bass_ids": true,
   "bass_eligible_eq_jsonl_bass_ids": true,
+  "other_eligible_eq_archive_other_ids": true,
+  "other_eligible_eq_jsonl_other_ids": true,
   "other_empty_tracks": [],
   "bass_empty_tracks": [
    "Track01880",
