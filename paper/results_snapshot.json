@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "status": "reported_not_recomputed",
+  "audit_date": "2026-09-08",
+  "source_commit": "71e61b660a770f0c87539d23dce54f26da5ae032",
+  "sources": ["paper/EXPERIMENTS.md", "paper/STATS.md"],
+  "dataset": "Slakh2100-redux test",
+  "metric": "macro per-track onset-and-pitch F1; onset 50 ms; pitch 50 cents; offsets ignored",
+  "bootstrap": {"resamples": 10000, "seed": 0, "unit": "track", "interval": "95% percentile"},
+  "transcription": [
+    {"id": "T1", "input": "Reference other", "model": "basic-pitch", "n": 151, "mean": 0.4897, "ci": [0.4742, 0.5055], "archive": "results_aws/slakh_test_oracle.json"},
+    {"id": "T2b", "input": "Reference other", "model": "YourMT3+", "n": 151, "mean": 0.8488, "ci": [0.8369, 0.8607], "archive": "results_aws/yourmt3_oracle_per_track.json"},
+    {"id": "S4", "input": "SCNet other", "model": "basic-pitch", "n": 151, "mean": 0.4733, "ci": null, "archive": "results_aws/sep_scnet_notes.json"},
+    {"id": "T10", "input": "SCNet other", "model": "YourMT3+", "n": 151, "mean": 0.7877, "ci": null, "archive": "results_aws/slakh_test_e2e_scnet_yourmt3.json"}
+  ],
+  "reference_paired_delta": {"comparison": "T2b - T1", "n": 151, "mean": 0.3591, "ci": [0.3471, 0.3713], "win_fraction": 1.0},
+  "separation": [
+    {"id": "S1", "model": "HT-Demucs", "nominal_tracks": 151, "bass_n": null, "drums_si_sdr": 11.61, "bass_si_sdr": 4.57, "other_si_sdr": 10.13, "drums_f1": 0.5845, "bass_f1": 0.5957, "other_f1": 0.4585},
+    {"id": "S4", "model": "SCNet", "nominal_tracks": 151, "bass_n": null, "drums_si_sdr": 14.31, "bass_si_sdr": 5.98, "other_si_sdr": 11.77, "drums_f1": 0.5741, "bass_f1": 0.6448, "other_f1": 0.4733}
+  ],
+  "bass_reference": {"n": 143, "basic_pitch": 0.7889, "yourmt3": 0.8486, "paired_delta": 0.0597, "paired_ci": [0.0034, 0.1100], "postprocessing": "monophonic filtering and +12 semitone estimate shift; run arguments require verification"},
+  "caveats": [
+    "Per-recording archives were unavailable for the revision; none of these experimental estimates or intervals was independently recomputed.",
+    "End-to-end counts are ledger claims; exact eligible IDs must be matched when archives are restored.",
+    "SCNet other SI-SDR is 11.77 in S4 and 11.76 in T10; do not silently treat rounded summaries as identical.",
+    "Development reused test results. Intervals are conditional exploratory summaries, not confirmatory evidence."
+  ]
+}

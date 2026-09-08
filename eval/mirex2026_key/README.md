@@ -1,4 +1,6 @@
-# MIREX 2026 Audio Key Detection — JAMS Key CNN (K10)
+# MIREX 2026 Audio Key Detection — K10 candidate package
+
+**Eligibility unresolved (8 September 2026).** The [2026 task rules](https://music-ir.org/mirex/wiki/2026:Audio_Key_Detection) prohibit GiantSteps Key use for any development purpose. Prior project test-error analysis informed K10. Do not represent this package as eligible without organizer clarification using the full history below. The October 1 deadline does not remove this issue. See [publication plan](../../paper/VENUE.md); a required task extended abstract is not yet included.
 
 ## Authors / contact
 
@@ -27,28 +29,31 @@ candidates) by 5-fold cross-validation within the training corpus; the
 submitted weights are the final model trained on the full corpus at the
 CV-selected epoch budget.
 
-Reference (method + evaluation protocol; in preparation):
+Reference (in preparation): John Hurliman, *Evaluating a Modular Mix-to-MIDI Pipeline on Slakh2100*, 2026. Key results and qualifications are secondary appendix material; there is no arXiv identifier yet.
 
-> J. Hurliman, "An Open, Auditable MIR Stack for Electronic Dance Music:
-> Benchmark Calibration and Mix-to-MIDI Transcription," arXiv preprint,
-> 2026 (in preparation). Code: https://github.com/jhurliman/jams
+The historical K10 summary reports a **legacy symmetric-fifth weighted score** of
+0.8321 [95% CI 0.8039, 0.8586] and exact accuracy 0.7795 on 567 GiantSteps Key
+examples. The legacy scorer gives fifth credit in both directions; mir_eval 0.8.2
+uses +7 only. Confirm the organizers' implementation before claiming protocol
+compatibility. These intervals are exploratory and the raw archives still require
+release; they do not demonstrate equivalence to madmom or predict a future result.
 
-Pre-registered single-shot result on GiantSteps Key (n=567): MIREX-weighted
-**0.8321** [95% CI 0.8039, 0.8586], exact **0.7795**.
+## Training and development disclosure
 
-## Training-data disclosure (relation to the evaluation set)
+The ledger records final K10 training on mirdata `beatport_key` (1,363 usable
+examples), with architecture/epoch selection by cross-validation within that corpus.
+It reports all 1,157 usable GiantSteps-MTG IDs included and zero track-ID overlap
+with GiantSteps Key. `uv run eval/verify_key_disjoint.py` checks dataset index IDs;
+it does not check audio duplicates or development history.
 
-The model is trained ONLY on mirdata `beatport_key`. That corpus was verified
-empirically (recorded in the project ledger, `paper/EXPERIMENTS.md`, section
-K10) to contain all 1,157 usable GiantSteps-MTG training ids — it is the same
-corpus under revised annotations — and to have **zero track-id overlap with
-GiantSteps Key**. The overlap check is reproducible from the mirdata indexes
-alone: `uv run eval/verify_key_disjoint.py` (1,486 beatport_key ids vs. 600
-giantsteps_key ids, intersection empty). GiantSteps Key was used exactly once, as a held-out test set
-after all model selection was frozen; no MIREX evaluation audio or labels were
-used in training or model selection. If the MIREX evaluation set includes
-GiantSteps Key material, the above pre-registered score is the expected
-performance on that portion.
+**GiantSteps Key was previously used in this project's development.** Earlier
+systems were scored and their errors analyzed; an older mode classifier was fit
+on that test set. K10's motivation explicitly uses the banked GiantSteps error and
+oracle analysis to justify a stronger base model. The ledger says the frozen K10
+checkpoint received one final test evaluation, but the project as a whole was not
+blind to that benchmark. This broader history is material under the 2026 rule
+against any development use. Seek an organizer ruling with this disclosure before
+competitive submission; do not claim that disjoint final training IDs resolve it.
 
 ## Calling format
 
@@ -83,7 +88,9 @@ failure (no output file is written on failure).
   no download step is required.
 - `README.md` — this file.
 
-## Runtime environment
+## Historically recorded runtime environment
+
+The measurements below come from the original package documentation and were not rerun during the publication review. Dependency ranges are not a lockfile; capture an exact environment and verify the target platform before submission.
 
 - Language: Python. Tested with CPython 3.12 (declared range: >=3.10, <3.13).
 - Dependencies (exact versions used in verification): `torch` 2.8.0 (CPU),
@@ -94,8 +101,8 @@ failure (no output file is written on failure).
   out.txt`) — uv resolves and caches the environment from the script's inline
   metadata on first run. Alternatively `pip install "torch==2.8.*"
   "librosa>=0.10" "numpy>=1.26,<2.3"` and run `python predict_key.py ...`.
-- OS: any platform with CPU torch wheels (verified on macOS arm64; Linux
-  x86-64 supported by all pinned dependencies).
+- OS: any platform with CPU torch wheels (historically verified on macOS arm64; Linux
+  x86-64 needs a packaging smoke test).
 - No network access is needed at prediction time (after the one-time
   environment install).
 
@@ -104,11 +111,9 @@ failure (no output file is written on failure).
 - **Threads/cores:** single-threaded (`torch.set_num_threads(1)` is set
   explicitly; one process, one core). Safe to run many instances in parallel.
 - **Memory:** ~390 MB peak RSS per invocation (measured on a 32 s input;
-  scales mildly with track length via the full-track CQT — a 2-minute track
-  stays well under 1 GB).
+  scales mildly with track length via the full-track CQT — longer-input memory was not verified in this review).
 - **Runtime:** ~1.7 s wall per 2-minute track on one Apple M-series CPU core,
-  including interpreter start and model load (~1–2 s expected per track on a
-  modern x86-64 core). GPU is not used. The very first invocation on a fresh
+  including interpreter start and model load (x86-64 timing not measured). GPU is not used. The very first invocation on a fresh
   machine additionally pays a one-time dependency install (~40 s with a warm
   network; please run one warm-up invocation before batch timing).
 - **Scratch disk:** none used by the program itself (output file only). The
