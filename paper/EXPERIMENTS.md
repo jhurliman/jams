@@ -1,3 +1,5 @@
+> **Publication correction, 2026-09-08:** This is a historical development record, not the current manuscript. Its subset-only key calibration, parity, universal bass-octave, and complete-public-reproducibility claims are superseded by [REVIEW.md](REVIEW.md). Preserving the entries does not endorse those interpretations. Current paper: [arxiv/main.pdf](arxiv/main.pdf); current submission plan: [VENUE.md](VENUE.md).
+
 # Experiments ledger
 
 Every quantitative claim in the paper traces to an entry here. Artifacts live under
