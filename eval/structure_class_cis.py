@@ -131,11 +131,16 @@ def main() -> None:
     rows = [r for r in rows if "track_id" in r]  # the frozen manifest starts with a header row
     # Eligibility is the frozen flag ("eligible": audio retrievable at gate time), falling back
     # to a live manifest's audio_exists; it must not depend on what is downloadable today.
-    rows = {
-        r["track_id"]: r
-        for r in rows
-        if r.get("fold") == args.fold and r.get("eligible", r.get("audio_exists"))
-    }
+    fold_rows = [
+        r for r in rows if r.get("fold") == args.fold and r.get("eligible", r.get("audio_exists"))
+    ]
+    ids = [r["track_id"] for r in fold_rows]
+    if len(ids) != len(set(ids)):
+        dups = sorted({i for i in ids if ids.count(i) > 1})
+        raise SystemExit(
+            f"{args.manifest}: duplicate eligible track ids in fold {args.fold}: {dups[:10]}"
+        )
+    rows = {r["track_id"]: r for r in fold_rows}
     missing_refs = []
     for r in rows.values():
         csv = Path(r["beats_csv"])
