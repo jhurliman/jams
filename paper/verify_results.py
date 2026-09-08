@@ -182,6 +182,8 @@ def check_secondary_sections(data: dict, rows: dict) -> None:
     _interval("reference_paired_delta", rp["mean"], rp["ci"], -1, 1)
     if not 0 <= rp["win_fraction"] <= 1:
         raise ValueError("reference_paired_delta win_fraction outside [0, 1]")
+    if rp["n"] != 151:
+        raise ValueError(f"reference_paired_delta support {rp['n']} != 151")
     contrasts = data.get("paired_contrasts")
     expected = {"T2b - T1", "T10 - S4", "S4 - T1", "T10 - T2b"}
     if (
@@ -239,7 +241,8 @@ def check_archives(data: dict, root: Path) -> dict:
         "contrasts": {},
         "limitations": [
             "Stored scores were not rescored from MIDI or reproduced by inference.",
-            "CIs use sorted track IDs; finite-bootstrap endpoints may differ from historical row order.",
+            "CIs use sorted track IDs; finite-bootstrap endpoints may differ from historical "
+            "row order.",
             "Matching filenames alone does not establish correct dataset/checkpoint identity.",
         ],
     }
@@ -273,6 +276,7 @@ def check_archives(data: dict, root: Path) -> dict:
         _, va, vb = paired_values(loaded[a], loaded[b], 151)
         diffs = [x - y for x, y in zip(va, vb)]
         stats = bootstrap(diffs, **{k: data["bootstrap"][k] for k in ("resamples", "seed")})
+        stats["n"] = len(diffs)
         stats["win_fraction"] = sum(d > 0 for d in diffs) / len(diffs)
         stats["loss_fraction"] = sum(d < 0 for d in diffs) / len(diffs)
         report["contrasts"][f"{a} - {b}"] = stats
@@ -292,7 +296,8 @@ def check_archives(data: dict, root: Path) -> dict:
     rp = data["reference_paired_delta"]
     ref = report["contrasts"]["T2b - T1"]
     if (
-        round(ref["mean"], 4) != rp["mean"]
+        ref["n"] != rp["n"]
+        or round(ref["mean"], 4) != rp["mean"]
         or [round(x, 4) for x in ref["ci"]] != rp["ci"]
         or round(ref["win_fraction"], 4) != rp["win_fraction"]
     ):

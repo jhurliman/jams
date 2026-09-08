@@ -47,6 +47,15 @@ method cannot exclude an offset, although none shows a consistent shift; the
 manuscript states it that way. Items 1–4 are therefore done as far as the evidence allows. The manuscripts were updated to
 match. Nothing in the paper depends on the project's S3 bucket.
 
+Later the same day the structure evidence was recovered too: the raw predictions of
+all gate arms (S3 `gates/` and aleph0) plus the scored JSONs are committed under
+`paper/evidence/structure/`, and `eval/structure_class_cis.py` recomputes every
+Appendix C interval from them with full fold coverage, the scored artifacts matching
+per track (ST-v4 buildup −0.2405 [−0.308, −0.175], end −0.355; ST-v3 cooldown +0.233,
+buildup −0.158; ST-v1 beat-F −0.054/−0.058, boundary −0.146/−0.206 on folds 2/1). The
+raw YourMT3+ predictions are committed compressed so the T2b rescore runs from a fresh
+checkout once the Slakh test MIDI is acquired.
+
 ## Main scientific judgment
 
 The strongest existing comparison holds SCNet fixed and changes the accompaniment
@@ -150,7 +159,7 @@ current package must not be represented as eligible merely because IDs are disjo
 
 ## Revision validation
 
-The revised research PDF has nine pages; the LBD PDF has two pages including
+The revised research PDF has ten pages (nine at the audit, one more after the evidence-recovery text); the LBD PDF has two pages including
 references and AI disclosure. Both were compiled with TeX Live 2023 and visually
 inspected. The arXiv source bundle was also compiled in a clean directory and its
 extracted text matched the repository PDF. Final logs contain no LaTeX warnings,

@@ -1,19 +1,23 @@
 #!/usr/bin/env -S uv run --extra eval
 """Paired per-class bootstrap CIs for structure gate arms (ST-v3/ST-v4 tables).
 
-Compares two gate arm outputs (raw JSONL prediction files from the gate driver) on
-their common tracks: per-class label quality as *per-track* GT-duration coverage
-(mean coverage over that track's GT segments of the class; tracks lacking the class
-are excluded pairwise), plus aggregate metrics read from the corresponding scored
-JSONs. Track-level resampling (tracks are the independent units), 10k resamples,
+Compares two gate arm outputs (raw JSONL prediction files from the gate driver), which
+must both cover exactly the eligible held-out fold: per-class label quality as
+*per-track* GT-duration coverage (mean coverage over that track's GT segments of the
+class; tracks lacking the class are excluded pairwise), plus aggregate metrics
+recomputed per track from the raw predictions with ``evaluate_structure.score_track``.
+Scored JSONs (``--arm-scored``/``--stock-scored``) are optional cross-checks: their
+track sets must equal the arm's and every per-track metric must match the
+recomputation, otherwise the run fails. Track-level resampling (tracks are the
+independent units), 10k resamples,
 seed 0, 95% percentile CIs — the numbers in paper/EXPERIMENTS.md ST-v3/ST-v4
 per-class tables and paper/arxiv Fig. "structure trade".
 
 Usage:
   uv run --extra eval eval/structure_class_cis.py \
       --arm gate_st4.jsonl --stock gate_stock.jsonl \
-      --arm-scored gate_st4_scored.json --stock-scored gate_stock_scored.json \
-      --fold 2 [--manifest eval/data/raveform/manifest.jsonl] [--out cis.json]
+      --fold 2 [--arm-scored gate_st4_scored.json] [--stock-scored gate_stock_scored.json] \
+      [--manifest eval/data/raveform/manifest.jsonl] [--out cis.json]
 """
 
 from __future__ import annotations
@@ -25,8 +29,16 @@ import statistics as st
 from pathlib import Path
 
 CLASSES = (
-    "buildup", "cooldown", "drop", "intro", "breakdown",
-    "outro", "end", "bridge", "altintro", "altoutro",
+    "buildup",
+    "cooldown",
+    "drop",
+    "intro",
+    "breakdown",
+    "outro",
+    "end",
+    "bridge",
+    "altintro",
+    "altoutro",
 )
 AGGREGATES = ("pairwise_f", "beat_f", "bound_f_0.5")
 N_BOOT = 10_000
@@ -52,9 +64,7 @@ def track_class_cov(pred: dict, ref_int, ref_lab, want: str) -> float | None:
         if lab != want or b <= a:
             continue
         cov = sum(
-            max(0.0, min(b, e["end"]) - max(a, e["start"]))
-            for e in segs
-            if e["label"] == lab
+            max(0.0, min(b, e["end"]) - max(a, e["start"])) for e in segs if e["label"] == lab
         )
         covs.append(cov / (b - a))
     return st.mean(covs) if covs else None
@@ -73,8 +83,12 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--arm", required=True, type=Path, help="challenger arm JSONL")
     ap.add_argument("--stock", required=True, type=Path, help="stock arm JSONL")
-    ap.add_argument("--arm-scored", required=True, type=Path)
-    ap.add_argument("--stock-scored", required=True, type=Path)
+    ap.add_argument(
+        "--arm-scored", type=Path, default=None, help="optional scored JSON to cross-check"
+    )
+    ap.add_argument(
+        "--stock-scored", type=Path, default=None, help="optional scored JSON to cross-check"
+    )
     ap.add_argument("--fold", required=True, type=int)
     ap.add_argument(
         "--manifest",
@@ -92,11 +106,7 @@ def main() -> None:
     import evaluate_structure as es  # noqa: PLC0415 — sibling module, heavy imports
 
     rows = [json.loads(x) for x in open(args.manifest) if x.strip()]
-    rows = {
-        r["track_id"]: r
-        for r in rows
-        if r.get("fold") == args.fold and r.get("audio_exists")
-    }
+    rows = {r["track_id"]: r for r in rows if r.get("fold") == args.fold and r.get("audio_exists")}
 
     arm, arm_errors = load_preds(args.arm)
     stock, stock_errors = load_preds(args.stock)
@@ -117,7 +127,8 @@ def main() -> None:
             "Both gate arms must cover exactly the eligible held-out tracks with no error rows "
             "(the ST-v3/ST-v4 ledger entries are 165-track comparisons). Problems:\n  - "
             + "\n  - ".join(problems)
-            + "\nRe-run with --allow-partial to intersect anyway (the output then describes a subset)."
+            + "\nRe-run with --allow-partial to intersect anyway "
+            + "(the output then describes a subset)."
         )
     common = sorted(set(arm) & set(stock) & eligible)
     if problems:
@@ -125,8 +136,10 @@ def main() -> None:
     print(f"paired tracks: {len(common)} of {len(eligible)} eligible")
 
     refs = {}
+    full_refs = {}
     for tid in common:
-        _, _, ref_int, ref_lab = es.load_refs(rows[tid])
+        ref_beats, ref_down, ref_int, ref_lab = es.load_refs(rows[tid])
+        full_refs[tid] = (ref_beats, ref_down, ref_int, ref_lab)
         refs[tid] = (ref_int, ref_lab)
 
     rng = random.Random(0)
@@ -142,8 +155,32 @@ def main() -> None:
         if pairs:
             results[name] = boot_ci(pairs, rng)
 
-    pt_arm = {t["track_id"]: t for t in json.load(open(args.arm_scored))["per_track"]}
-    pt_stock = {t["track_id"]: t for t in json.load(open(args.stock_scored))["per_track"]}
+    # Aggregate metrics recomputed from the raw predictions (the same scorer the gate used).
+    pt_arm = {tid: es.score_track(*full_refs[tid], arm[tid]) for tid in common}
+    pt_stock = {tid: es.score_track(*full_refs[tid], stock[tid]) for tid in common}
+    for label, scored_path, computed in (
+        ("--arm-scored", args.arm_scored, pt_arm),
+        ("--stock-scored", args.stock_scored, pt_stock),
+    ):
+        if scored_path is None:
+            continue
+        with open(scored_path) as fh:
+            scored_rows = json.load(fh)["per_track"]
+        ids = [r["track_id"] for r in scored_rows]
+        if len(ids) != len(set(ids)) or set(ids) != set(common):
+            raise SystemExit(
+                f"{label}: scored track set (n={len(ids)}, {len(set(ids))} unique) does not "
+                f"equal the paired arm set (n={len(common)})"
+            )
+        for r in scored_rows:
+            for m in AGGREGATES:
+                a, b = r.get(m), computed[r["track_id"]].get(m)
+                if (a is None) != (b is None) or (a is not None and abs(a - b) > 1e-9):
+                    raise SystemExit(
+                        f"{label}: {r['track_id']} {m} scored={a} recomputed={b}; the scored "
+                        "artifact does not correspond to the supplied raw predictions"
+                    )
+        print(f"{label}: {len(ids)} tracks match the recomputed metrics")
     for m in AGGREGATES:
         deltas = [
             pt_arm[t][m] - pt_stock[t][m]

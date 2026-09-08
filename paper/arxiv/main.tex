@@ -34,9 +34,10 @@ These observations support measuring the complete cascade; they do not establish
 that separation improves transcription, and do not measure performance on real electronic dance music.
 We specify the scoring and aggregation conventions, commit the per-recording score
 archives for the Slakh comparisons with checksums, and recompute every mean and
-interval of those comparisons from them; the secondary key, tempo, drum, and
-structure results in the appendices remain reported values, and only one arm's
-note predictions were archived.
+interval of those comparisons from them; the structure intervals in the appendix
+are likewise recomputed from committed per-track predictions, while the secondary
+key, tempo, and drum results remain reported values, and only one transcription
+arm's note predictions were archived.
 \end{abstract}
 
 \section{Introduction}
@@ -303,9 +304,13 @@ the S4 SI-SDR aggregate are committed under \path{paper/evidence/} with SHA-256
 checksums, and \path{paper/verify_results.py} recomputes every mean and paired
 interval of the Slakh comparisons in Sections~3--4 from them (accompaniment rows,
 the bass reference, and the separator table and deltas), refusing missing
-archives, duplicate rows, or mismatched track sets. The key, tempo, drum, and
-structure intervals in the appendices are reported from the ledger and are not
-covered by this recomputation. The tables and figure regenerate from a summary snapshot that records that
+archives, duplicate rows, or mismatched track sets. The raw gate predictions of
+the structure experiments (all challenger and stock arms) are committed as well,
+and \path{eval/structure_class_cis.py} recomputes every per-class and aggregate
+interval of Appendix~C from them with complete held-out coverage, cross-checking
+the archived scored artifacts per track. The key, tempo, and drum intervals in
+the appendices are reported from the ledger and are not covered by this
+recomputation. The tables and figure regenerate from a summary snapshot that records that
 verification. The repository is the only hosting dependency; no cloud object store
 is required to reproduce the analysis.
 
@@ -416,10 +421,15 @@ failure of the stated acceptance criteria for reweighted training from scratch,
 a frozen-trunk readout, and a residual readout. For the frozen readout on fold 2,
 the reported cooldown-coverage gain is $+0.233$ \ci{+0.157}{+0.312}, while buildup
 loses $0.158$ \ci{0.098}{0.219}; the residual readout loses $0.240$
-\ci{0.175}{0.308} on buildup. The code averages the fraction correctly labeled
-within each reference segment, then averages within each track and across eligible
-tracks. This is not corpus-duration-weighted accuracy or a precision measure;
-overprediction can raise coverage.
+\ci{0.175}{0.308} on buildup. These intervals, and those of the from-scratch
+arms on both folds, are recomputed from the committed raw predictions of every
+arm (165 held-out tracks on fold~2, 162 on fold~1, no missing or failed tracks);
+the archived scored artifacts match the recomputation track by track, and the
+frozen-readout arms reproduce the stock beat and boundary scores exactly. The code
+averages the fraction correctly labeled within each reference segment, then
+averages within each track and across eligible tracks. This is not
+corpus-duration-weighted accuracy or a precision measure; overprediction can raise
+coverage.
 
 These outcomes show that the evaluated interventions did not meet their goals.
 They do not identify label quality as the limiting cause or exhaust possible
