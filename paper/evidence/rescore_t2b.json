@@ -10,7 +10,7 @@
   "slakh_source": "slakh2100_flac_redux test/ MIDI + metadata.yaml + all_src.mid copied from LAN host aleph0:/home/jhurliman/s7/slakh_home (audio not copied; stems/*.flac presence taken from a directory listing of the same copy)",
   "slakh_local": "eval/data/slakh_home",
   "mirdata_index": "/Users/jhurliman/Documents/Code/jhurliman/jams/.claude/worktrees/hard-deps/.venv/lib/python3.13/site-packages/mirdata/datasets/indexes/slakh_index_2100-redux.json",
-  "mirdata_index_fetched_now": true
+  "mirdata_index_fetched_now": false
  },
  "scoring": {
   "scorer": "eval/evaluate_transcription.py (imported)",
