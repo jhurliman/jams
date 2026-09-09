@@ -8,6 +8,12 @@ from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Interpreter for every PEP 723 worker script (stems, drums, YourMT3+, structure). Selected
+# explicitly at spawn time because uv can otherwise inherit an incompatible project
+# .python-version or UV_PYTHON from the caller (issue #4); 3.11 satisfies all the
+# scripts' requires-python ranges (tests/test_worker_python.py checks each one).
+WORKER_PYTHON = "3.11"
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="JAMS_", env_file=".env", extra="ignore")

@@ -7,10 +7,13 @@ import shutil
 import pytest
 
 from jams.analysis import stems as S
+from jams.analysis import structure as ST
 from jams.config import Settings
 
 
-@pytest.mark.parametrize("script", [S._STEMS_WORKER, S._DRUM_WORKER, S._YOURMT3_WORKER])
+@pytest.mark.parametrize(
+    "script", [S._STEMS_WORKER, S._DRUM_WORKER, S._YOURMT3_WORKER, ST._WORKER_PATH]
+)
 def test_worker_python_satisfies_script(script):
     from packaging.specifiers import SpecifierSet
 

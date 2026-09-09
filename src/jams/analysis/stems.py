@@ -27,7 +27,7 @@ from pathlib import Path
 
 from jams.analysis import gm
 from jams.analysis.audio import validate_audio_path
-from jams.config import get_settings
+from jams.config import WORKER_PYTHON, get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -36,9 +36,7 @@ _STEMS_WORKER = _DATA / "stems_worker.py"
 _DRUM_WORKER = _DATA / "drum_worker.py"
 _YOURMT3_WORKER = _DATA / "yourmt3_worker.py"
 
-# All three worker scripts support 3.11. Select it explicitly: uv can otherwise
-# inherit an incompatible project .python-version or UV_PYTHON from the caller.
-_WORKER_PYTHON = "3.11"
+_WORKER_PYTHON = WORKER_PYTHON  # shared with the structure worker; see jams.config
 
 _PITCHED_STEMS = ("bass", "other", "vocals")
 
@@ -220,7 +218,8 @@ class _Worker:
         if not line:
             raise RuntimeError(
                 f"{self._label} worker produced no output. Is `uv` installed and on PATH "
-                f"({self._uv_setting})? Worker Python {_WORKER_PYTHON} is selected explicitly; "
+                f"(JAMS_{self._uv_setting.upper()})? Worker Python {_WORKER_PYTHON} is selected "
+                "explicitly; "
                 "check uv's stderr for interpreter or dependency resolution errors. "
                 "The caller's .python-version and UV_PYTHON must not select the worker interpreter."
             )
