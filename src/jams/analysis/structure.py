@@ -23,7 +23,7 @@ import threading
 from pathlib import Path
 
 from jams.analysis.audio import validate_audio_path
-from jams.config import get_settings
+from jams.config import WORKER_PYTHON, get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +114,9 @@ class _LocalWorker:
 
     def _spawn(self) -> None:
         uv = get_settings().structure_uv
-        cmd = [uv, "run", "--script", str(_WORKER_PATH), "--serve"]
+        # Explicit interpreter: uv can otherwise inherit an incompatible project
+        # .python-version or UV_PYTHON from the caller (issue #4).
+        cmd = [uv, "run", "--python", WORKER_PYTHON, "--script", str(_WORKER_PATH), "--serve"]
         logger.info("Starting All-In-One structure worker: %s", " ".join(cmd))
         # stderr is inherited so uv's env-build progress and any tracebacks are
         # visible; the worker keeps stdout clean (one JSON line per request).
@@ -152,11 +154,16 @@ class _LocalWorker:
             if not line:  # worker died mid-request; respawn once and retry
                 logger.warning("Structure worker unresponsive; respawning")
                 self._spawn()
-                line = self._round_trip(request)
+                try:
+                    line = self._round_trip(request)
+                except (BrokenPipeError, ValueError, OSError):
+                    line = ""
         if not line:
             raise RuntimeError(
                 "Structure worker produced no output. Is `uv` installed and on PATH "
-                "(JAMS_STRUCTURE_UV), and is this an Apple Silicon Mac?"
+                f"(JAMS_STRUCTURE_UV), and is this an Apple Silicon Mac? Worker Python "
+                f"{WORKER_PYTHON} is selected explicitly; check uv's stderr for interpreter or "
+                "dependency resolution errors."
             )
         resp = json.loads(line)
         if not resp.get("ok"):
