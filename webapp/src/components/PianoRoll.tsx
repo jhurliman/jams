@@ -37,7 +37,10 @@ export function PianoRoll({ transcription }: Props) {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    const { pxPerSec, scrollLeft, viewportWidth: W } = useEditor.getState().view;
+    const { pxPerSec, scrollLeft } = useEditor.getState().view;
+    // A permanent scrollbar can make a lane narrower than the waveform. Draw at
+    // its actual CSS width so the browser never scales the time axis to fit.
+    const W = canvas.getBoundingClientRect().width;
     const dpr = window.devicePixelRatio || 1;
     const dw = Math.round(W * dpr);
     const dh = Math.round(H * dpr);

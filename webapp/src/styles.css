@@ -161,6 +161,29 @@ body {
 .chip.id:hover {
   border-color: var(--accent, #46cad8);
 }
+/* Positioned wrapper for the time-aligned data-viz rows (waveform + stem lanes). Hosts the
+   single full-height playhead overlay that spans them all. */
+.vizstack {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+/* Full-height vertical playback line spanning every row of .vizstack. Positioned in CSS px
+   from the stack's left edge via translateX (set imperatively by the Playhead component). */
+.playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: #39d353;
+  pointer-events: none;
+  z-index: 5;
+  will-change: transform;
+}
 .waveform {
   flex: 1;
   min-height: 0;
