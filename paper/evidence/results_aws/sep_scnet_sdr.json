@@ -1,0 +1,11 @@
+{
+  "model": "scnet",
+  "n": 151,
+  "missing": 0,
+  "si_sdr": {
+    "bass": 5.98,
+    "drums": 14.31,
+    "other": 11.765,
+    "vocals": null
+  }
+}

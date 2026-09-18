@@ -1,0 +1,116 @@
+\begin{thebibliography}{13}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Derby et~al.(2024)Derby, Dunker, Galchar, Jarmale, and
+  Setti]{derby2024pipeline}
+Bradford Derby, Lucas Dunker, Samarth Galchar, Shashank Jarmale, and Akash
+  Setti.
+\newblock Source separation \& automatic transcription for music, 2024.
+\newblock URL \url{https://arxiv.org/abs/2412.06703}.
+\newblock Preprint, arXiv:2412.06703.
+
+\bibitem[Manilow et~al.(2019)Manilow, Wichern, Seetharaman, and
+  Le~Roux]{manilow2019slakh}
+Ethan Manilow, Gordon Wichern, Prem Seetharaman, and Jonathan Le~Roux.
+\newblock Cutting music source separation some {Slakh}: A dataset to study the
+  impact of training data quality and quantity.
+\newblock In \emph{Proceedings of the IEEE Workshop on Applications of Signal
+  Processing to Audio and Acoustics (WASPAA)}, 2019.
+\newblock URL \url{https://arxiv.org/abs/1909.08494}.
+
+\bibitem[Bittner et~al.(2022)Bittner, Bosch, Rubinstein, Meseguer-Brocal, and
+  Ewert]{bittner2022basicpitch}
+Rachel~M. Bittner, Juan~Jos{\'e} Bosch, David Rubinstein, Gabriel
+  Meseguer-Brocal, and Sebastian Ewert.
+\newblock A lightweight instrument-agnostic model for polyphonic note
+  transcription and multipitch estimation.
+\newblock In \emph{Proceedings of the IEEE International Conference on
+  Acoustics, Speech and Signal Processing (ICASSP)}, 2022.
+\newblock URL \url{https://arxiv.org/abs/2203.09893}.
+
+\bibitem[Gardner et~al.(2022)Gardner, Simon, Manilow, Hawthorne, and
+  Engel]{gardner2022mt3}
+Josh Gardner, Ian Simon, Ethan Manilow, Curtis Hawthorne, and Jesse Engel.
+\newblock {MT3}: Multi-task multitrack music transcription.
+\newblock In \emph{Proceedings of the International Conference on Learning
+  Representations (ICLR)}, 2022.
+\newblock URL \url{https://arxiv.org/abs/2111.03017}.
+
+\bibitem[Chang et~al.(2024)Chang, Benetos, Kirchhoff, and
+  Dixon]{chang2024yourmt3}
+Sungkyun Chang, Emmanouil Benetos, Holger Kirchhoff, and Simon Dixon.
+\newblock {YourMT3+}: Multi-instrument music transcription with enhanced
+  transformer architectures and cross-dataset stem augmentation.
+\newblock In \emph{Proceedings of the IEEE International Workshop on Machine
+  Learning for Signal Processing (MLSP)}, 2024.
+\newblock URL \url{https://arxiv.org/abs/2407.04822}.
+
+\bibitem[Ou et~al.(2026)Ou, Martel, Hennessy-Priest, and Cho]{ou2026harmonica}
+Longshen Ou, H{\'e}ctor Martel, Joe Hennessy-Priest, and Taemin Cho.
+\newblock Harmonica: Accurate and lightweight instrument-agnostic music
+  transcription, 2026.
+\newblock URL \url{https://arxiv.org/abs/2609.04640}.
+\newblock Preprint, arXiv:2609.04640.
+
+\bibitem[Rouard et~al.(2023)Rouard, Massa, and D{\'e}fossez]{rouard2023hybrid}
+Simon Rouard, Francisco Massa, and Alexandre D{\'e}fossez.
+\newblock Hybrid transformers for music source separation.
+\newblock In \emph{Proceedings of the IEEE International Conference on
+  Acoustics, Speech and Signal Processing (ICASSP)}, 2023.
+\newblock URL \url{https://arxiv.org/abs/2211.08553}.
+
+\bibitem[Tong et~al.(2024)Tong, Zhu, Chen, Kang, Jiang, Li, Wu, and
+  Meng]{tong2024scnet}
+Weinan Tong, Jiaxu Zhu, Jun Chen, Shiyin Kang, Tao Jiang, Yang Li, Zhiyong Wu,
+  and Helen Meng.
+\newblock {SCNet}: Sparse compression network for music source separation.
+\newblock In \emph{Proceedings of the IEEE International Conference on
+  Acoustics, Speech and Signal Processing (ICASSP)}, 2024.
+\newblock URL \url{https://arxiv.org/abs/2401.13276}.
+
+\bibitem[Le~Roux et~al.(2019)Le~Roux, Wisdom, Erdogan, and
+  Hershey]{leroux2019sdr}
+Jonathan Le~Roux, Scott Wisdom, Hakan Erdogan, and John~R. Hershey.
+\newblock {SDR}---half-baked or well done?
+\newblock In \emph{Proceedings of the IEEE International Conference on
+  Acoustics, Speech and Signal Processing (ICASSP)}, pages 626--630, 2019.
+\newblock \doi{10.1109/ICASSP.2019.8683855}.
+\newblock URL \url{https://arxiv.org/abs/1811.02508}.
+
+\bibitem[Zehren et~al.(2021)Zehren, Alunno, and Bientinesi]{zehren2021adtof}
+Mickael Zehren, Marco Alunno, and Paolo Bientinesi.
+\newblock {ADTOF}: A large dataset of non-synthetic music for automatic drum
+  transcription.
+\newblock In \emph{Proceedings of the 22nd International Society for Music
+  Information Retrieval Conference (ISMIR)}, 2021.
+\newblock URL \url{https://doi.org/10.5281/zenodo.5624527}.
+
+\bibitem[Raffel et~al.(2014)Raffel, McFee, Humphrey, Salamon, Nieto, Liang, and
+  Ellis]{raffel2014mireval}
+Colin Raffel, Brian McFee, Eric~J. Humphrey, Justin Salamon, Oriol Nieto, Dawen
+  Liang, and Daniel P.~W. Ellis.
+\newblock mir\_eval: A transparent implementation of common {MIR} metrics.
+\newblock In \emph{Proceedings of the 15th International Society for Music
+  Information Retrieval Conference (ISMIR)}, Taipei, Taiwan, 2014.
+\newblock URL \url{https://zenodo.org/records/1416528}.
+
+\bibitem[Korzeniowski and Widmer(2018)]{korzeniowski2018genre}
+Filip Korzeniowski and Gerhard Widmer.
+\newblock Genre-agnostic key classification with convolutional neural networks.
+\newblock In \emph{Proceedings of the 19th International Society for Music
+  Information Retrieval Conference (ISMIR)}, Paris, France, 2018.
+\newblock URL \url{https://arxiv.org/abs/1808.05340}.
+
+\bibitem[Kim et~al.(2026)Kim, Kim, Kim, and Nam]{kim2026raveform}
+Taejun Kim, Jongsoo Kim, Hyungyu Kim, and Juhan Nam.
+\newblock Raveform: A dataset of metrical and functional structure annotations
+  for {EDM} tracks in {DJ} mixes.
+\newblock \emph{Transactions of the International Society for Music Information
+  Retrieval}, 9\penalty0 (1):\penalty0 131--143, 2026.
+\newblock \doi{10.5334/tismir.288}.
+
+\end{thebibliography}

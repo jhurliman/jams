@@ -12,6 +12,7 @@
 #   "pyyaml>=6.0",
 # ]
 # ///
+# pyright: reportMissingImports=false
 """Stem separation + pitched-stem transcription worker for jams.
 
 Self-contained uv script: ``uv run --script stems_worker.py ...`` resolves and caches its own

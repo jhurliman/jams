@@ -1,0 +1,1777 @@
+{
+ "n": 165,
+ "errors": 0,
+ "aggregate": {
+  "beat_f": 0.9806,
+  "downbeat_f": 0.9507,
+  "bound_f_0.5": 0.7567,
+  "bound_f_3.0": 0.7881,
+  "pairwise_f": 0.849,
+  "v_measure": 0.8899
+ },
+ "label_acc": {
+  "altintro": 0.886,
+  "altoutro": 0.7402,
+  "breakdown": 0.9362,
+  "bridge": 0.7749,
+  "buildup": 0.3919,
+  "cooldown": 0.4348,
+  "drop": 0.9347,
+  "end": 0.5145,
+  "intro": 0.7739,
+  "outro": 0.8184
+ },
+ "genres": {
+  "Deep House": {
+   "n": 7,
+   "beat_f": 0.9998,
+   "downbeat_f": 0.9994,
+   "bound_f_0.5": 0.7394,
+   "bound_f_3.0": 0.7847,
+   "pairwise_f": 0.874,
+   "v_measure": 0.8961
+  },
+  "Drum & Bass": {
+   "n": 20,
+   "beat_f": 0.9164,
+   "downbeat_f": 0.9153,
+   "bound_f_0.5": 0.6797,
+   "bound_f_3.0": 0.732,
+   "pairwise_f": 0.9052,
+   "v_measure": 0.9143
+  },
+  "Electronica": {
+   "n": 4,
+   "beat_f": 0.9494,
+   "downbeat_f": 0.9372,
+   "bound_f_0.5": 0.4901,
+   "bound_f_3.0": 0.6523,
+   "pairwise_f": 0.7778,
+   "v_measure": 0.8335
+  },
+  "House": {
+   "n": 7,
+   "beat_f": 0.9977,
+   "downbeat_f": 0.9666,
+   "bound_f_0.5": 0.751,
+   "bound_f_3.0": 0.8075,
+   "pairwise_f": 0.9327,
+   "v_measure": 0.9364
+  },
+  "Mainstage": {
+   "n": 15,
+   "beat_f": 0.991,
+   "downbeat_f": 0.99,
+   "bound_f_0.5": 0.7743,
+   "bound_f_3.0": 0.7846,
+   "pairwise_f": 0.8674,
+   "v_measure": 0.9029
+  },
+  "Melodic House & Techno": {
+   "n": 4,
+   "beat_f": 0.999,
+   "downbeat_f": 0.9546,
+   "bound_f_0.5": 0.7551,
+   "bound_f_3.0": 0.7551,
+   "pairwise_f": 0.734,
+   "v_measure": 0.821
+  },
+  "Others": {
+   "n": 3,
+   "beat_f": 0.9989,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.6314,
+   "bound_f_3.0": 0.7406,
+   "pairwise_f": 0.6142,
+   "v_measure": 0.7174
+  },
+  "Progressive House": {
+   "n": 4,
+   "beat_f": 0.989,
+   "downbeat_f": 0.9893,
+   "bound_f_0.5": 0.7753,
+   "bound_f_3.0": 0.7953,
+   "pairwise_f": 0.9361,
+   "v_measure": 0.9454
+  },
+  "Tech House": {
+   "n": 17,
+   "beat_f": 0.9982,
+   "downbeat_f": 0.9543,
+   "bound_f_0.5": 0.7485,
+   "bound_f_3.0": 0.798,
+   "pairwise_f": 0.8017,
+   "v_measure": 0.8705
+  },
+  "Techno": {
+   "n": 64,
+   "beat_f": 0.9855,
+   "downbeat_f": 0.9307,
+   "bound_f_0.5": 0.7957,
+   "bound_f_3.0": 0.812,
+   "pairwise_f": 0.851,
+   "v_measure": 0.8928
+  },
+  "Trance": {
+   "n": 20,
+   "beat_f": 0.9915,
+   "downbeat_f": 0.9818,
+   "bound_f_0.5": 0.7794,
+   "bound_f_3.0": 0.7956,
+   "pairwise_f": 0.8296,
+   "v_measure": 0.884
+  }
+ },
+ "per_track": [
+  {
+   "beat_f": 0.9995537706381079,
+   "downbeat_f": 0.9982174688057042,
+   "bound_f_0.5": 0.8571428571428571,
+   "bound_f_3.0": 0.8571428571428571,
+   "pairwise_f": 0.5512661262414282,
+   "v_measure": 0.7255667149414778,
+   "track_id": "0019.5WvMql1Ejzs",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 0.9923256589923256,
+   "downbeat_f": 0.9906542056074767,
+   "bound_f_0.5": 0.4999999999999999,
+   "bound_f_3.0": 0.4999999999999999,
+   "pairwise_f": 0.7746667522455756,
+   "v_measure": 0.8020635528709471,
+   "track_id": "0021.OWvkis2BwG8",
+   "genre": "Drum & Bass"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.7692307692307692,
+   "bound_f_3.0": 0.7692307692307692,
+   "pairwise_f": 0.9686488606713166,
+   "v_measure": 0.9575905634163765,
+   "track_id": "0024.6hxfeHQeHJM",
+   "genre": "Trance"
+  },
+  {
+   "beat_f": 0.9994632313472893,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.7826086956521738,
+   "bound_f_3.0": 0.8695652173913043,
+   "pairwise_f": 0.7129344190230306,
+   "v_measure": 0.830042384358647,
+   "track_id": "0026.-DWkf03g4Gc",
+   "genre": "Tech House"
+  },
+  {
+   "beat_f": 0.987012987012987,
+   "downbeat_f": 0.9864864864864865,
+   "bound_f_0.5": 0.8461538461538461,
+   "bound_f_3.0": 0.9230769230769231,
+   "pairwise_f": 0.8643910150656983,
+   "v_measure": 0.9356402454984208,
+   "track_id": "0037.KSjIH0IPaP4",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.5833333333333334,
+   "bound_f_3.0": 0.9166666666666666,
+   "pairwise_f": 0.8183617516227999,
+   "v_measure": 0.8724048402643513,
+   "track_id": "0040.XiTQYAFQ6gw",
+   "genre": "Electronica"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8571428571428571,
+   "bound_f_3.0": 0.8571428571428571,
+   "pairwise_f": 0.7648226160220032,
+   "v_measure": 0.8430307749045334,
+   "track_id": "0043._o-XIryB2gg",
+   "genre": "Mainstage"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8571428571428571,
+   "bound_f_3.0": 0.8571428571428571,
+   "pairwise_f": 0.8681077247686289,
+   "v_measure": 0.8871935254273396,
+   "track_id": "0068.n9pV78GwLmU",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 0.9990892531876139,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.5263157894736842,
+   "bound_f_3.0": 0.8421052631578948,
+   "pairwise_f": 0.8894067408795093,
+   "v_measure": 0.8950461807306648,
+   "track_id": "0070.cNsTFXe_xEE",
+   "genre": "Drum & Bass"
+  },
+  {
+   "beat_f": 0.9693121693121693,
+   "downbeat_f": 0.9789029535864979,
+   "bound_f_0.5": 0.7368421052631579,
+   "bound_f_3.0": 0.7368421052631579,
+   "pairwise_f": 0.8821057668009836,
+   "v_measure": 0.9226390316096647,
+   "track_id": "0088.fhgfahfKlH8",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 0.9994058229352347,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.7000000000000001,
+   "bound_f_3.0": 0.7000000000000001,
+   "pairwise_f": 1.0,
+   "v_measure": 1.0,
+   "track_id": "0113.7cUEUD4ISEI",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8,
+   "bound_f_3.0": 0.8,
+   "pairwise_f": 0.998476713432377,
+   "v_measure": 0.9960190810888997,
+   "track_id": "0123.2B6LWnxigr4",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 0.9789851358277807,
+   "downbeat_f": 0.9713114754098361,
+   "bound_f_0.5": 0.5555555555555556,
+   "bound_f_3.0": 0.6666666666666666,
+   "pairwise_f": 0.891599340498926,
+   "v_measure": 0.8842688041101204,
+   "track_id": "0127.JBY0mxTdr48",
+   "genre": "Drum & Bass"
+  },
+  {
+   "beat_f": 0.9992695398100804,
+   "downbeat_f": 0.9970845481049563,
+   "bound_f_0.5": 0.8461538461538461,
+   "bound_f_3.0": 0.8461538461538461,
+   "pairwise_f": 0.9976976966717693,
+   "v_measure": 0.9958760714065658,
+   "track_id": "0140.RCjvvuy-gas",
+   "genre": "Mainstage"
+  },
+  {
+   "beat_f": 0.9829968119022316,
+   "downbeat_f": 0.9830508474576272,
+   "bound_f_0.5": 0.7272727272727273,
+   "bound_f_3.0": 0.7272727272727273,
+   "pairwise_f": 0.6889409761130835,
+   "v_measure": 0.779688711507349,
+   "track_id": "0141.GqIHVJX8HRU",
+   "genre": "Trance"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.7692307692307693,
+   "bound_f_3.0": 0.7692307692307693,
+   "pairwise_f": 0.8405170698388577,
+   "v_measure": 0.8642248800028264,
+   "track_id": "0155.D_hYwLFYO2I",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8333333333333333,
+   "bound_f_3.0": 0.8333333333333333,
+   "pairwise_f": 0.999923531246216,
+   "v_measure": 0.9995837718620029,
+   "track_id": "0175.EsET-lkvRAI",
+   "genre": "House"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.7199999999999999,
+   "bound_f_3.0": 0.8,
+   "pairwise_f": 0.6384889811313005,
+   "v_measure": 0.7995494565267642,
+   "track_id": "0187.YYsDhzB5aMk",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 0.9850363403163744,
+   "downbeat_f": 0.9829351535836177,
+   "bound_f_0.5": 0.7692307692307692,
+   "bound_f_3.0": 0.846153846153846,
+   "pairwise_f": 0.7286483070859016,
+   "v_measure": 0.8687224572112953,
+   "track_id": "0193.TWIh8S3hh0o",
+   "genre": "Trance"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.6,
+   "bound_f_3.0": 0.6,
+   "pairwise_f": 0.7090065767370586,
+   "v_measure": 0.810864726703556,
+   "track_id": "0202.8dcyygal_1A",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.7777777777777777,
+   "bound_f_3.0": 0.888888888888889,
+   "pairwise_f": 0.9125453279945274,
+   "v_measure": 0.9068569846472355,
+   "track_id": "0217.Wj3Bm0U_ytM",
+   "genre": "Drum & Bass"
+  },
+  {
+   "beat_f": 0.9974424552429668,
+   "downbeat_f": 0.8979591836734694,
+   "bound_f_0.5": 0.8695652173913043,
+   "bound_f_3.0": 0.8695652173913043,
+   "pairwise_f": 0.8545739367112887,
+   "v_measure": 0.8944813721588395,
+   "track_id": "0223.nCICZPgEhAk",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8148148148148148,
+   "bound_f_3.0": 0.8148148148148148,
+   "pairwise_f": 0.8267086219971364,
+   "v_measure": 0.885322132273729,
+   "track_id": "0245.HXSQ5WrhFB0",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.9166666666666666,
+   "bound_f_3.0": 0.9166666666666666,
+   "pairwise_f": 0.8726538656311251,
+   "v_measure": 0.8760672358043065,
+   "track_id": "0255.qdkB7BbwsfM",
+   "genre": "Trance"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8461538461538461,
+   "bound_f_3.0": 0.8461538461538461,
+   "pairwise_f": 0.6846171865262909,
+   "v_measure": 0.8277416923083645,
+   "track_id": "0259.H-q1cM37GrE",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8571428571428572,
+   "bound_f_3.0": 0.8571428571428572,
+   "pairwise_f": 0.915275086042704,
+   "v_measure": 0.9294674442734903,
+   "track_id": "0271.Cdq_oZsRsMo",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 0.9993698802772526,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.4444444444444444,
+   "bound_f_3.0": 0.6666666666666666,
+   "pairwise_f": 0.5054745922838236,
+   "v_measure": 0.6322726768495791,
+   "track_id": "0279.ebjXsc0UjdQ",
+   "genre": "Others"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8333333333333334,
+   "bound_f_3.0": 0.8333333333333334,
+   "pairwise_f": 0.8416456590528565,
+   "v_measure": 0.9318960717116052,
+   "track_id": "0281.HZfnmNf5MwA",
+   "genre": "Tech House"
+  },
+  {
+   "beat_f": 0.9995066600888012,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8421052631578948,
+   "bound_f_3.0": 0.8421052631578948,
+   "pairwise_f": 0.9438527991416578,
+   "v_measure": 0.9435864926402404,
+   "track_id": "0303.CgwxB35IbRU",
+   "genre": "Progressive House"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.9166666666666666,
+   "bound_f_3.0": 0.9166666666666666,
+   "pairwise_f": 0.8355868097507468,
+   "v_measure": 0.9039609694441112,
+   "track_id": "0311.SyIOzt8v5AQ",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.9565217391304348,
+   "bound_f_3.0": 0.9565217391304348,
+   "pairwise_f": 0.9908981376597482,
+   "v_measure": 0.9786646773703421,
+   "track_id": "0346.zmO6Rw8KFAw",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 0.6229508196721311,
+   "downbeat_f": 0.6275862068965516,
+   "bound_f_0.5": 0.7142857142857143,
+   "bound_f_3.0": 0.7142857142857143,
+   "pairwise_f": 0.9378160101365385,
+   "v_measure": 0.9032587207225639,
+   "track_id": "0347.ziU0rc3-yU4",
+   "genre": "Drum & Bass"
+  },
+  {
+   "beat_f": 0.9989247311827958,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.6923076923076924,
+   "bound_f_3.0": 0.6923076923076924,
+   "pairwise_f": 0.7449289023719862,
+   "v_measure": 0.8181606227129398,
+   "track_id": "0352.c0Zc0vyWHbg",
+   "genre": "Tech House"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8,
+   "bound_f_3.0": 0.8,
+   "pairwise_f": 0.7314529478123214,
+   "v_measure": 0.8181231422211698,
+   "track_id": "0381.99oX5K8QzU8",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 0.9995916700694161,
+   "downbeat_f": 0.99836867862969,
+   "bound_f_0.5": 0.7368421052631577,
+   "bound_f_3.0": 0.7368421052631577,
+   "pairwise_f": 0.9977404103706328,
+   "v_measure": 0.9926799343214282,
+   "track_id": "0387.va6P8Va9Njc",
+   "genre": "Deep House"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8,
+   "bound_f_3.0": 0.8,
+   "pairwise_f": 0.7530090381389637,
+   "v_measure": 0.8142841179153072,
+   "track_id": "0402.xWwjsuuKgd0",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 0.9825625473843822,
+   "downbeat_f": 0.9757575757575757,
+   "bound_f_0.5": 0.7,
+   "bound_f_3.0": 0.7,
+   "pairwise_f": 0.7737428729309522,
+   "v_measure": 0.8525263840615461,
+   "track_id": "0404.GFZ7lKGBX1w",
+   "genre": "Mainstage"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8181818181818182,
+   "bound_f_3.0": 0.8181818181818182,
+   "pairwise_f": 0.7472932184440042,
+   "v_measure": 0.8416255463290699,
+   "track_id": "0406.4fpJXbb92IA",
+   "genre": "Melodic House & Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8333333333333333,
+   "bound_f_3.0": 0.8333333333333333,
+   "pairwise_f": 0.9955570636567523,
+   "v_measure": 0.9838275030999423,
+   "track_id": "0411.rjEG-YIUdEA",
+   "genre": "Tech House"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.6,
+   "bound_f_3.0": 0.6,
+   "pairwise_f": 0.9849604764041514,
+   "v_measure": 0.9813499801177352,
+   "track_id": "0419.3WYF4Laa1CA",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 0.9293193717277487,
+   "downbeat_f": 0.9198606271777003,
+   "bound_f_0.5": 0.5263157894736842,
+   "bound_f_3.0": 0.5263157894736842,
+   "pairwise_f": 0.8769851587387147,
+   "v_measure": 0.8910697271343656,
+   "track_id": "0430.g6FcqRO233s",
+   "genre": "Drum & Bass"
+  },
+  {
+   "beat_f": 0.9961559582646897,
+   "downbeat_f": 0.7675438596491229,
+   "bound_f_0.5": 0.39999999999999997,
+   "bound_f_3.0": 0.6,
+   "pairwise_f": 0.5669156456389459,
+   "v_measure": 0.6913520705450507,
+   "track_id": "0455.8BXco8bf8xM",
+   "genre": "Tech House"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.7272727272727273,
+   "bound_f_3.0": 0.7272727272727273,
+   "pairwise_f": 0.9999410681802127,
+   "v_measure": 0.9992708047139994,
+   "track_id": "0473.2SVsfAZNP28",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 0.9936708860759493,
+   "downbeat_f": 0.7536842105263158,
+   "bound_f_0.5": 0.7407407407407408,
+   "bound_f_3.0": 0.888888888888889,
+   "pairwise_f": 0.9722588783213982,
+   "v_measure": 0.9539353113580968,
+   "track_id": "0488.bBFpMyun3Tg",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 0.9996327579875138,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.6666666666666666,
+   "bound_f_3.0": 0.6666666666666666,
+   "pairwise_f": 0.7524658163800301,
+   "v_measure": 0.8492888585019476,
+   "track_id": "0498.AVvQHDz4mOc",
+   "genre": "Trance"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8000000000000002,
+   "bound_f_3.0": 0.8000000000000002,
+   "pairwise_f": 0.8111671979191002,
+   "v_measure": 0.8670696668051104,
+   "track_id": "0509.JAWJM8TOnFM",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8695652173913043,
+   "bound_f_3.0": 0.8695652173913043,
+   "pairwise_f": 0.9746040896192522,
+   "v_measure": 0.9516351719777318,
+   "track_id": "0526.iS3bY2Ywlt4",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.7058823529411764,
+   "bound_f_3.0": 0.7058823529411764,
+   "pairwise_f": 0.9996723289609187,
+   "v_measure": 0.9985976903527708,
+   "track_id": "0532.Em2pEARSNHA",
+   "genre": "Drum & Bass"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.7826086956521738,
+   "bound_f_3.0": 0.7826086956521738,
+   "pairwise_f": 0.8556232987189122,
+   "v_measure": 0.892127202142634,
+   "track_id": "0547.VCQI4ahydro",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 0.9918809201623816,
+   "downbeat_f": 0.7708894878706201,
+   "bound_f_0.5": 0.5,
+   "bound_f_3.0": 0.7999999999999999,
+   "pairwise_f": 0.9871362861014189,
+   "v_measure": 0.9780131717452082,
+   "track_id": "0556.8pkocUatzu8",
+   "genre": "House"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.7500000000000001,
+   "bound_f_3.0": 0.8333333333333333,
+   "pairwise_f": 0.9574161690308223,
+   "v_measure": 0.937906286421537,
+   "track_id": "0566.BeqXGPIpZm0",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.6086956521739131,
+   "bound_f_3.0": 0.6086956521739131,
+   "pairwise_f": 0.8725316246694454,
+   "v_measure": 0.8901623668344221,
+   "track_id": "0574.Fr0HQfYUbpM",
+   "genre": "Drum & Bass"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.7142857142857143,
+   "bound_f_3.0": 0.7857142857142857,
+   "pairwise_f": 0.9914952493401077,
+   "v_measure": 0.9888146418186323,
+   "track_id": "0593.IuVOibRdScs",
+   "genre": "Mainstage"
+  },
+  {
+   "beat_f": 0.9994114184814596,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.7500000000000001,
+   "bound_f_3.0": 0.7500000000000001,
+   "pairwise_f": 0.6270445751807092,
+   "v_measure": 0.7533001756849674,
+   "track_id": "0649.v1S_Ih8RMJA",
+   "genre": "Trance"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.6923076923076924,
+   "bound_f_3.0": 0.7692307692307692,
+   "pairwise_f": 0.6801851590714688,
+   "v_measure": 0.7782253502044079,
+   "track_id": "0662.opcVAKby_Ss",
+   "genre": "Tech House"
+  },
+  {
+   "beat_f": 0.9971988795518206,
+   "downbeat_f": 0.7932960893854749,
+   "bound_f_0.5": 0.9333333333333333,
+   "bound_f_3.0": 0.9333333333333333,
+   "pairwise_f": 0.9988485102984689,
+   "v_measure": 0.9983750317513381,
+   "track_id": "0677.Bqy24kD74zU",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8421052631578948,
+   "bound_f_3.0": 0.8421052631578948,
+   "pairwise_f": 0.8528031880493012,
+   "v_measure": 0.9018772037058264,
+   "track_id": "0693.FgTY7x8yhRE",
+   "genre": "Mainstage"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.962962962962963,
+   "bound_f_3.0": 0.962962962962963,
+   "pairwise_f": 0.8359531268372439,
+   "v_measure": 0.9001047936213271,
+   "track_id": "0717.BCuvI1J1xj4",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 0.9994022713687986,
+   "downbeat_f": 0.9976133651551313,
+   "bound_f_0.5": 0.5833333333333334,
+   "bound_f_3.0": 0.7500000000000001,
+   "pairwise_f": 0.9439073777719716,
+   "v_measure": 0.9362576089830665,
+   "track_id": "0722.2Xk41dfZfDg",
+   "genre": "Deep House"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.7826086956521738,
+   "bound_f_3.0": 0.7826086956521738,
+   "pairwise_f": 0.9320685333823274,
+   "v_measure": 0.9384722050723248,
+   "track_id": "0742.vLc1WPvZCKY",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 0.9994967287367891,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.6666666666666665,
+   "bound_f_3.0": 0.7777777777777777,
+   "pairwise_f": 0.9654589960924216,
+   "v_measure": 0.9568442588624558,
+   "track_id": "0745.2_Me-Bm2yGM",
+   "genre": "Drum & Bass"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.7777777777777778,
+   "bound_f_3.0": 0.7777777777777778,
+   "pairwise_f": 0.8352022360382585,
+   "v_measure": 0.9014369666504582,
+   "track_id": "0755.BSAOQJDJah8",
+   "genre": "Tech House"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.75,
+   "bound_f_3.0": 0.75,
+   "pairwise_f": 0.6142192404499744,
+   "v_measure": 0.7767192643704273,
+   "track_id": "0772.qflBymJW9f0",
+   "genre": "Trance"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8181818181818182,
+   "bound_f_3.0": 0.8181818181818182,
+   "pairwise_f": 0.8889585297122298,
+   "v_measure": 0.9015201726176619,
+   "track_id": "0786.nVTzSY8nxnc",
+   "genre": "Mainstage"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.7777777777777778,
+   "bound_f_3.0": 0.7777777777777778,
+   "pairwise_f": 0.8882049610174096,
+   "v_measure": 0.9111008103047996,
+   "track_id": "0787.cdtk0tj1-DM",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.761904761904762,
+   "bound_f_3.0": 0.761904761904762,
+   "pairwise_f": 0.9316387420180827,
+   "v_measure": 0.9516784698180835,
+   "track_id": "0801.EZ-ixKWT7jM",
+   "genre": "Progressive House"
+  },
+  {
+   "beat_f": 0.9984350547730829,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8333333333333333,
+   "bound_f_3.0": 0.8333333333333333,
+   "pairwise_f": 0.9998258790753708,
+   "v_measure": 0.9991927926675018,
+   "track_id": "0803.Tg3E36eNLYE",
+   "genre": "Drum & Bass"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.5714285714285714,
+   "bound_f_3.0": 0.6666666666666667,
+   "pairwise_f": 0.992626121094937,
+   "v_measure": 0.9862985348004458,
+   "track_id": "0818.ohxZrtgXRSI",
+   "genre": "House"
+  },
+  {
+   "beat_f": 0.9480642115203022,
+   "downbeat_f": 0.45864661654135336,
+   "bound_f_0.5": 0.7368421052631579,
+   "bound_f_3.0": 0.7368421052631579,
+   "pairwise_f": 0.7686757280037811,
+   "v_measure": 0.9034040435858414,
+   "track_id": "0829.lvythlWSHM0",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 0.9978888106966924,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8181818181818181,
+   "bound_f_3.0": 0.8181818181818181,
+   "pairwise_f": 0.5634481142263664,
+   "v_measure": 0.7799815640329045,
+   "track_id": "0834.NyEKXA7_6z0",
+   "genre": "Others"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8235294117647058,
+   "bound_f_3.0": 0.8235294117647058,
+   "pairwise_f": 0.8831184172529781,
+   "v_measure": 0.9030603921025341,
+   "track_id": "0839.RPNvZernY60",
+   "genre": "Drum & Bass"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8461538461538461,
+   "bound_f_3.0": 0.8461538461538461,
+   "pairwise_f": 0.6999882130257666,
+   "v_measure": 0.7946009026985238,
+   "track_id": "0845.kaBRYkFHSD8",
+   "genre": "Tech House"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.7826086956521738,
+   "bound_f_3.0": 0.7826086956521738,
+   "pairwise_f": 0.9473314299545931,
+   "v_measure": 0.9425004086167681,
+   "track_id": "0847.CSnZRpp83nc",
+   "genre": "Trance"
+  },
+  {
+   "beat_f": 0.8395953757225434,
+   "downbeat_f": 0.836940836940837,
+   "bound_f_0.5": 0.5,
+   "bound_f_3.0": 0.625,
+   "pairwise_f": 0.9444012100300959,
+   "v_measure": 0.9265137155396558,
+   "track_id": "0848.6Jbg4ckGXVg",
+   "genre": "Electronica"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.6666666666666667,
+   "bound_f_3.0": 0.6666666666666667,
+   "pairwise_f": 0.9729824569975568,
+   "v_measure": 0.9687531100726315,
+   "track_id": "0855.n4k77etYjiQ",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8695652173913043,
+   "bound_f_3.0": 0.8695652173913043,
+   "pairwise_f": 0.7474560004412143,
+   "v_measure": 0.8218372317610337,
+   "track_id": "0880.kcRFBXIhsfo",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 0.9961156668105308,
+   "downbeat_f": 0.996551724137931,
+   "bound_f_0.5": 0.7777777777777778,
+   "bound_f_3.0": 0.7777777777777778,
+   "pairwise_f": 0.9982537451136979,
+   "v_measure": 0.9896009675947633,
+   "track_id": "0889._a1AJ8YdgbI",
+   "genre": "Drum & Bass"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8181818181818181,
+   "bound_f_3.0": 0.8181818181818181,
+   "pairwise_f": 0.7582443665771876,
+   "v_measure": 0.8076784539143366,
+   "track_id": "0902.egVPdRJ7UKc",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8000000000000002,
+   "bound_f_3.0": 0.8000000000000002,
+   "pairwise_f": 0.9655033634220664,
+   "v_measure": 0.9648296041566231,
+   "track_id": "0920.ASo-JEFbT4A",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 0.9965357967667436,
+   "downbeat_f": 0.8202764976958525,
+   "bound_f_0.5": 0.5454545454545454,
+   "bound_f_3.0": 0.5454545454545454,
+   "pairwise_f": 0.6277544244135176,
+   "v_measure": 0.7650013354688008,
+   "track_id": "0927.PR25fKPjRg8",
+   "genre": "Melodic House & Techno"
+  },
+  {
+   "beat_f": 0.9989939637826961,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8823529411764706,
+   "bound_f_3.0": 0.8823529411764706,
+   "pairwise_f": 0.673289812398374,
+   "v_measure": 0.8229213588734675,
+   "track_id": "0929.IsFW6rBpCBE",
+   "genre": "Trance"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.9600000000000001,
+   "bound_f_3.0": 0.9600000000000001,
+   "pairwise_f": 0.798935098425094,
+   "v_measure": 0.9146952549734697,
+   "track_id": "0948.c7Yz38OYcNY",
+   "genre": "Tech House"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 0.0,
+   "bound_f_0.5": 0.8333333333333333,
+   "bound_f_3.0": 0.8333333333333333,
+   "pairwise_f": 0.9567333170454774,
+   "v_measure": 0.9429138483205355,
+   "track_id": "0968.8y0hv0vxz3k",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.6666666666666666,
+   "bound_f_3.0": 0.6666666666666666,
+   "pairwise_f": 0.7849476004172082,
+   "v_measure": 0.8438510051468333,
+   "track_id": "0987.98uNrwZg0GE",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 0.9874301675977654,
+   "downbeat_f": 0.9888268156424581,
+   "bound_f_0.5": 0.631578947368421,
+   "bound_f_3.0": 0.631578947368421,
+   "pairwise_f": 0.9109501528798978,
+   "v_measure": 0.8816191783674546,
+   "track_id": "0994.XqveO_75TDo",
+   "genre": "Drum & Bass"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.6428571428571429,
+   "bound_f_3.0": 0.7142857142857143,
+   "pairwise_f": 0.7439894857935864,
+   "v_measure": 0.7880193267283846,
+   "track_id": "0999.QODgCbcXiOI",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8181818181818182,
+   "bound_f_3.0": 0.8181818181818182,
+   "pairwise_f": 0.7154255684772262,
+   "v_measure": 0.8369915776486538,
+   "track_id": "1032.F06z3fTTe8Q",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.7826086956521738,
+   "bound_f_3.0": 0.8695652173913043,
+   "pairwise_f": 0.9865474489970679,
+   "v_measure": 0.9843749161702894,
+   "track_id": "1045.xHlHpWS2DfM",
+   "genre": "Trance"
+  },
+  {
+   "beat_f": 0.9993943064809208,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.9230769230769231,
+   "bound_f_3.0": 0.9230769230769231,
+   "pairwise_f": 0.9956495073252346,
+   "v_measure": 0.9911308989708438,
+   "track_id": "1049.DulZ1QwiFQM",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.6666666666666666,
+   "bound_f_3.0": 0.761904761904762,
+   "pairwise_f": 0.7031471588168717,
+   "v_measure": 0.8116115262490606,
+   "track_id": "1070.8T0k2yJxlMI",
+   "genre": "Tech House"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.9090909090909091,
+   "bound_f_3.0": 0.9090909090909091,
+   "pairwise_f": 0.9997859042919434,
+   "v_measure": 0.9984250513080727,
+   "track_id": "1074.2-VgJYfVOkw",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.7999999999999999,
+   "bound_f_3.0": 0.8666666666666666,
+   "pairwise_f": 0.8591829910441378,
+   "v_measure": 0.8981950438608133,
+   "track_id": "1093.vP7mCxHYYaI",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.7499999999999999,
+   "bound_f_3.0": 0.7499999999999999,
+   "pairwise_f": 0.8407138065713337,
+   "v_measure": 0.8863330384908092,
+   "track_id": "1106.1sIfyLzbhc0",
+   "genre": "Trance"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8571428571428571,
+   "bound_f_3.0": 0.8571428571428571,
+   "pairwise_f": 0.9198122189862119,
+   "v_measure": 0.9368207997780728,
+   "track_id": "1112.guCgn62ADt4",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8275862068965518,
+   "bound_f_3.0": 0.896551724137931,
+   "pairwise_f": 0.9213334087895629,
+   "v_measure": 0.9300215244371478,
+   "track_id": "1127.fv8tjad4Lr8",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8275862068965517,
+   "bound_f_3.0": 0.8275862068965517,
+   "pairwise_f": 0.9567556442550615,
+   "v_measure": 0.9533124556760624,
+   "track_id": "1144.qwtZabRROKY",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.9230769230769231,
+   "bound_f_3.0": 0.9230769230769231,
+   "pairwise_f": 0.7433377338751203,
+   "v_measure": 0.886484070630095,
+   "track_id": "1157.dhh5VfVNQKg",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.9,
+   "bound_f_3.0": 0.9,
+   "pairwise_f": 0.9566653859409108,
+   "v_measure": 0.9530865735519692,
+   "track_id": "1167.OI-VJhvT1eg",
+   "genre": "Drum & Bass"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.9166666666666666,
+   "bound_f_3.0": 0.9166666666666666,
+   "pairwise_f": 0.9744196890021486,
+   "v_measure": 0.9589535660446539,
+   "track_id": "1171.VOAm5r2QUyc",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8108108108108109,
+   "bound_f_3.0": 0.8108108108108109,
+   "pairwise_f": 0.8663371937987302,
+   "v_measure": 0.8930412559789697,
+   "track_id": "1176.0mql_W0l5Z4",
+   "genre": "Trance"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.7741935483870968,
+   "bound_f_3.0": 0.7741935483870968,
+   "pairwise_f": 0.8918927610492352,
+   "v_measure": 0.89968668871993,
+   "track_id": "1177.mhXMI7wiDHQ",
+   "genre": "Deep House"
+  },
+  {
+   "beat_f": 0.9994134897360704,
+   "downbeat_f": 0.9976580796252927,
+   "bound_f_0.5": 0.9032258064516129,
+   "bound_f_3.0": 0.9032258064516129,
+   "pairwise_f": 0.9491558878306253,
+   "v_measure": 0.963196946162481,
+   "track_id": "1187.SG7l-wyxFks",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.5882352941176471,
+   "bound_f_3.0": 0.823529411764706,
+   "pairwise_f": 0.9232386896941548,
+   "v_measure": 0.9446462835915227,
+   "track_id": "1204.KbpxqPs2cCo",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8275862068965518,
+   "bound_f_3.0": 0.8275862068965518,
+   "pairwise_f": 0.9765925187242919,
+   "v_measure": 0.9427036759448567,
+   "track_id": "1220.VsILwOW-uNo",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 0.9976019184652278,
+   "downbeat_f": 0.9961685823754789,
+   "bound_f_0.5": 0.6060606060606061,
+   "bound_f_3.0": 0.6666666666666667,
+   "pairwise_f": 0.6312933248700666,
+   "v_measure": 0.6719125943501207,
+   "track_id": "1238.xG9p9eA12yc",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 0.9878542510121457,
+   "downbeat_f": 0.9838337182448037,
+   "bound_f_0.5": 0.6923076923076924,
+   "bound_f_3.0": 0.7692307692307692,
+   "pairwise_f": 0.6297398599781651,
+   "v_measure": 0.7810921281305594,
+   "track_id": "1252.8fo3H96F0To",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 0.9967274427302478,
+   "downbeat_f": 0.8576779026217228,
+   "bound_f_0.5": 0.5714285714285714,
+   "bound_f_3.0": 0.7142857142857143,
+   "pairwise_f": 0.678660765573941,
+   "v_measure": 0.8144717324537337,
+   "track_id": "1264.TIUYL5JoC7M",
+   "genre": "Tech House"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.7878787878787878,
+   "bound_f_3.0": 0.7878787878787878,
+   "pairwise_f": 0.7458778345661456,
+   "v_measure": 0.8227249509544314,
+   "track_id": "1296._Ue26GpV9Do",
+   "genre": "Mainstage"
+  },
+  {
+   "beat_f": 0.8704103671706264,
+   "downbeat_f": 0.793103448275862,
+   "bound_f_0.5": 0.7777777777777778,
+   "bound_f_3.0": 0.7777777777777778,
+   "pairwise_f": 0.8278087790910903,
+   "v_measure": 0.8686306770771083,
+   "track_id": "1306.27AXunGRo5E",
+   "genre": "Trance"
+  },
+  {
+   "beat_f": 0.9933435739887353,
+   "downbeat_f": 0.5071574642126789,
+   "bound_f_0.5": 0.5294117647058825,
+   "bound_f_3.0": 0.5294117647058825,
+   "pairwise_f": 0.9610967338411249,
+   "v_measure": 0.9350759216838106,
+   "track_id": "1309.cRKhrD-MuW4",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 0.9995100440960314,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.631578947368421,
+   "bound_f_3.0": 0.7368421052631579,
+   "pairwise_f": 0.7737017945183986,
+   "v_measure": 0.7399408492200426,
+   "track_id": "1349.89WyX7RRcAo",
+   "genre": "Others"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.761904761904762,
+   "bound_f_3.0": 0.761904761904762,
+   "pairwise_f": 0.7930029430544445,
+   "v_measure": 0.8219483163136019,
+   "track_id": "1362.DwqUGkR9yh8",
+   "genre": "Mainstage"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.9,
+   "bound_f_3.0": 0.9,
+   "pairwise_f": 0.9929167883686473,
+   "v_measure": 0.9820967161425266,
+   "track_id": "1375.Bn6qh4qPwc4",
+   "genre": "House"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.9142857142857143,
+   "bound_f_3.0": 0.9142857142857143,
+   "pairwise_f": 0.9021141643230298,
+   "v_measure": 0.9383373855317411,
+   "track_id": "1382.bH-BdruPhuw",
+   "genre": "Tech House"
+  },
+  {
+   "beat_f": 0.999333777481679,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8181818181818182,
+   "bound_f_3.0": 0.8181818181818182,
+   "pairwise_f": 0.6950159568024435,
+   "v_measure": 0.8033576375332151,
+   "track_id": "1386.DSYsBUOH29M",
+   "genre": "Deep House"
+  },
+  {
+   "beat_f": 0.9993174061433447,
+   "downbeat_f": 0.9972752043596731,
+   "bound_f_0.5": 0.7826086956521738,
+   "bound_f_3.0": 0.7826086956521738,
+   "pairwise_f": 0.8365149254232851,
+   "v_measure": 0.8870260458316416,
+   "track_id": "1390.rNm4mCWzpbM",
+   "genre": "Mainstage"
+  },
+  {
+   "beat_f": 0.9952978056426331,
+   "downbeat_f": 0.8763693270735524,
+   "bound_f_0.5": 0.7407407407407408,
+   "bound_f_3.0": 0.8148148148148148,
+   "pairwise_f": 0.590366239280837,
+   "v_measure": 0.7552627405457286,
+   "track_id": "1425.v5rwo78SBC4",
+   "genre": "Trance"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.6666666666666666,
+   "bound_f_3.0": 0.75,
+   "pairwise_f": 0.9818905653648328,
+   "v_measure": 0.9697716781290734,
+   "track_id": "1439.omb4cjyZRM0",
+   "genre": "Mainstage"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8571428571428572,
+   "bound_f_3.0": 0.8571428571428572,
+   "pairwise_f": 0.6038988742147139,
+   "v_measure": 0.7765202010703078,
+   "track_id": "1441.h0tzBpYnEdc",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 0.8302051505892623,
+   "downbeat_f": 0.8132635253054101,
+   "bound_f_0.5": 0.4444444444444444,
+   "bound_f_3.0": 0.5555555555555556,
+   "pairwise_f": 0.728242520946298,
+   "v_measure": 0.8490362507812099,
+   "track_id": "1464.i1N-59zxdbc",
+   "genre": "Drum & Bass"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8181818181818182,
+   "bound_f_3.0": 0.8181818181818182,
+   "pairwise_f": 0.8634465410032471,
+   "v_measure": 0.9123557447724725,
+   "track_id": "1477.ZDxJulewTg8",
+   "genre": "Melodic House & Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.7826086956521738,
+   "bound_f_3.0": 0.7826086956521738,
+   "pairwise_f": 0.9128065268771309,
+   "v_measure": 0.9176688863717364,
+   "track_id": "1478.vIZOcQ6JeiQ",
+   "genre": "Mainstage"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8571428571428571,
+   "bound_f_3.0": 0.8571428571428571,
+   "pairwise_f": 0.9983869434704391,
+   "v_measure": 0.9955416241566154,
+   "track_id": "1504.dUDELYYOXW8",
+   "genre": "Progressive House"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8799999999999999,
+   "bound_f_3.0": 0.9600000000000001,
+   "pairwise_f": 0.796363469482552,
+   "v_measure": 0.8963773224830038,
+   "track_id": "1513.4NfVScBq1zo",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.761904761904762,
+   "bound_f_3.0": 0.761904761904762,
+   "pairwise_f": 0.9819121547885659,
+   "v_measure": 0.9678629456813599,
+   "track_id": "1519.dZ7bkrXYlQU",
+   "genre": "House"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.888888888888889,
+   "bound_f_3.0": 0.888888888888889,
+   "pairwise_f": 0.7989663737970155,
+   "v_measure": 0.889016493307917,
+   "track_id": "1529.VJcdAuomeZA",
+   "genre": "Trance"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.75,
+   "bound_f_3.0": 0.75,
+   "pairwise_f": 0.9899855876639834,
+   "v_measure": 0.9804012460049971,
+   "track_id": "1544.PgiZT38wo3I",
+   "genre": "Mainstage"
+  },
+  {
+   "beat_f": 0.9944751381215469,
+   "downbeat_f": 0.8388520971302427,
+   "bound_f_0.5": 0.9333333333333333,
+   "bound_f_3.0": 0.9333333333333333,
+   "pairwise_f": 0.5960641731950505,
+   "v_measure": 0.7654028791284121,
+   "track_id": "1545.AIP0sJvGyFo",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 0.964625850340136,
+   "downbeat_f": 0.964769647696477,
+   "bound_f_0.5": 0.6666666666666666,
+   "bound_f_3.0": 0.8571428571428571,
+   "pairwise_f": 0.8613314299625354,
+   "v_measure": 0.8868247149145502,
+   "track_id": "1566.JXFgWdexP-E",
+   "genre": "Electronica"
+  },
+  {
+   "beat_f": 0.6671522214129644,
+   "downbeat_f": 0.6686046511627907,
+   "bound_f_0.5": 0.5714285714285715,
+   "bound_f_3.0": 0.8571428571428571,
+   "pairwise_f": 0.8719889596444107,
+   "v_measure": 0.8737623700375158,
+   "track_id": "1584.gn56ZnHKJPY",
+   "genre": "Drum & Bass"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.7407407407407408,
+   "bound_f_3.0": 0.7407407407407408,
+   "pairwise_f": 0.8096099372454028,
+   "v_measure": 0.8066213658206002,
+   "track_id": "1591.zs8sI_Cwv9w",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.7999999999999999,
+   "bound_f_3.0": 0.9333333333333333,
+   "pairwise_f": 0.9992886489071576,
+   "v_measure": 0.9972311785817275,
+   "track_id": "1596.A2jhjLiGLbc",
+   "genre": "Tech House"
+  },
+  {
+   "beat_f": 0.9990262901655307,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8,
+   "bound_f_3.0": 0.8,
+   "pairwise_f": 0.8705598209951884,
+   "v_measure": 0.8901764870639652,
+   "track_id": "1642.7kzo0Q-6AQc",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8,
+   "bound_f_3.0": 0.8,
+   "pairwise_f": 0.985350553217992,
+   "v_measure": 0.9760090410269614,
+   "track_id": "1649.jDCJbC6-jH8",
+   "genre": "Tech House"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.7999999999999999,
+   "bound_f_3.0": 0.8666666666666666,
+   "pairwise_f": 0.8771011887583974,
+   "v_measure": 0.921291431556792,
+   "track_id": "1662.wtEs1w4V2Ss",
+   "genre": "Deep House"
+  },
+  {
+   "beat_f": 0.8839285714285714,
+   "downbeat_f": 0.8794642857142857,
+   "bound_f_0.5": 0.7200000000000001,
+   "bound_f_3.0": 0.7200000000000001,
+   "pairwise_f": 0.9998196791009281,
+   "v_measure": 0.9995224002062806,
+   "track_id": "1663.fHTJ7gYnQzc",
+   "genre": "Mainstage"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.6956521739130435,
+   "bound_f_3.0": 0.7826086956521738,
+   "pairwise_f": 0.9536627648983401,
+   "v_measure": 0.9356208778453456,
+   "track_id": "1679.YLmu-IhmHgM",
+   "genre": "Trance"
+  },
+  {
+   "beat_f": 0.9995022399203584,
+   "downbeat_f": 0.9980119284294234,
+   "bound_f_0.5": 0.8387096774193549,
+   "bound_f_3.0": 0.8387096774193549,
+   "pairwise_f": 0.6974807228390333,
+   "v_measure": 0.764870559856186,
+   "track_id": "1689.wK345JXVoHA",
+   "genre": "Melodic House & Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8750000000000001,
+   "bound_f_3.0": 0.8750000000000001,
+   "pairwise_f": 0.9998842304955398,
+   "v_measure": 0.99944250044996,
+   "track_id": "1693.7vwvK-5YO5s",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.6666666666666665,
+   "bound_f_3.0": 0.6666666666666665,
+   "pairwise_f": 0.9726653802489182,
+   "v_measure": 0.9535044016243861,
+   "track_id": "1696.Ce18fVbO0GU",
+   "genre": "Drum & Bass"
+  },
+  {
+   "beat_f": 0.9783281733746131,
+   "downbeat_f": 0.5979381443298969,
+   "bound_f_0.5": 0.631578947368421,
+   "bound_f_3.0": 0.7368421052631577,
+   "pairwise_f": 0.7567976458973826,
+   "v_measure": 0.8462415557711058,
+   "track_id": "1711.bKz75m2yzAU",
+   "genre": "Tech House"
+  },
+  {
+   "beat_f": 0.9917987971569164,
+   "downbeat_f": 0.9956331877729258,
+   "bound_f_0.5": 0.8333333333333333,
+   "bound_f_3.0": 0.8333333333333333,
+   "pairwise_f": 0.725499182391498,
+   "v_measure": 0.7414556945001715,
+   "track_id": "1717.37NJONiMTYI",
+   "genre": "House"
+  },
+  {
+   "beat_f": 0.9855868222374742,
+   "downbeat_f": 0.14835164835164835,
+   "bound_f_0.5": 0.5882352941176471,
+   "bound_f_3.0": 0.5882352941176471,
+   "pairwise_f": 0.7640222307961382,
+   "v_measure": 0.8191342611969167,
+   "track_id": "1733.sTPBAcFoj3M",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 0.6611295681063123,
+   "downbeat_f": 0.6622516556291391,
+   "bound_f_0.5": 0.7499999999999999,
+   "bound_f_3.0": 0.7499999999999999,
+   "pairwise_f": 0.7496232551596563,
+   "v_measure": 0.8440921414555326,
+   "track_id": "1745.DE9B_XfvrF8",
+   "genre": "Drum & Bass"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.5833333333333334,
+   "bound_f_3.0": 0.6666666666666667,
+   "pairwise_f": 0.7635209539121354,
+   "v_measure": 0.7539555384679693,
+   "track_id": "1762.R1A7Kix_IKA",
+   "genre": "Deep House"
+  },
+  {
+   "beat_f": 0.9987309644670052,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.6666666666666666,
+   "bound_f_3.0": 0.6666666666666666,
+   "pairwise_f": 0.9784336862655272,
+   "v_measure": 0.9776014248111711,
+   "track_id": "1773.ifWzAUPZPuQ",
+   "genre": "Trance"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.7826086956521738,
+   "bound_f_3.0": 0.7826086956521738,
+   "pairwise_f": 0.873096849118837,
+   "v_measure": 0.8799767339809298,
+   "track_id": "1774.zjWxza6oazY",
+   "genre": "Tech House"
+  },
+  {
+   "beat_f": 0.9933481152993349,
+   "downbeat_f": 0.9469026548672567,
+   "bound_f_0.5": 0.2105263157894737,
+   "bound_f_3.0": 0.2105263157894737,
+   "pairwise_f": 0.48725205457546056,
+   "v_measure": 0.6483126258184061,
+   "track_id": "1793.cTsCD0WZl-M",
+   "genre": "Electronica"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.7368421052631577,
+   "bound_f_3.0": 0.7368421052631577,
+   "pairwise_f": 0.726277177323203,
+   "v_measure": 0.7385615518973552,
+   "track_id": "1799.byTO-HNbCHM",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.6956521739130435,
+   "bound_f_3.0": 0.6956521739130435,
+   "pairwise_f": 0.7338179395934418,
+   "v_measure": 0.8373426087076313,
+   "track_id": "1810.AD3gagPaAp4",
+   "genre": "Mainstage"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8461538461538461,
+   "bound_f_3.0": 0.8461538461538461,
+   "pairwise_f": 0.8087951064294239,
+   "v_measure": 0.891894398395027,
+   "track_id": "1822.9o35C77DSOc",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 0.9991568296795953,
+   "downbeat_f": 0.9983136593591906,
+   "bound_f_0.5": 0.6666666666666665,
+   "bound_f_3.0": 0.6666666666666665,
+   "pairwise_f": 0.926639709781133,
+   "v_measure": 0.943408910538572,
+   "track_id": "1833.EE9rBfCm7Mw",
+   "genre": "Drum & Bass"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8205128205128205,
+   "bound_f_3.0": 0.8205128205128205,
+   "pairwise_f": 0.9971183197079602,
+   "v_measure": 0.9888592425517969,
+   "track_id": "1850.Maizyu3E2eQ",
+   "genre": "Trance"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8571428571428571,
+   "bound_f_3.0": 0.8571428571428571,
+   "pairwise_f": 0.849129464430205,
+   "v_measure": 0.899220232788601,
+   "track_id": "1858.qDdPlvq1_pk",
+   "genre": "House"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8235294117647058,
+   "bound_f_3.0": 0.8235294117647058,
+   "pairwise_f": 0.9276923209433598,
+   "v_measure": 0.9550950015832019,
+   "track_id": "1863.BfLUPrQtpkk",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.7407407407407408,
+   "bound_f_3.0": 0.7407407407407408,
+   "pairwise_f": 0.8545633421713333,
+   "v_measure": 0.8901858486122121,
+   "track_id": "1881.s38LuxuvxN4",
+   "genre": "Tech House"
+  },
+  {
+   "beat_f": 0.9565217391304347,
+   "downbeat_f": 0.9571428571428572,
+   "bound_f_0.5": 0.64,
+   "bound_f_3.0": 0.7200000000000001,
+   "pairwise_f": 0.870705580252483,
+   "v_measure": 0.8907001061127243,
+   "track_id": "1882.qC37S4s8bQU",
+   "genre": "Progressive House"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8275862068965517,
+   "bound_f_3.0": 0.8275862068965517,
+   "pairwise_f": 0.9497825245850667,
+   "v_measure": 0.9574869695437787,
+   "track_id": "1889.gJboMfWSGHw",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8571428571428571,
+   "bound_f_3.0": 0.8571428571428571,
+   "pairwise_f": 0.9735234898476837,
+   "v_measure": 0.9632024591538679,
+   "track_id": "1897.SoXWtAPYeeU",
+   "genre": "Trance"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.8799999999999999,
+   "bound_f_3.0": 0.8799999999999999,
+   "pairwise_f": 0.9487104968569706,
+   "v_measure": 0.965498886469282,
+   "track_id": "1904.DN5S3WgM95I",
+   "genre": "Deep House"
+  },
+  {
+   "beat_f": 0.9994982438534872,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.6666666666666667,
+   "bound_f_3.0": 0.6666666666666667,
+   "pairwise_f": 0.7605904463325546,
+   "v_measure": 0.7885365804154398,
+   "track_id": "1911.Wbs7j4rKQfA",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.7826086956521738,
+   "bound_f_3.0": 0.7826086956521738,
+   "pairwise_f": 0.9045672677413994,
+   "v_measure": 0.9117693262819399,
+   "track_id": "1950.e-j77Xm-crU",
+   "genre": "Trance"
+  },
+  {
+   "beat_f": 0.22407170294494239,
+   "downbeat_f": 0.22448979591836735,
+   "bound_f_0.5": 0.888888888888889,
+   "bound_f_3.0": 0.888888888888889,
+   "pairwise_f": 0.8395453635365158,
+   "v_measure": 0.8580226731600332,
+   "track_id": "1958.4qm8J66FC6c",
+   "genre": "Techno"
+  },
+  {
+   "beat_f": 1.0,
+   "downbeat_f": 1.0,
+   "bound_f_0.5": 0.888888888888889,
+   "bound_f_3.0": 0.888888888888889,
+   "pairwise_f": 0.7473045822102425,
+   "v_measure": 0.8232105670976105,
+   "track_id": "1980.GGRB0KXadBM",
+   "genre": "Mainstage"
+  },
+  {
+   "beat_f": 0.6666666666666666,
+   "downbeat_f": 0.6687306501547988,
+   "bound_f_0.5": 0.9473684210526316,
+   "bound_f_3.0": 0.9473684210526316,
+   "pairwise_f": 0.9859883404816803,
+   "v_measure": 0.9674033478087009,
+   "track_id": "1989.QKJrV1q-8rs",
+   "genre": "Drum & Bass"
+  }
+ ]
+}

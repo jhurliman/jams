@@ -5,19 +5,22 @@ Recomputes per-track scores from the banked artifacts (no audio, no models re-ru
 a deterministic refit of the cues-only mode classifier), then paired bootstrap (10k
 resamples, seed 0) for system deltas.
 
-Key systems on GiantSteps Key (n=567), MIREX weighted score per track:
+Historical key systems on GiantSteps Key: legacy symmetric-fifth score by default.
+The original score gives fifth credit in both directions; mir_eval 0.8.2 does not.
+Use --key-metric mir-eval-0.8.2 for that explicitly versioned convention.
+Per-track systems:
   edma-raw          KeyExtractor(edma), no refinement    (from keyfeat_gskey.jsonl)
   honest-retrain    cues-only mode logistic fit on GS-MTG, thr 0.60 (deterministic refit)
   skey              S-KEY argmax                          (from skey_gskey.jsonl)
   fusion            production replay: shipped key_fusion.json heads over banked features
   madmom            CNNKeyRecognitionProcessor            (from madmom_gskey.jsonl, if present)
 
-Transcription (Slakh2100-redux test, n=151): paired per-track note-F for basic-pitch
+Transcription (Slakh2100-redux test, other n=151, bass n=143 historically): paired per-track note-F for basic-pitch
 (banked per_track in slakh_test_oracle.json) vs YourMT3+ (yourmt3_oracle_per_track.json,
 re-scored against the Slakh GT MIDI with the same evaluate_transcription.py functions;
 aggregates verified to match the banked spike to 4 decimals).
 
-    uv run --extra eval eval/stats_significance.py --out paper/STATS.md
+    uv run --extra eval eval/stats_significance.py --out eval/data/stats_recomputed.md
 """
 from __future__ import annotations
 
@@ -59,7 +62,6 @@ def _resolve_data_dir() -> Path:
 
 
 DATA = _resolve_data_dir()
-PUBLISHED_SOTA_WEIGHTED = 0.7591  # KeyMyna (arXiv 2604.10021), best honest published number
 
 FLAT = {"Db": "C#", "Eb": "D#", "Gb": "F#", "Ab": "G#", "Bb": "A#", "Cb": "B", "Fb": "E"}
 
@@ -73,6 +75,7 @@ def parse(k: str | None):
 
 
 def mirex(ref: str, est: str) -> float:
+    """Legacy symmetric-fifth score; function name retained for replay compatibility."""
     r, e = parse(ref), parse(est)
     if r is None or e is None:
         return 0.0
@@ -91,8 +94,18 @@ def mirex(ref: str, est: str) -> float:
 
 
 def jload(path: Path, key: str = "track_id") -> dict[str, dict]:
-    lines = Path(path).read_text().splitlines()
-    return {str(j[key]): j for j in map(json.loads, lines) if key in j}
+    rows = {}
+    for line in Path(path).read_text().splitlines():
+        if not line.strip():
+            continue
+        row = json.loads(line)
+        if key not in row:
+            raise ValueError(f"{path}: missing {key}")
+        identity = str(row[key])
+        if identity in rows:
+            raise ValueError(f"{path}: duplicate {identity}")
+        rows[identity] = row
+    return rows
 
 
 def boot_ci(vals: np.ndarray, n: int = 10_000, seed: int = 0):
@@ -161,12 +174,20 @@ def honest_retrain_preds(train_feat, train_refs, test_feat, thr: float = 0.60):
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--out", type=Path, default=REPO / "paper" / "STATS.md")
+    ap.add_argument("--out", type=Path, required=True, help="New report path; preserve the historical STATS.md snapshot")
+    ap.add_argument("--key-metric", choices=("legacy-symmetric", "mir-eval-0.8.2"),
+                    default="legacy-symmetric")
     args = ap.parse_args()
+    if args.out.resolve() == (REPO / "paper" / "STATS.md").resolve():
+        ap.error("STATS.md is the historical snapshot; choose a new --out path")
+    key_score = mirex
+    if args.key_metric == "mir-eval-0.8.2":
+        import mir_eval
+        if mir_eval.__version__ != "0.8.2":
+            ap.error("--key-metric mir-eval-0.8.2 requires mir_eval==0.8.2")
+        key_score = mir_eval.key.weighted_score
 
-    gt = {str(j["track_id"]): j["ref_key"]
-          for j in map(json.loads,
-                       (DATA / "manifest.jsonl").read_text().splitlines())}
+    gt = {t: row["ref_key"] for t, row in jload(DATA / "manifest.jsonl").items()}
     feat = jload(DATA / "gsmtg" / "keyfeat_gskey.jsonl")
     sk = jload(DATA / "gsmtg" / "skey_gskey.jsonl")
     fusion_model = json.loads(
@@ -180,12 +201,17 @@ def main() -> None:
 
     mtg_manifest = _first(REPO / "eval/data/gsmtg/manifest.jsonl",
                           DATA / "gsmtg/manifest.jsonl")
-    mtg_refs = {str(j["track_id"]): j["ref_key"]
-                for j in map(json.loads, mtg_manifest.read_text().splitlines())}
+    mtg_refs = {t: row["ref_key"] for t, row in jload(mtg_manifest).items()}
     mtg_feat = jload(_first(DATA / "gsmtg/keyfeat_gsmtg.jsonl",
                             REPO / "eval/data/gsmtg/keyfeat_gsmtg.jsonl"))
 
-    tids = sorted(t for t in gt if t in feat and t in sk and parse(gt[t]))
+    tids = sorted(t for t in gt if parse(gt[t]))
+    for name, rows in (("key features", feat), ("S-KEY predictions", sk)):
+        missing = set(tids) - set(rows)
+        if missing:
+            raise ValueError(f"Incomplete {name}: {len(missing)} eligible IDs missing")
+    if not tids:
+        raise ValueError("No eligible key references")
     retrain = honest_retrain_preds(mtg_feat, mtg_refs, feat)
 
     systems: dict[str, dict[str, str]] = {
@@ -200,16 +226,21 @@ def main() -> None:
         ok = {t for t in tids if t in mm and "madmom_key" in mm[t]}
         if len(ok) == len(tids):
             systems["madmom-cnn"] = {t: mm[t]["madmom_key"] for t in tids}
+    cnn_path = DATA / "gsmtg" / "cnn_gskey.jsonl"
+    if cnn_path.exists():
+        cn = jload(cnn_path)
+        if all(t in cn and "cnn_key" in cn[t] for t in tids):
+            systems["k10-cnn"] = {t: cn[t]["cnn_key"] for t in tids}
 
-    scores = {name: np.array([mirex(gt[t], preds[t]) for t in tids])
+    scores = {name: np.array([key_score(gt[t], preds[t]) for t in tids])
               for name, preds in systems.items()}
     exact = {name: np.array([1.0 if s == 1.0 else 0.0 for s in vals])
              for name, vals in scores.items()}
 
     lines = ["# Statistical analysis — key detection (GiantSteps Key)", ""]
-    lines.append(f"n = {len(tids)} tracks; MIREX weighted score; bootstrap 10,000 resamples,"
-                 " seed 0; 95% percentile CIs. Published honest SOTA reference: "
-                 f"KeyMyna {PUBLISHED_SOTA_WEIGHTED} weighted.")
+    lines.append(f"n = {len(tids)} tracks; key metric: {args.key_metric}; "
+                 "bootstrap 10,000 resamples, seed 0; 95% percentile CIs. "
+                 "Exploratory results conditional on prior benchmark use; no cross-paper ranking.")
     lines += ["", "## Point estimates", "",
               "| system | weighted [95% CI] | exact |", "|---|---|---|"]
     for name, vals in scores.items():
@@ -217,51 +248,43 @@ def main() -> None:
         lines.append(f"| {name} | {m:.4f} [{lo:.4f}, {hi:.4f}] | {exact[name].mean():.4f} |")
 
     lines += ["", "## Paired deltas (bootstrap CI of per-track difference)", "",
-              "| comparison | Δ weighted [95% CI] | significant |", "|---|---|---|"]
+              "| comparison | Δ weighted [95% CI] | CI excludes zero (unadjusted) |", "|---|---|---|"]
     pairs = [("fusion", "edma-raw"), ("fusion", "honest-retrain"), ("fusion", "skey"),
              ("skey", "edma-raw"), ("honest-retrain", "edma-raw")]
     if "madmom-cnn" in scores:
         pairs += [("fusion", "madmom-cnn"), ("skey", "madmom-cnn")]
+    if "k10-cnn" in scores:
+        pairs += [("k10-cnn", "fusion"), ("k10-cnn", "skey")]
+        if "madmom-cnn" in scores:
+            pairs += [("k10-cnn", "madmom-cnn")]
     for a, b in pairs:
         d, lo, hi = paired_delta_ci(scores[a], scores[b])
         sig = "yes" if (lo > 0 or hi < 0) else "no"
         lines.append(f"| {a} − {b} | {d:+.4f} [{lo:+.4f}, {hi:+.4f}] | {sig} |")
 
-    m, lo, hi = boot_ci(scores["fusion"])
-    verdict = "excludes" if lo > PUBLISHED_SOTA_WEIGHTED else "does NOT exclude"
-    lines += ["", f"**Fusion vs published SOTA value:** fusion CI [{lo:.4f}, {hi:.4f}] "
-              f"{verdict} the best honest published number ({PUBLISHED_SOTA_WEIGHTED}).", ""]
-    if "madmom-cnn" in scores:
-        mm = scores["madmom-cnn"].mean()
-        lines += [
-            "**Subset-shift calibration (key finding):** madmom's CNN, published at 0.746 "
-            f"on full GiantSteps Key, scores {mm:.4f} on our n=567 usable-track subset — a "
-            f"+{mm - 0.746:.3f} shift from subset selection alone. Comparisons of numbers "
-            "measured on this subset against published full-set numbers are therefore "
-            "inflated for every system; only the same-subset paired comparisons above are "
-            "valid rankings. On those, madmom-cnn is the strongest system here (its weights "
-            "are CC BY-NC-SA — non-commercial — whereas the fusion/skey stack is fully "
-            "permissively licensed).", ""]
+    lines += ["", "An interval including zero does not establish equivalence or non-inferiority. "
+              "The previous subset-only calibration explanation is withdrawn: with unchanged "
+              "predictions, labels and scoring, 604 * 0.746 / 567 = 0.7947 is the largest "
+              "possible nonnegative subset mean, below 0.8328. The published single model "
+              "also differs from madmom's default ensemble. See paper/REVIEW.md.", ""]
 
     # --- Transcription ------------------------------------------------------
-    oracle = json.loads((DATA / "results_aws" / "slakh_test_oracle.json").read_text())
-    ym3_pt = json.loads(
-        (DATA / "results_aws" / "yourmt3_oracle_per_track.json").read_text())
-    ym3_f = {(r["track_id"], r["stem"]): r["note_f"] for r in ym3_pt["per_track"]}
+    import sys
+    sys.path.insert(0, str(REPO / "paper"))
+    from verify_results import paired_values, read_scores
+
     lines += ["# Statistical analysis — transcription (Slakh2100-redux test)", "",
               "Paired per-track note-F (onset+pitch, 50 ms/50 c, offsets ignored), "
               "oracle (ground-truth) stems. YourMT3+ scored against the same Slakh GT "
               "with the same scoring functions as basic-pitch; paired bootstrap 10,000 "
-              "resamples, seed 0.", "",
+              "resamples, seed 0, sorted track IDs (finite-bootstrap endpoints may differ from historical row order).", "",
               "| stem | basic-pitch [95% CI] | YourMT3+ [95% CI] "
               "| Δ paired [95% CI] | YourMT3+ wins |", "|---|---|---|---|---|"]
     for stem in ("bass", "other"):
-        pairs_bt = [(t["stems"][stem]["note_f"], ym3_f[(t["track_id"], stem)])
-                    for t in oracle["per_track"]
-                    if "note_f" in t.get("stems", {}).get(stem, {})
-                    and (t["track_id"], stem) in ym3_f]
-        bp = np.array([p[0] for p in pairs_bt])
-        ym = np.array([p[1] for p in pairs_bt])
+        bp_scores = read_scores(DATA / "results_aws/slakh_test_oracle.json", stem)
+        ym_scores = read_scores(DATA / "results_aws/yourmt3_oracle_per_track.json", stem)
+        _, bp_values, ym_values = paired_values(bp_scores, ym_scores, {"bass": 143, "other": 151}[stem])
+        bp, ym = np.array(bp_values), np.array(ym_values)
         bm, blo, bhi = boot_ci(bp)
         ymm, ylo, yhi = boot_ci(ym)
         d, dlo, dhi = paired_delta_ci(ym, bp)
@@ -271,9 +294,9 @@ def main() -> None:
             f"| {ymm:.4f} [{ylo:.4f}, {yhi:.4f}] "
             f"| {d:+.4f} [{dlo:+.4f}, {dhi:+.4f}] | {wins:.0%} |")
     lines += ["",
-              "Both deltas are paired per-track (same 151 oracle stems for both systems); "
-              "a CI excluding zero is a significant difference. Bass scores use the +12 "
-              "written-pitch convention for both systems (see ledger T-entries).", ""]
+              "Supports are reported separately for each group. Intervals are unadjusted "
+              "exploratory summaries. Bass scores include an empirical +12-semitone "
+              "estimate shift, which needs an audio/MIDI audit (see paper/REVIEW.md).", ""]
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text("\n".join(lines))
