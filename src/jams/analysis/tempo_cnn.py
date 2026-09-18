@@ -22,6 +22,24 @@ N_FFT = 1024
 HOP = 512
 N_MELS = 40
 WIN_FRAMES = 256          # ~11.9 s
+
+
+def window_starts(n_frames: int, win: int = WIN_FRAMES, hop: int | None = None) -> list[int]:
+    """Start frames of the sliding analysis windows over a track of ``n_frames``.
+
+    Half-window hop from 0; when the last hop does not land on ``n_frames - win`` a final
+    window anchored there is appended so the tail of the track is always evaluated
+    (previously frames after the last full hop were ignored). A track shorter than one
+    window yields a single window at 0 (padded by the caller). Kept identical to the
+    trainer's copy in ``eval/train_tempo_cnn.py``.
+    """
+    hop = hop or win // 2
+    if n_frames <= win:
+        return [0]
+    starts = list(range(0, n_frames - win + 1, hop))
+    if starts[-1] != n_frames - win:
+        starts.append(n_frames - win)
+    return starts
 BPM_MIN = 30              # 256 classes, 1-BPM bins, 30-285 BPM
 
 _WEIGHTS = Path(__file__).resolve().parent.parent / "data" / "models" / "tempo_cnn_v1.pt"
@@ -120,7 +138,7 @@ def analyze(audio: str) -> dict:
         # Sliding windows, averaged softmax — mirrors predict_track() in the trainer.
         T = X.shape[1]
         wins = []
-        for s in range(0, max(1, T - WIN_FRAMES + 1), WIN_FRAMES // 2):
+        for s in window_starts(T):
             w = X[:, s:s + WIN_FRAMES]
             if w.shape[1] < WIN_FRAMES:
                 w = np.pad(w, ((0, 0), (0, WIN_FRAMES - w.shape[1])))

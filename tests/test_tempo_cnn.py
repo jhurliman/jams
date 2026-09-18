@@ -93,3 +93,20 @@ def test_old_tempocnn_graph_gone():
     data = Path(T.__file__).parent.parent / "data"
     assert not (data / "models" / "deepsquare-k16-3.pb").exists()
     assert not list((data / "models").glob("*.pb"))
+
+
+def test_window_starts_cover_the_track_tail():
+    from jams.analysis.tempo_cnn import WIN_FRAMES, window_starts
+
+    hop = WIN_FRAMES // 2
+    assert window_starts(100) == [0]  # shorter than one window: single padded window
+    assert window_starts(WIN_FRAMES) == [0]
+    # 300 frames: the hop grid stops at 0, so the tail (frames 256-299) needs the anchored window.
+    assert window_starts(300) == [0, 300 - WIN_FRAMES]
+    # Exact multiple of the hop: no duplicate trailing window.
+    assert window_starts(WIN_FRAMES + 3 * hop) == [0, hop, 2 * hop, 3 * hop]
+    for n in (257, 511, 1000, 12345):
+        starts = window_starts(n)
+        assert starts[-1] == n - WIN_FRAMES  # last window always reaches the end
+        assert starts == sorted(set(starts))
+
