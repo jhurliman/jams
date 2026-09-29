@@ -140,8 +140,9 @@ cross-validation only, on the 1{,}129 training tracks shared with the project's 
 GiantSteps-MTG feature set, using the out-of-fold CNN posteriors: the standalone CNN
 (0.749), the existing two-head fusion with the CNN in its second slot (0.747), and the
 fusion choosing between S-KEY and the CNN (0.749). The standalone CNN was selected as the
-simplest within noise. The out-of-fold posteriors and the selection script are committed
-with the training records.
+simplest within noise. The out-of-fold posteriors, the fusion inputs, and the run script
+are committed with the training records, and \texttt{paper/key\_candidates\_cv.py}
+recomputes the four numbers from them.
 
 \section{Data and dataset-usage disclosure}
 \label{sec:disclosure}
@@ -166,9 +167,9 @@ not rule out the same recording appearing under two identifiers. No Isophonics o
 key data was used.
 
 \textbf{Evaluation subset.} The development evaluation uses the 567 GiantSteps Key
-excerpts whose annotation is a single major or minor key and whose audio could be
-retrieved (of 604 annotated; 600 with audio). Reference labels are read from the
-public annotations; the acquisition script (\texttt{eval/acquire\_dataset.py}) maps flats to sharps and
+excerpts (of 604 annotated; 600 with retrievable audio) whose public annotation the
+acquisition script could reduce to one major or minor reference. Many of these are not
+plain single-key labels: the acquisition script (\texttt{eval/acquire\_dataset.py}) maps flats to sharps and
 reduces each label to one major or minor key by mode family (aeolian, dorian, phrygian,
 and ``harmonic'' to minor; ionian, mixolydian, and lydian to major). Two-key annotations
 such as ``C major $|$ C minor phrygian'' are collapsed by the same rule applied to the

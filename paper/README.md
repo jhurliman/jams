@@ -102,7 +102,11 @@ model on the GiantSteps Key audio and checks it against those predictions
 selection scripts) with the out-of-fold posteriors in `paper/evidence/key/k10_oof_train.jsonl`;
 `uv run paper/key_train_manifest.py` reconstructs the 1,363-track training set, its folds,
 and the 123 drops from the public `beatport_key` annotations and cross-checks them against
-that record (`k10_train_labels.jsonl`, `k10_train_drops.json`).
+that record (`k10_train_labels.jsonl`, `k10_train_drops.json`), and
+`uv run paper/key_candidates_cv.py` recomputes the pre-registered candidate-selection
+cross-validation from the committed fusion inputs (`k10_train/selection/`) and checks it
+against the ledger (`k10_candidates_cv.json`). `paper/key_rerun_check.py` needs only the
+GiantSteps Key audio directory; the file names are in the predictions file.
 
 ## Prepare the arXiv source bundle
 

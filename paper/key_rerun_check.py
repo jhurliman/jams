@@ -90,7 +90,6 @@ def main() -> int:
     ap.add_argument("--audio-dir", type=Path, required=True)
     ap.add_argument("--workers", type=int, default=8)
     a = ap.parse_args()
-    manifest = [json.loads(line) for line in MANIFEST.read_text().splitlines() if line.strip()]
     pred = {
         json.loads(line)["track_id"]: json.loads(line)
         for line in PRED.read_text().splitlines()
@@ -98,11 +97,9 @@ def main() -> int:
     }
     usable = {t for t, r in pred.items() if r["k10_key"]}
     jobs, missing = [], []
-    for r in manifest:
-        if r["track_id"] not in usable:
-            continue
-        p = a.audio_dir / Path(r["audio_path"]).name
-        (jobs if p.exists() else missing).append((r["track_id"], str(p)))
+    for tid in sorted(usable, key=int):
+        p = a.audio_dir / pred[tid]["audio_file"]
+        (jobs if p.exists() else missing).append((tid, str(p)))
     if missing:
         sys.exit(
             f"{len(missing)} of {len(usable)} usable excerpts have no audio under {a.audio_dir}"
