@@ -35,9 +35,10 @@ window inside the 208-bin padded CQT, label transposed to match). Cross-entropy,
 AdamW (lr 1e-3, weight decay 1e-4, cosine schedule), batch 32, 320-frame random
 crops, 5 folds (seed-0 shuffle of the sorted ids, round-robin), symmetric-fifth
 weighted score on the held-out fold as the selection metric, at most 60 epochs with
-patience 10. Fold results 0.734/0.699/0.696/0.731/0.723 (mean 0.716); final model
-trained on all 1,363 tracks for 23 epochs (median best epoch). A width-2.0 variant
-(fold mean 0.710) was rejected. Invocation: `train_key_cnn.py train --workers 12`,
+patience 10. Fold results 0.734/0.699/0.696/0.731/0.723 (mean 0.716; best epochs
+53/23/15/17/36, fold 0 censored at the 60-epoch cap; the per-epoch histories confirm the
+default cap and patience); final model trained on all 1,363 tracks for 23 epochs (median
+best epoch). A width-2.0 variant with patience 15 (fold mean 0.710) was rejected. Invocation: `train_key_cnn.py train --workers 12`,
 all other arguments at their defaults, one A10 GPU, about 2 h. Records:
 `paper/evidence/key/k10_train/` (fold summaries, per-epoch histories, training log,
 run scripts, selection scripts), `paper/evidence/key/k10_oof_train.jsonl`

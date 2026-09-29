@@ -118,15 +118,20 @@ selection metric & symmetric-fifth weighted score on the held-out fold, full unc
 budget / stopping & at most 60 epochs; stop 10 epochs after the fold's best \\
 fold results & 0.734 (best epoch 53), 0.699 (23), 0.696 (15), 0.731 (17), 0.723 (36); mean 0.716; curves in Fig.~\ref{fig:folds} \\
 final model & all 1{,}363 tracks for 23 epochs (the median best epoch), cosine schedule over those 23 \\
-rejected variant & width 2.0: fold mean 0.710, budget 26 \\
+rejected variant & width 2.0 with patience 15: fold mean 0.710, budget 26 \\
 invocation & \texttt{train\_key\_cnn.py train --workers 12}, every other argument at its default; one A10 GPU, about 2\,h \\
 \bottomrule
 \end{tabular}
 \caption{Training recipe of the submitted run. All values are from the committed script and
 the run's own records (\texttt{paper/evidence/key/k10\_train/}: fold summaries and
-per-epoch histories, the training log, the run scripts). An earlier run of the same
-script with global pooling over both axes reached a chance-level fold mean of 0.159 and
-was discarded before this run; its log is in the same directory.}
+per-epoch histories, the training log, the run scripts). The histories confirm the
+default cap and patience: four folds stopped 10 epochs after their best, and fold 0
+reached the 60-epoch cap with its best at epoch 53, so that fold's best epoch is
+censored (the median budget is unaffected). An earlier run of the same script with
+global pooling over both axes reached a chance-level fold mean of 0.159 and was
+discarded before this run; its log is in the same directory. The committed script
+differs from the binary that ran only by a \texttt{width} field later added to its
+summary output.}
 \label{tab:train}
 \end{table}
 
