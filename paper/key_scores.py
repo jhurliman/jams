@@ -175,7 +175,15 @@ def main() -> int:
         "single_key_modal_qualifier_collapsed": len(single) - len(plain),
         "single_key_plain_major_minor_or_ionian_aeolian": len(plain),
     }
-    for name, sub in (("single_key_subset", single), ("plain_major_minor_subset", plain)):
+    # Rows whose normalized reference equals neither key listed in a two-key annotation
+    # (15 excerpts); excluding only those is the narrowest correction.
+    listed = [r for r in usable if r.get("ref_matches_listed_key", True)]
+    out["reference_label_categories"]["reference_matches_no_listed_key"] = len(usable) - len(listed)
+    for name, sub in (
+        ("excluding_neither_key_subset", listed),
+        ("single_key_subset", single),
+        ("plain_major_minor_subset", plain),
+    ):
         s = {"n": len(sub)}
         for sysname in ("k10", "madmom"):
             s[sysname] = {

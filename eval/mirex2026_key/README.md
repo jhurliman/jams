@@ -48,9 +48,9 @@ run scripts, selection scripts), `paper/evidence/key/k10_oof_train.jsonl`
 Training label rule: a beatport_key track is retained when its first listed
 annotation is exactly `<tonic> major|minor` (flats mapped to sharps). 1,275 retained
 tracks have a single-key annotation; 88 have a two-key annotation (`E minor | E major`)
-and use the first listed key. The 123 drops are atonal (`X`), `other`, modally
-qualified labels, and 8 two-key annotations whose first key is of that kind. No audio
-was dropped; the confidence field is not used.
+and use the first listed key. The 123 drops are 115 single-key annotations (75 atonal
+`X`, 12 `other`, 28 modally qualified) and 8 two-key annotations whose first entry failed
+the major/minor parser. No audio was dropped; the confidence field is not used.
 
 Reference: John Hurliman, *Evaluating a Modular Mix-to-MIDI Pipeline on Slakh2100*, 2026
 (repository `paper/arxiv/`; key results are appendix material; arXiv deposit pending).
@@ -69,9 +69,10 @@ annotation to one major/minor key (modal qualifiers collapsed by mode family; tw
 annotations collapsed to the first tonic and to minor if any listed key is minor-family).
 Of the 567 references, 378 are plain major/minor (incl. ionian/aeolian), 98 carry another
 modal qualifier, 91 are collapsed two-key annotations (15 match neither listed key); 33
-excerpts with `other`/`X`/malformed labels were excluded. On the 476 single-key
-references K10 scores 0.8668 and madmom 0.8687 (`paper/key_scores.py`,
-`single_key_subset`).
+excerpts with `other`/`X`/malformed labels were excluded. Excluding only the 15
+neither-key references gives K10 0.8493 and madmom 0.8484; on the 476 single-key
+references 0.8668 and 0.8687; no subset establishes an advantage for either system
+(`paper/key_scores.py`).
 
 Package check: running this package on the same 567 audio files reproduces all 567
 committed K10 predictions, and the training pipeline's float16 feature cache changes no

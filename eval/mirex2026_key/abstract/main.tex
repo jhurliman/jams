@@ -154,10 +154,11 @@ authors, not Beatport's automatic metadata). A track is retained when its first 
 \emph{major} or \emph{minor} (flats mapped to sharps); the annotation confidence field
 is not used. This keeps 1{,}363 tracks: 1{,}275 single-key annotations and 88 two-key
 annotations (for example ``E minor $|$ E major''), for which the first listed key is
-the label. The 123 dropped tracks are the 73 atonal (``X''), ``other'', and modally
-qualified labels (phrygian, dorian, mixolydian, and similar) plus 8 two-key annotations
-whose first key is of that kind. Audio was present for every track and none was dropped
-for decoding. The retained set, its folds, and the drop list are reconstructed from
+the label. The 123 dropped tracks are 115 single-key and 8 two-key annotations whose
+first entry failed the major/minor parser; among the single-key ones, 75 are atonal
+(``X''), 12 are ``other'', and 28 carry a modal qualifier (phrygian, dorian,
+mixolydian, and similar). Audio was present for every track and none was dropped for
+decoding. The retained set, its folds, and the drop list are reconstructed from
 the public annotations and cross-checked against the run's out-of-fold record by
 \texttt{paper/key\_train\_manifest.py}. The corpus has zero
 track-identifier overlap with GiantSteps Key \cite{knees2015giantsteps}; the check
@@ -178,8 +179,9 @@ Of the 567 references, 378 are plain major/minor (including ionian and aeolian),
 single keys with another modal qualifier, and 91 are collapsed two-key annotations, of
 which 15 match neither listed key (``C major $|$ A minor'' became C minor). The 33
 excluded excerpts carry ``other'', ``X'', or malformed labels. Both systems were scored
-against the same references, so the paired comparison is unaffected; the effect on the
-absolute scores is shown in Section~\ref{sec:results}.
+against the same references; incorrect references can still favor one system's
+predictions over the other's, and the subset analyses in Section~\ref{sec:results}
+likewise show no statistically detectable difference.
 
 \textbf{Prior use of GiantSteps Key in this project.} The MIREX 2026 rules ask
 participants to account for any development use of the evaluation data. The account
@@ -263,16 +265,19 @@ madmom & 438 & 35 & 39 & 25 & 30 \\
 \end{tabular}
 \caption{Predictions by symmetric-fifth credit category (counts of 567). K10 makes
 fewer relative-key confusions and more uncredited errors than madmom; this is
-descriptive and the totals are not significantly different.}
+descriptive.}
 \label{tab:errors}
 \end{table}
 
-\textbf{Reference-label sensitivity.} Rescoring the same predictions on the 476
-references that come from a single annotated key gives K10 0.867 and madmom 0.869
-(symmetric fifth; exact 0.826 for both; paired $-0.002$ \ci{-0.022}{+0.018}), and on the
-378 plain major/minor references 0.870 and 0.877 (paired $-0.007$
-\ci{-0.029}{+0.015}). The collapsed two-key and modal references lower both systems'
-absolute scores by about 0.035 and leave the comparison unchanged.
+\textbf{Reference-label sensitivity.} Rescoring the same predictions (symmetric
+fifth) after excluding only the 15 references that match neither listed key gives K10
+0.849 and madmom 0.848 (paired $+0.001$ \ci{-0.018}{+0.020}); on the 476 references
+that come from a single annotated key, 0.867 and 0.869 (exact 0.826 for both; paired
+$-0.002$ \ci{-0.022}{+0.018}); and on the 378 plain major/minor references, 0.870 and
+0.877 (paired $-0.007$ \ci{-0.029}{+0.015}). Each restriction also changes the
+composition of the evaluation set, so the higher subset scores do not isolate the
+effect of label normalization; what the three subsets show is that none of them
+establishes an advantage for either system.
 
 These are development-time results on a subset the project had used before, so they
 give an expectation rather than a prediction of the MIREX score, which is computed on
