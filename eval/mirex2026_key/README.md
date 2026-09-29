@@ -39,7 +39,9 @@ CV-selected epoch budget.
 Reference: John Hurliman, *Evaluating a Modular Mix-to-MIDI Pipeline on Slakh2100*, 2026 (repository `paper/arxiv/`; key results are appendix material; arXiv deposit pending).
 
 Development-time result (one evaluation of the locked model, 567 usable GiantSteps
-Key excerpts): weighted **0.8321** [0.8039, 0.8586] with symmetric fifth credit,
+Key excerpts): weighted **0.8321** [0.8042, 0.8584] with symmetric fifth credit (interval
+from `paper/key_scores.py` on the committed predictions; the ledger's original endpoints
+differ in the fourth decimal from bootstrap row order),
 **0.8145** with mir_eval 0.8.2's ascending-only fifth credit, exact **0.7795**. madmom's
 default processor on the same tracks: 0.8328 / 0.8134 / 0.7725; the paired difference
 crosses zero under both conventions. These are subset numbers on a benchmark the
