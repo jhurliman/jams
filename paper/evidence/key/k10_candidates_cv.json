@@ -1,0 +1,23 @@
+{
+ "basis_n": 1129,
+ "a_cnn_standalone_oof": 0.7489,
+ "ref_skey_fusion": {
+  "cv_weighted": 0.7308,
+  "mode_thr": 0.6,
+  "rerank_thr": 0.5
+ },
+ "b_cnn_slot_fusion": {
+  "cv_weighted": 0.7466,
+  "mode_thr": 0.9,
+  "rerank_thr": 0.5
+ },
+ "c_skey_vs_cnn_rerank": 0.7488,
+ "selected": "a (simplest within noise)",
+ "ledger_expected": {
+  "a": 0.7489,
+  "ref": 0.7308,
+  "b": 0.7466,
+  "c": 0.7488
+ },
+ "matches_ledger": true
+}
