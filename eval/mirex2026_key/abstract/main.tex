@@ -48,9 +48,11 @@ is cropped or windowed at inference time.
 
 \textbf{Architecture.} Three convolutional blocks, each two $3{\times}3$ convolutions
 with batch normalization and ELU followed by $2{\times}2$ max pooling (16, 32, and 64
-channels), then dropout, then average pooling over \emph{time only}. Pooling over
-frequency is deliberately avoided: it would make the network invariant to
-transposition, and key identity lives in absolute frequency position. The pooled
+channels; the three $2{\times}2$ pools reduce the 192 CQT bins to 24 and coarsen
+time by 8), then dropout, then \emph{global} average pooling over time only. The
+readout keeps the 24 remaining frequency positions rather than pooling them away,
+because a network that is globally invariant to frequency position would be invariant
+to transposition, and key identity lives in absolute pitch. The pooled
 $64{\times}24$ map feeds one linear layer with a 24-way softmax over
 $\{12\ \text{tonics}\}\times\{\text{major},\text{minor}\}$. The model has 109k
 parameters (0.45\,MB). The design follows the convolutional key-classifier family of
@@ -102,10 +104,10 @@ logistic-regression refinements of the template output that were fit on
 GiantSteps-MTG-Keys. One earlier mode classifier had been fit on GiantSteps Key
 itself; it was identified as contaminated, retired, and replaced by the
 GiantSteps-MTG-fit version before any comparison was reported. The decision to build
-K10 came from analysing the banked GiantSteps Key predictions of those systems: on
-tracks where madmom was right and our fusion system was wrong, most errors were
-unreachable by any reranking of the existing candidates, which argued for a stronger
-base model rather than a better combiner. In that sense the benchmark informed the
+K10 came from analysing the banked GiantSteps Key predictions of those systems: of
+the 47 tracks where madmom was exactly right and our fusion system was not, 23 were
+unreachable by any reranking of the existing candidates (both candidates wrong), which
+argued for a stronger base model rather than a better combiner. In that sense the benchmark informed the
 \emph{decision to train a CNN}, though not its architecture, hyperparameters, or
 weights. Two implementation bugs were caught by chance-level cross-validation scores
 on the training corpus and fixed before any test-set involvement.
@@ -129,7 +131,9 @@ as in the 2018 definition~\citep{korzeniowski2018genre}; \texttt{mir\_eval}
 organizers have stated that both conventions will be reported, so both are given.
 Exact, relative (0.3), and parallel (0.2) credits are identical under the two
 conventions. Confidence intervals are 95\% percentile bootstraps over tracks
-(10{,}000 resamples, seed 0).
+(10{,}000 resamples, seed 0), as computed by the committed \texttt{paper/key\_scores.py}
+from the committed per-track predictions; the ledger's originally recorded endpoints
+differ in the fourth decimal because of bootstrap row order.
 
 \begin{table*}[t]
 \centering\small
@@ -138,10 +142,10 @@ conventions. Confidence intervals are 95\% percentile bootstraps over tracks
 \toprule
 system & weighted, sym.\ fifth & weighted, asc.\ fifth & exact \\
 \midrule
-K10 (this submission) & 0.8321 \ci{0.804}{0.859} & 0.8145 & 0.7795 \\
-madmom CNN (default processor) & 0.8328 \ci{0.806}{0.858} & 0.8134 & 0.7725 \\
+K10 (this submission) & 0.8321 \ci{0.8042}{0.8584} & 0.8145 & 0.7795 \\
+madmom CNN (default processor) & 0.8328 \ci{0.8062}{0.8587} & 0.8134 & 0.7725 \\
 \midrule
-paired K10 $-$ madmom & $-0.0007$ \ci{-0.019}{+0.018} & $+0.0011$ \ci{-0.020}{+0.022} & \\
+paired K10 $-$ madmom & $-0.0007$ \ci{-0.0196}{+0.0175} & $+0.0011$ \ci{-0.0206}{+0.0219} & \\
 wins / losses / ties & 41 / 40 / 486 & 38 / 39 / 490 & \\
 \bottomrule
 \end{tabular}
@@ -175,8 +179,9 @@ environment), the weights \texttt{key\_cnn\_v1.pt}, a README with the calling fo
 runtime, memory, and environment details, and this abstract. Inference reproduces the
 training featurization exactly. The training script, the disjointness check, the
 experiment ledger with the pre-registration and the single-shot result, and the
-per-track development predictions used for Table~\ref{tab:gskey} are in the public
-repository. Code and weights are MIT-licensed; the madmom weights used only for the
+per-track development predictions and reference labels used for
+Table~\ref{tab:gskey} (\texttt{paper/evidence/key/}, with \texttt{paper/key\_scores.py}
+recomputing every number in the table) are in the public repository. Code and weights are MIT-licensed; the madmom weights used only for the
 comparison above are CC~BY-NC-SA and are not part of the submission.
 
 \section*{Acknowledgments and AI use}
