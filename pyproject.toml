@@ -56,7 +56,12 @@ line-length = 100
 target-version = "py310"
 src = ["src", "tests"]
 # Vendored third-party code (SCNet, MIT) is kept byte-faithful to upstream — don't lint it.
-extend-exclude = ["src/jams/data/scnet/scnet.py", "src/jams/data/scnet/separation.py"]
+# paper/evidence holds verbatim run records (including the scripts that produced them).
+extend-exclude = [
+    "src/jams/data/scnet/scnet.py",
+    "src/jams/data/scnet/separation.py",
+    "paper/evidence",
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "C4"]

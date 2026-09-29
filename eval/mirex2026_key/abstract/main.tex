@@ -1,196 +1,340 @@
 % MIREX 2026 Audio Key Detection -- extended abstract (2-4 pages) for the K10 submission.
-% Plain two-column article; the ISMIR style is not used because its copyright footer names
-% the ISMIR proceedings, which this abstract is not part of.
-\documentclass[10pt,twocolumn,a4paper]{article}
+% Uses the official ISMIR 2026 LBD template as the MIREX submission guidelines request;
+% the copyright footer is redefined below so that it names the MIREX task rather than the
+% ISMIR LBD proceedings, which this abstract is not part of.
+\documentclass{article}
+\pdfoutput=1
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
-\usepackage{times}
-\usepackage[margin=19mm,top=20mm,bottom=25mm,columnsep=8mm]{geometry}
-\usepackage{amsmath,booktabs,graphicx,url,microtype}
-\usepackage[hidelinks]{hyperref}
-\usepackage[numbers,sort&compress]{natbib}
+\usepackage[lbd]{ismir}
+\usepackage{amsmath,cite,url,graphicx,booktabs,microtype}
+\usepackage{flushend}
+\emergencystretch=1em
 \newcommand{\ci}[2]{{\footnotesize[#1, #2]}}
-\setlength{\parskip}{0pt}
-\pagestyle{empty}
+\makeatletter
+\renewcommand{\permission}{%
+  \begin{figure}[b]{%
+    \footnotesize
+    {\includegraphics[alt={CC-BY License},height=0.45cm]{cc_by.pdf}}
+    \vskip -.45cm
+    \begin{spacing}{1.1}
+      \hskip 1.5cm \copyright \hskip .1cm \authorname.
+      Licensed under a Creative Commons Attribution 4.0 International License (CC BY 4.0).
+      \textbf{Attribution:} \authorname,
+      ``\removelinebreaks{\@title}'',
+      extended abstract, \textit{MIREX 2026 Audio Key Detection}.
+    \end{spacing}
+    }
+  \end{figure}
+}
+\makeatother
 
-\title{\vspace{-8mm}\textbf{A Small Convolutional Key Classifier Trained on Beatport
-Annotations\\[2pt] \large MIREX 2026 Audio Key Detection: system description and dataset-usage disclosure}}
-\author{John Hurliman\\
-Independent researcher, Oakland, CA, USA\\
-\texttt{jhurliman@jhurliman.org} \quad \url{https://github.com/jhurliman/jams}}
-\date{}
+\title{K10: A Compact Convolutional Network for Global Key Estimation}
+\oneauthor{John Hurliman}{Independent researcher, Oakland, CA, USA \\ {\tt jhurliman@jhurliman.org}}
+\def\authorname{J. Hurliman}
 
 \begin{document}
 \maketitle
-\thispagestyle{empty}
 
 \begin{abstract}
-We submit K10, a 109k-parameter convolutional network that predicts one of 24 global
-keys from a log-magnitude constant-Q transform of the whole track. It is trained
-only on the \texttt{beatport\_key} annotations distributed through mirdata (the
-GiantSteps-MTG-Keys corpus with revised labels), selected by cross-validation inside
-that corpus, and run as a single forward pass on CPU. The submission is
-inference-only, MIT-licensed, and packaged as one script with bundled weights. This
-abstract describes the system, states precisely how GiantSteps Key was used during the
-project's development, and reports the development-time GiantSteps Key scores under
-both fifth-credit conventions so that MIREX's results can be read against them.
+K10 is the MIREX 2026 Audio Key Detection submission from the open-source \texttt{jams}
+project. It is a single 109k-parameter convolutional network that maps a whole-track
+log-magnitude constant-Q transform to one of 24 major or minor keys in one CPU forward
+pass, packaged as a script with bundled weights and a locked dependency set. The network
+was trained only on the curated Beatport-preview annotations of mirdata's
+\texttt{beatport\_key} corpus, with every selection made by cross-validation inside that
+corpus. On the 567 usable GiantSteps Key excerpts, a single evaluation of the locked
+model scored 0.832 weighted (symmetric fifth credit) and 0.780 exact, against 0.833 and
+0.773 for madmom's default key processor on the same tracks; the paired difference
+crosses zero under both fifth-credit conventions, so no ranking between the two is
+claimed. GiantSteps Key had been used earlier in the project, which is disclosed in
+full below and was confirmed as admissible by the task captains.
 \end{abstract}
 
 \section{System}
 \label{sec:system}
 
-\textbf{Input features.} The audio is decoded, downmixed to mono, and resampled to
+\textbf{Input features.} Audio is decoded, downmixed to mono, and resampled to
 22{,}050\,Hz. A constant-Q transform with 24 bins per octave is computed over 8 octaves
-from C1 with hop 4{,}096 (about 5.4 frames per second), with a 4-semitone margin on
-each side that is cropped away after the transform (208 bins computed, the central 192
-kept). Magnitudes are compressed with $\log(1+x)$. The full track is one input; nothing
-is cropped or windowed at inference time.
+from C1 with hop 4{,}096 (about 5.4 frames per second) plus a 4-semitone margin on each
+side (208 bins), and the margin is cropped after the transform, leaving 192 bins.
+Magnitudes are compressed with $\log(1+x)$. The whole track is one input; nothing is
+cropped or windowed at inference time.
 
-\textbf{Architecture.} Three convolutional blocks, each two $3{\times}3$ convolutions
-with batch normalization and ELU followed by $2{\times}2$ max pooling (16, 32, and 64
-channels; the three $2{\times}2$ pools reduce the 192 CQT bins to 24 and coarsen
-time by 8), then dropout, then \emph{global} average pooling over time only. The
-readout keeps the 24 remaining frequency positions rather than pooling them away,
-because a network that is globally invariant to frequency position would be invariant
-to transposition, and key identity lives in absolute pitch. The pooled
-$64{\times}24$ map feeds one linear layer with a 24-way softmax over
-$\{12\ \text{tonics}\}\times\{\text{major},\text{minor}\}$. The model has 109k
-parameters (0.45\,MB). The design follows the convolutional key-classifier family of
-Korzeniowski and Widmer~\citep{korzeniowski2018genre}; it is smaller and has no
-ensemble.
+\textbf{Architecture.} Table~\ref{tab:arch} lists the layers. Three blocks, each two
+$3{\times}3$ convolutions with batch normalization and ELU followed by $2{\times}2$
+max pooling, reduce the $192{\times}T$ input to $64$ channels at $24{\times}T/8$. After
+dropout, average pooling over time only leaves a $64{\times}24$ map, which is flattened
+into one linear layer with 24 output logits ordered tonic-major, tonic-minor for the
+twelve tonics; the prediction is the argmax (no softmax is needed at inference). The
+frequency positions are kept through to the readout by design: K10's dense readout uses
+absolute pitch position, and an earlier variant with global pooling over both axes
+failed in cross-validation. This is an implementation choice for this readout, not a
+general claim about frequency pooling; the class-channel head of the all-convolutional
+network in \cite{korzeniowski2018genre}, the family K10 belongs to, pools globally.
+The model has 109{,}128 trainable parameters (450\,kB of weights) and no ensemble.
 
-\textbf{Inference.} One forward pass over the whole-track CQT, argmax over the 24
-classes, no test-time augmentation. The output is written as a single tab-separated
-line, tonic (sharps only) and mode, e.g.\ \texttt{C\textvisiblespace major} with a tab
-separator. The wrapper sets \texttt{torch} to one thread; a two-minute track takes about
-1.7\,s wall on one Apple-Silicon CPU core including interpreter start and model load,
-with about 390\,MB peak memory. No GPU and no network access are used at prediction
-time.
+\begin{table}[t]
+\centering\small
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{@{}lcr@{}}
+\toprule
+layer & output $C{\times}F{\times}T$ & params \\
+\midrule
+log-CQT input & $1{\times}192{\times}T$ & \\
+block 1, 16 channels & $16{\times}96{\times}T/2$ & 2{,}544 \\
+block 2, 32 channels & $32{\times}48{\times}T/4$ & 14{,}016 \\
+block 3, 64 channels & $64{\times}24{\times}T/8$ & 55{,}680 \\
+Dropout2d 0.2, mean over time & $64{\times}24{\times}1$ & \\
+flatten, linear & 24 logits & 36{,}888 \\
+\bottomrule
+\end{tabular}
+\caption{K10 layers. Each block is two $3{\times}3$ convolutions, each followed by batch
+normalization and ELU, then $2{\times}2$ max pooling. Parameter counts include the
+batch-normalization affine weights; the total is 109{,}128.}
+\label{tab:arch}
+\end{table}
 
-\textbf{Training.} The corpus is mirdata \texttt{beatport\_key}
-\citep{faraldo2017thesis}: 1{,}486 Beatport preview excerpts with revised key
-annotations, of which 1{,}363 remain after dropping unparseable or non-major/minor
-labels and undecodable audio. Augmentation is a pitch shift of $\pm4$ semitones applied
-as a roll of the CQT bins with the label transposed accordingly. Optimization is AdamW
-with a cosine schedule on about 60-second random crops. Architecture width and the
-epoch budget were chosen by 5-fold cross-validation within the training corpus; the
-submitted weights are the model trained on the full corpus at the selected budget. The
-whole procedure is committed as \texttt{eval/train\_key\_cnn.py} in the repository, and
-the run cost about two hours on one A10 GPU.
+\textbf{Training.} Table~\ref{tab:train} gives the recipe of the run that produced the
+submitted weights. Augmentation transposes each training example by an integer number of
+semitones in $[-4, 4]$: the CQT is computed with the 4-semitone margin described above
+and the 192-bin window is taken at a shifted offset within the padded representation,
+with the label transposed to match (a shifted crop, not a circular roll). Architecture
+width and the epoch budget were chosen by 5-fold cross-validation within the training
+corpus, and the submitted weights are the model retrained on the full corpus at the
+selected budget. The training script is \texttt{eval/train\_key\_cnn.py} in the
+repository.
 
-\section{Dataset usage and development history}
+\begin{table}[t]
+\centering\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{p{0.27\columnwidth}p{0.66\columnwidth}}
+\toprule
+loss / optimizer & cross-entropy over 24 classes; AdamW, learning rate $10^{-3}$, weight decay $10^{-4}$, cosine annealing over the run \\
+batch / crop & 32 examples; one random 320-frame crop (about 59\,s) per example per epoch, zero-padded to the longest in the batch \\
+regularization & Dropout2d $p{=}0.2$ before the pooling; $\pm4$-semitone shift augmentation, uniform per example \\
+folds & 5; seed-0 shuffle of the sorted mirdata ids dealt round-robin (273/273/273/272/272); not artist-grouped or stratified \\
+selection metric & symmetric-fifth weighted score on the held-out fold, full uncropped tracks, every epoch \\
+budget / stopping & at most 60 epochs; stop 10 epochs after the fold's best \\
+fold results & 0.734 (best epoch 53), 0.699 (23), 0.696 (15), 0.731 (17), 0.723 (36); mean 0.716; curves in Fig.~\ref{fig:folds} \\
+final model & all 1{,}363 tracks for 23 epochs (the median best epoch), cosine schedule over those 23 \\
+rejected variant & width 2.0: fold mean 0.710, budget 26 \\
+invocation & \texttt{train\_key\_cnn.py train --workers 12}, every other argument at its default; one A10 GPU, about 2\,h \\
+\bottomrule
+\end{tabular}
+\caption{Training recipe of the submitted run. All values are from the committed script and
+the run's own records (\texttt{paper/evidence/key/k10\_train/}: fold summaries and
+per-epoch histories, the training log, the run scripts). An earlier run of the same
+script with global pooling over both axes reached a chance-level fold mean of 0.159 and
+was discarded before this run; its log is in the same directory.}
+\label{tab:train}
+\end{table}
+
+After cross-validation, three pre-registered candidates were compared by
+cross-validation only, on the 1{,}129 training tracks shared with the project's older
+GiantSteps-MTG feature set, using the out-of-fold CNN posteriors: the standalone CNN
+(0.749), the existing two-head fusion with the CNN in its second slot (0.747), and the
+fusion choosing between S-KEY and the CNN (0.749). The standalone CNN was selected as the
+simplest within noise. The out-of-fold posteriors and the selection script are committed
+with the training records.
+
+\section{Data and dataset-usage disclosure}
 \label{sec:disclosure}
 
-The task rules ask for an accurate account of dataset use. The account below is taken
-from the project's public experiment ledger, which records every evaluation with its
-date and commit.
+\textbf{Training corpus.} K10 was trained only on mirdata \texttt{beatport\_key}
+\cite{faraldo2017thesis}: 1{,}486 Beatport preview excerpts whose key labels are the
+curated annotations of the GiantSteps-MTG-Keys collection (revised by the dataset
+authors, not Beatport's automatic metadata). A track is retained when its first listed annotation is exactly a tonic and
+\emph{major} or \emph{minor} (flats mapped to sharps); the annotation confidence field
+is not used. This keeps 1{,}363 tracks: 1{,}275 single-key annotations and 88 two-key
+annotations (for example ``E minor $|$ E major''), for which the first listed key is
+the label. The 123 dropped tracks are the 73 atonal (``X''), ``other'', and modally
+qualified labels (phrygian, dorian, mixolydian, and similar) plus 8 two-key annotations
+whose first key is of that kind. Audio was present for every track and none was dropped
+for decoding. The retained set, its folds, and the drop list are reconstructed from
+the public annotations and cross-checked against the run's out-of-fold record by
+\texttt{paper/key\_train\_manifest.py}. The corpus has zero
+track-identifier overlap with GiantSteps Key \cite{knees2015giantsteps}; the check
+(\texttt{eval/verify\_key\_disjoint.py}) compares Beatport identifiers from the two
+mirdata indexes (1{,}486 versus 600, empty intersection). Identifier disjointness does
+not rule out the same recording appearing under two identifiers. No Isophonics or other
+key data was used.
 
-\textbf{Training data.} K10 was trained only on \texttt{beatport\_key}. That corpus
-contains all 1{,}157 usable GiantSteps-MTG-Keys training identifiers (it is the same
-Beatport collection with revised annotations, not an independent set) and has zero
-track-identifier overlap with GiantSteps Key~\citep{knees2015giantsteps}; the check is
-committed as \texttt{eval/verify\_key\_disjoint.py} and compares Beatport identifiers
-from the two mirdata indexes (1{,}486 versus 600, empty intersection). No Isophonics or
-other key data was used. The check does not rule out duplicate recordings under
-different identifiers.
+\textbf{Evaluation subset.} The development evaluation uses the 567 GiantSteps Key
+excerpts whose annotation is a single major or minor key and whose audio could be
+retrieved (of 604 annotated; 600 with audio). Reference labels are read from the
+public annotations; the acquisition script (\texttt{eval/acquire\_dataset.py}) maps flats to sharps and
+reduces each label to one major or minor key by mode family (aeolian, dorian, phrygian,
+and ``harmonic'' to minor; ionian, mixolydian, and lydian to major). Two-key annotations
+such as ``C major $|$ C minor phrygian'' are collapsed by the same rule applied to the
+whole string: the tonic of the first key, and minor if any minor-family word appears.
+Of the 567 references, 378 are plain major/minor (including ionian and aeolian), 98 are
+single keys with another modal qualifier, and 91 are collapsed two-key annotations, of
+which 15 match neither listed key (``C major $|$ A minor'' became C minor). The 33
+excluded excerpts carry ``other'', ``X'', or malformed labels. Both systems were scored
+against the same references, so the paired comparison is unaffected; the effect on the
+absolute scores is shown in Section~\ref{sec:results}.
 
-\textbf{Prior use of GiantSteps Key in this project.} Before K10 existed, the project
-evaluated several key systems on the usable 567 of the 604 GiantSteps Key excerpts
-(atonal, multi-key, and unparseable labels dropped; 600 had retrievable audio): a
-template matcher (Essentia's \texttt{edma} profile~\citep{faraldo2016key,
-bogdanov2013essentia}), the self-supervised S-KEY model~\citep{kong2025skey}, madmom's
-CNN key processor~\citep{korzeniowski2018genre,bock2016madmom}, and two small
-logistic-regression refinements of the template output that were fit on
-GiantSteps-MTG-Keys. One earlier mode classifier had been fit on GiantSteps Key
-itself; it was identified as contaminated, retired, and replaced by the
-GiantSteps-MTG-fit version before any comparison was reported. The decision to build
-K10 came from analysing the banked GiantSteps Key predictions of those systems: of
-the 47 tracks where madmom was exactly right and our fusion system was not, 23 were
-unreachable by any reranking of the existing candidates (both candidates wrong), which
-argued for a stronger base model rather than a better combiner. In that sense the benchmark informed the
-\emph{decision to train a CNN}, though not its architecture, hyperparameters, or
-weights. Two implementation bugs were caught by chance-level cross-validation scores
-on the training corpus and fixed before any test-set involvement.
+\textbf{Prior use of GiantSteps Key in this project.} The MIREX 2026 rules ask
+participants to account for any development use of the evaluation data. The account
+below is taken from the project's public experiment ledger
+(\texttt{paper/EXPERIMENTS.md} in the repository), which records every evaluation
+with its date and commit.
+\begin{itemize}\setlength{\itemsep}{0pt}
+\item Before K10 existed, the project evaluated and error-analysed several key systems
+on the same 567 excerpts: an Essentia template matcher \cite{faraldo2016key,
+bogdanov2013essentia}, S-KEY \cite{kong2025skey}, madmom's key CNN
+\cite{korzeniowski2018genre,bock2016madmom}, and two small logistic refinements of the
+template output fit on GiantSteps-MTG-Keys.
+\item One retired predecessor, a mode classifier, had been fit on GiantSteps Key itself.
+It was identified as contaminated and replaced before any comparison was reported.
+\item The error analysis of those banked predictions motivated training a stronger base
+model. That decision is the extent of the benchmark's influence on K10: its
+architecture, hyperparameters, and weights were selected by cross-validation within
+\texttt{beatport\_key}, under a pre-registered decision rule recorded in the ledger
+before training.
+\item The locked K10 model was evaluated exactly once on the 567 excerpts. The
+descriptive breakdowns in Section~\ref{sec:results} were computed afterwards from that
+one set of predictions; no training or tuning followed. The submitted weights are
+byte-identical to the evaluated checkpoint\newline (MD5 {\footnotesize\texttt{6141daf25376c16a7bc4326b742e4a3c}}).
+\item This history was sent to the task captains before submission; they confirmed on
+28 September 2026 that K10 is admissible for the ranked results with this disclosure.
+\end{itemize}
+Published GiantSteps Key scores (for example madmom's 0.746 in
+\cite{korzeniowski2018genre}) were obtained on different track sets and model
+configurations and are not matched comparisons with the numbers below.
 
-\textbf{Test use of GiantSteps Key by K10.} The experiment was pre-registered in the
-ledger before training, with a fixed decision rule. All selection (width, epoch budget,
-and the choice between the standalone CNN and two fusion variants that reused the
-existing combiner) used training-corpus cross-validation only. The locked model was
-then evaluated exactly once on the 567-track subset. A post-hoc per-genre breakdown of
-that single evaluation was computed afterwards and is descriptive only. No further
-training or tuning followed. The weights in this submission are byte-identical to that
-evaluated checkpoint (MD5 \texttt{6141daf25376c16a7bc4326b742e4a3c}).
-
-\section{Development-time results on GiantSteps Key}
+\section{Development-time results}
 \label{sec:results}
 
 Table~\ref{tab:gskey} reports the single evaluation, scored two ways. The project's
 scorer awards 0.5 for a same-mode key a perfect fifth away in \emph{either} direction,
-as in the 2018 definition~\citep{korzeniowski2018genre}; \texttt{mir\_eval}
-0.8.2~\citep{raffel2014mireval} awards it only for the ascending fifth. The task
-organizers have stated that both conventions will be reported, so both are given.
-Exact, relative (0.3), and parallel (0.2) credits are identical under the two
-conventions. Confidence intervals are 95\% percentile bootstraps over tracks
-(10{,}000 resamples, seed 0), as computed by the committed \texttt{paper/key\_scores.py}
-from the committed per-track predictions; the ledger's originally recorded endpoints
-differ in the fourth decimal because of bootstrap row order.
+as in \cite{korzeniowski2018genre} and previous MIREX editions; \texttt{mir\_eval}
+0.8.2 \cite{raffel2014mireval} awards it only for the ascending fifth. The organizers
+will report both, so both are given; exact, relative (0.3), and parallel (0.2) credits
+are identical under the two. Intervals are 95\% percentile bootstraps over tracks
+(10{,}000 resamples, seed 0). Every number in the table, and in
+Table~\ref{tab:errors}, is recomputed by \texttt{paper/key\_scores.py} from the
+committed per-track predictions and reference labels
+(\path{paper/evidence/key/gskey_predictions.jsonl}). Running the submitted package on
+the same 567 audio files reproduces all 567 committed K10 predictions
+(\texttt{paper/key\_rerun\_check.py}).
 
-\begin{table*}[t]
+\begin{table}[t]
 \centering\small
-\setlength{\tabcolsep}{6pt}
-\begin{tabular}{lccc}
+\setlength{\tabcolsep}{4pt}
+\footnotesize
+\begin{tabular}{@{}lccc@{}}
 \toprule
-system & weighted, sym.\ fifth & weighted, asc.\ fifth & exact \\
+ & sym.\ fifth & asc.\ fifth & exact \\
 \midrule
-K10 (this submission) & 0.8321 \ci{0.8042}{0.8584} & 0.8145 & 0.7795 \\
-madmom CNN (default processor) & 0.8328 \ci{0.8062}{0.8587} & 0.8134 & 0.7725 \\
+K10 & 0.8321 & 0.8145 & 0.7795 \\
+madmom & 0.8328 & 0.8134 & 0.7725 \\
 \midrule
-paired K10 $-$ madmom & $-0.0007$ \ci{-0.0196}{+0.0175} & $+0.0011$ \ci{-0.0206}{+0.0219} & \\
-wins / losses / ties & 41 / 40 / 486 & 38 / 39 / 490 & \\
+K10 $-$ madmom & $-0.0007$ & $+0.0011$ & $+0.0071$ \\
+95\% interval & $[-0.020, 0.018]$ & $[-0.021, 0.022]$ & $[-0.019, 0.032]$ \\
+win / loss / tie & 41 / 40 / 486 & 38 / 39 / 490 & 30 / 26 / 511 \\
 \bottomrule
 \end{tabular}
-\caption{GiantSteps Key, 567 usable excerpts, one evaluation of the locked K10 model.
-madmom was run with its published weights and default settings on the same tracks.
-The paired difference crosses zero under both fifth conventions; no superiority or
-equivalence claim is made.}
+\caption{GiantSteps Key, 567 usable excerpts, one evaluation of the locked K10 model;
+madmom is its default \texttt{CNNKeyRecognitionProcessor} on the same tracks. Weighted
+scores use symmetric (sym.) or ascending-only (asc.) fifth credit. K10's own
+symmetric-fifth interval is $[0.804, 0.858]$, madmom's $[0.806, 0.859]$. All three
+paired intervals include zero.}
 \label{tab:gskey}
-\end{table*}
+\end{table}
 
-These numbers are development-time results on a subset the project had already used,
-so they should be read as an expectation, not as a prediction of the MIREX score:
-MIREX evaluates the full 604-excerpt set with its own scorer, and a subset mean is not
-comparable to a full-set mean. In particular, the project earlier attributed a gap
-between madmom's published full-set score (0.746) and its subset score here (0.833) to
-subset selection; that explanation was withdrawn because it is arithmetically
-impossible under its own assumptions ($604\times0.746/567 = 0.795 < 0.833$), and the
-published figure describes a single selected model whereas the default processor is
-an ensemble. Descriptively, K10's weighted score by genre on the subset ranges from
-0.900 (Dubstep) to 0.739 (Electronica/Downtempo), with Trance (0.763) also below the
-mean; sustained, modally ambiguous material remains the main failure mode.
+\begin{table}[t]
+\centering\small
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{lrrrrr}
+\toprule
+ & exact & fifth & relative & parallel & other \\
+\midrule
+K10 & 442 & 36 & 24 & 23 & 42 \\
+madmom & 438 & 35 & 39 & 25 & 30 \\
+\bottomrule
+\end{tabular}
+\caption{Predictions by symmetric-fifth credit category (counts of 567). K10 makes
+fewer relative-key confusions and more uncredited errors than madmom; this is
+descriptive and the totals are not significantly different.}
+\label{tab:errors}
+\end{table}
 
-\section{Submission contents and reproducibility}
+\textbf{Reference-label sensitivity.} Rescoring the same predictions on the 476
+references that come from a single annotated key gives K10 0.867 and madmom 0.869
+(symmetric fifth; exact 0.826 for both; paired $-0.002$ \ci{-0.022}{+0.018}), and on the
+378 plain major/minor references 0.870 and 0.877 (paired $-0.007$
+\ci{-0.029}{+0.015}). The collapsed two-key and modal references lower both systems'
+absolute scores by about 0.035 and leave the comparison unchanged.
+
+These are development-time results on a subset the project had used before, so they
+give an expectation rather than a prediction of the MIREX score, which is computed on
+the full 604-excerpt set with the organizers' scorer and references. No listening audit was performed, so the errors have not been related to
+musical causes; per-genre means (with counts) are in the output of
+\texttt{paper/key\_scores.py} and are descriptive only.
+
+\section{Submission package and measurements}
 \label{sec:package}
 
-The package contains \texttt{predict\_key.py} (the calling contract is
-\texttt{predict\_key.py \%input \%output}; PEP~723 inline metadata pins
-\texttt{torch==2.8.*}, \texttt{librosa>=0.10}, \texttt{numpy>=1.26,<2.3}, Python
-3.10--3.12, so \texttt{uv run predict\_key.py in.wav out.txt} builds its own
-environment), the weights \texttt{key\_cnn\_v1.pt}, a README with the calling format,
-runtime, memory, and environment details, and this abstract. Inference reproduces the
-training featurization exactly. The training script, the disjointness check, the
-experiment ledger with the pre-registration and the single-shot result, and the
-per-track development predictions and reference labels used for
-Table~\ref{tab:gskey} (\texttt{paper/evidence/key/}, with \texttt{paper/key\_scores.py}
-recomputing every number in the table) are in the public repository. Code and weights are MIT-licensed; the madmom weights used only for the
-comparison above are CC~BY-NC-SA and are not part of the submission.
+The package contains \texttt{predict\_key.py} (calling contract
+\texttt{predict\_key.py \%input \%output}; one tab-separated line, tonic then mode,
+sharps-only tonics), whose PEP~723 inline metadata declares \texttt{torch} 2.8,
+\texttt{librosa} 0.10 or later below 1.0, \texttt{numpy} 1.26 to 2.2, and Python
+3.10--3.12; the lockfile \texttt{predict\_key.py.lock} that fixes the tested
+environment (torch 2.8.0, librosa 0.11.0, numpy 2.2.6, soundfile 0.14.0;
+\texttt{uv run --locked} installs exactly that set); the weights
+\texttt{key\_cnn\_v1.pt}; a README; and this abstract. Inference uses the same CQT configuration as training. The
+training pipeline cached features as float16 before casting back to float32, whereas
+the package keeps float32; on the 567 development excerpts the two paths agree on every
+argmax, with a maximum absolute softmax difference of $7.5\times10^{-5}$.
 
-\section*{Acknowledgments and AI use}
+Table~\ref{tab:runtime} gives end-to-end measurements of the packaged command on one
+120-second 44.1\,kHz 16-bit mono WAV, including interpreter start and model load, with
+\texttt{torch} limited to one thread. The Linux install resolved the default CUDA build
+of torch, which raises install size and resident memory; the GPU is never used. Memory
+scales with track length through the full-track CQT.
+
+\begin{table}[t]
+\centering\small
+\setlength{\tabcolsep}{5pt}
+\footnotesize
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+host & wall & peak RSS & install \\
+\midrule
+M2 Max, macOS 26.5 & 1.6\,s & 525\,MB & cached \\
+i9-14900K, Linux/WSL2 & 1.7\,s & 900\,MB & 46\,s \\
+\bottomrule
+\end{tabular}
+\caption{Packaged \texttt{predict\_key.py} on a 120-s MIREX-format WAV, end to end
+(median of 5 runs on the Mac, 3 on Linux). Install is the one-time dependency download
+and environment build with a warm network.}
+\label{tab:runtime}
+\end{table}
+
+Code and weights are MIT-licensed; the madmom weights used only for the comparison in
+Table~\ref{tab:gskey} are CC~BY-NC-SA and are not part of the submission. The training
+script, disjointness check, experiment ledger (with the pre-registration and the
+single-shot result), per-track predictions, and the recompute scripts are in the public
+repository at \url{https://github.com/jhurliman/jams}.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.9\textwidth]{fold_curves.pdf}
+\caption{Held-out symmetric-fifth weighted score per epoch for the five
+cross-validation folds of the submitted run, from the run's own per-epoch histories
+(\texttt{paper/evidence/key/k10\_train/}). Markers are each fold's best epoch; the
+dashed line is their median, the budget used for the final model.}
+\label{fig:folds}
+\end{figure*}
+
+\section{Acknowledgments and AI use}
 Thanks to the MIREX organizers for clarifying the eligibility question in advance.
 Claude (Anthropic) assisted with implementation, experiment execution, and drafting
 under the author's direction; OpenAI Codex reviewed the accompanying paper's code and
 claims. The author is responsible for the submission.
 
-\bibliographystyle{IEEEtran}
 \bibliography{references}
 
 \end{document}

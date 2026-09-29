@@ -2,7 +2,7 @@
 # /// script
 # requires-python = ">=3.10,<3.13"
 # dependencies = [
-#   "librosa>=0.10",
+#   "librosa>=0.10,<1.0",
 #   "numpy>=1.26,<2.3",
 #   "torch==2.8.*",
 # ]

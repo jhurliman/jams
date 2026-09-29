@@ -1,0 +1,12 @@
+{
+ "n_excerpts": 567,
+ "package_matches_committed": 567,
+ "float16_cache_matches_committed": 567,
+ "float32_eq_float16_argmax": 567,
+ "max_abs_logit_diff_float16_vs_float32": 0.0005159378051757812,
+ "max_abs_prob_diff_float16_vs_float32": 7.477402687072754e-05,
+ "mismatches": [],
+ "median_excerpt_duration_s": 120.08,
+ "median_in_process_wall_s_one_thread": 0.258,
+ "note": "in-process wall time excludes interpreter start and model load; see the package README for end-to-end timing"
+}

@@ -91,6 +91,19 @@ the key convention, and cannot overwrite `STATS.md`. Its optional
 `--key-metric mir-eval-0.8.2` mode requires that exact version; no scores have been
 silently changed to the alternate convention.
 
+The Appendix B key numbers (and the MIREX 2026 extended abstract in
+`eval/mirex2026_key/abstract/`) are recomputed by `uv run paper/key_scores.py` from
+`paper/evidence/key/gskey_predictions.jsonl` (567 GiantSteps Key excerpts: raw and
+normalized reference, K10 and madmom predictions), including a reference-label
+sensitivity. `uv run paper/key_rerun_check.py --audio-dir …` re-runs the packaged K10
+model on the GiantSteps Key audio and checks it against those predictions
+(`paper/evidence/key/k10_rerun_check.json`). The K10 training run's own records are under
+`paper/evidence/key/k10_train/` (fold summaries, per-epoch histories, training log, run and
+selection scripts) with the out-of-fold posteriors in `paper/evidence/key/k10_oof_train.jsonl`;
+`uv run paper/key_train_manifest.py` reconstructs the 1,363-track training set, its folds,
+and the 123 drops from the public `beatport_key` annotations and cross-checks them against
+that record (`k10_train_labels.jsonl`, `k10_train_drops.json`).
+
 ## Prepare the arXiv source bundle
 
 After the build and the scientific review, run from the repository root:

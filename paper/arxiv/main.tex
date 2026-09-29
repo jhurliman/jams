@@ -381,6 +381,14 @@ benchmark.
 
 The historical summaries report K10 exact accuracy 0.7795 on 567 examples and
 weighted score 0.8321, versus 0.7725 and 0.8328 for madmom's default processor.
+The 567 references are the acquisition script's normalization of the public
+annotations to one major or minor key each: 378 are plain major/minor labels, 98
+carry another modal qualifier collapsed by mode family, and 91 are two-key
+annotations collapsed to the first tonic and the minor mode if any listed key is
+minor, 15 of which match neither listed key. Both systems were scored against the
+same references; on the 476 single-key references the scores are 0.8668 and
+0.8687 (\texttt{paper/key\_scores.py} recomputes all of these from
+\texttt{paper/evidence/key/}).
 The score implementation awards 0.5 for a same-mode fifth in \emph{either}
 direction. This agrees with the definition in the 2018 paper but differs from
 \texttt{mir\_eval} 0.8.2's ascending-fifth-only implementation. These scores must

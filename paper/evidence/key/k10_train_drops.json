@@ -1,0 +1,926 @@
+{
+ "summary": {
+  "index_tracks": 1486,
+  "retained": 1363,
+  "retained_single_key": 1275,
+  "retained_two_key_first_used": 88,
+  "dropped": 123,
+  "drop_reasons": {
+   "first listed key is not a single major/minor key": 115,
+   "two-key annotation whose first key is not a single major/minor key": 8
+  },
+  "dropped_first_key_values": {
+   "X": 73,
+   "F minor phrygian": 5,
+   "F other": 4,
+   "C minor phrygian": 3,
+   "B other": 3,
+   "Bb other": 2,
+   "A other": 2,
+   "A# major mixolydian": 2,
+   "E minor dorian": 2,
+   "D major mixolydian": 2,
+   "x": 2,
+   "C# other": 2,
+   "G other": 2,
+   "B minor phrygian": 1,
+   "B major phrygian-major": 1,
+   "D major phrygian-major": 1,
+   "G# major mixolydian-b6": 1,
+   "D# major mixolydian": 1,
+   "C major mixolydian": 1,
+   "A major mixolydian": 1,
+   "F major lydian": 1,
+   "D# other": 1,
+   "A minor phrygian": 1,
+   "F# major mixolydian": 1,
+   "C# major mixolydian": 1,
+   "A minor phrygian-major": 1,
+   "Ab major phrygian-major": 1,
+   "C# minor phrygian": 1,
+   "C minor dorian": 1,
+   "F#_ minor": 1,
+   "C other": 1,
+   "G#_ minor": 1
+  },
+  "fold_sizes": [
+   273,
+   273,
+   273,
+   272,
+   272
+  ],
+  "cross_check_problems": []
+ },
+ "drops": [
+  {
+   "bp_tid": "17",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "20",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "25",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "32",
+   "annotation": [
+    "B minor phrygian"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "36",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "53",
+   "annotation": [
+    "C minor phrygian"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "55",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "64",
+   "annotation": [
+    "B major phrygian-major"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "72",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "103",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "105",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "114",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "124",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "135",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "174",
+   "annotation": [
+    "Bb other"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "175",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "183",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "184",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "189",
+   "annotation": [
+    "B other"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "195",
+   "annotation": [
+    "D major phrygian-major"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "234",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "314",
+   "annotation": [
+    "G# major mixolydian-b6"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "317",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "322",
+   "annotation": [
+    "A other",
+    "Bb other"
+   ],
+   "reason": "two-key annotation whose first key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "342",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "348",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "349",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "364",
+   "annotation": [
+    "D# major mixolydian"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "378",
+   "annotation": [
+    "C major mixolydian"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "385",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "387",
+   "annotation": [
+    "F other",
+    "E other"
+   ],
+   "reason": "two-key annotation whose first key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "399",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "408",
+   "annotation": [
+    "Bb other",
+    "A minor"
+   ],
+   "reason": "two-key annotation whose first key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "409",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "412",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "413",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "414",
+   "annotation": [
+    "A# major mixolydian"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "423",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "428",
+   "annotation": [
+    "E minor dorian"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "429",
+   "annotation": [
+    "A major mixolydian"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "437",
+   "annotation": [
+    "E minor dorian"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "463",
+   "annotation": [
+    "F major lydian"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "518",
+   "annotation": [
+    "F minor phrygian"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "527",
+   "annotation": [
+    "D# other"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "539",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "581",
+   "annotation": [
+    "F minor phrygian"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "601",
+   "annotation": [
+    "D major mixolydian"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "604",
+   "annotation": [
+    "x"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "607",
+   "annotation": [
+    "F minor phrygian"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "608",
+   "annotation": [
+    "D major mixolydian"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "620",
+   "annotation": [
+    "A minor phrygian"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "621",
+   "annotation": [
+    "C minor phrygian"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "624",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "631",
+   "annotation": [
+    "F# major mixolydian"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "659",
+   "annotation": [
+    "F other"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "666",
+   "annotation": [
+    "B other"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "668",
+   "annotation": [
+    "C# major mixolydian"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "686",
+   "annotation": [
+    "x"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "697",
+   "annotation": [
+    "C minor phrygian"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "713",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "720",
+   "annotation": [
+    "A minor phrygian-major",
+    "A major"
+   ],
+   "reason": "two-key annotation whose first key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "730",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "733",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "746",
+   "annotation": [
+    "C# other"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "765",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "792",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "798",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "809",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "816",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "820",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "833",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "845",
+   "annotation": [
+    "Ab major phrygian-major"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "868",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "872",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "885",
+   "annotation": [
+    "C# minor phrygian"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "892",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "916",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "925",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "929",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "934",
+   "annotation": [
+    "F other"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "941",
+   "annotation": [
+    "A other"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "957",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "971",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "997",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "999",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1018",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1025",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1053",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1057",
+   "annotation": [
+    "C minor dorian"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1076",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1084",
+   "annotation": [
+    "G other",
+    "B other"
+   ],
+   "reason": "two-key annotation whose first key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1087",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1099",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1109",
+   "annotation": [
+    "F#_ minor",
+    "F^ minor"
+   ],
+   "reason": "two-key annotation whose first key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1144",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1152",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1154",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1161",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1164",
+   "annotation": [
+    "F other"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1187",
+   "annotation": [
+    "C# other"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1203",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1227",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1237",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1246",
+   "annotation": [
+    "A# major mixolydian"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1259",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1286",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1290",
+   "annotation": [
+    "F minor phrygian"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1291",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1295",
+   "annotation": [
+    "C other"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1297",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1303",
+   "annotation": [
+    "F minor phrygian"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1306",
+   "annotation": [
+    "B other"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1307",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1316",
+   "annotation": [
+    "G other",
+    "C# other"
+   ],
+   "reason": "two-key annotation whose first key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1320",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1352",
+   "annotation": [
+    "G#_ minor",
+    "A^ minor"
+   ],
+   "reason": "two-key annotation whose first key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1355",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1359",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1371",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1377",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1424",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1472",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  },
+  {
+   "bp_tid": "1482",
+   "annotation": [
+    "X"
+   ],
+   "reason": "first listed key is not a single major/minor key"
+  }
+ ]
+}

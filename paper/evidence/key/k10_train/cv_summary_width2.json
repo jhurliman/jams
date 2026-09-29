@@ -1,0 +1,27 @@
+{
+ "width": 2.0,
+ "folds": [
+  {
+   "best_weighted": 0.7194139194139193,
+   "best_epoch": 71
+  },
+  {
+   "best_weighted": 0.6926739926739928,
+   "best_epoch": 50
+  },
+  {
+   "best_weighted": 0.7282051282051282,
+   "best_epoch": 26
+  },
+  {
+   "best_weighted": 0.7125,
+   "best_epoch": 23
+  },
+  {
+   "best_weighted": 0.6985294117647058,
+   "best_epoch": 17
+  }
+ ],
+ "cv_weighted_mean": 0.7102644904115492,
+ "median_best_epoch": 26
+}

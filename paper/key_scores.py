@@ -13,7 +13,10 @@ reference parses as a major/minor key (567 of 604; 600 had retrievable audio).
 
 Scores: the project's legacy weighted score (fifth credit in both directions, as in the
 2018 madmom paper) and mir_eval 0.8.2's weighted score (ascending fifth only); exact
-accuracy; paired K10 - madmom differences with 10,000-resample track bootstrap, seed 0.
+accuracy; paired K10 - madmom differences with 10,000-resample track bootstrap, seed 0;
+counts per credit category; descriptive per-genre means; and a reference-label
+sensitivity (the same predictions rescored on the excerpts whose raw GiantSteps
+annotation, `ref_key_raw`, is a single key, and on the plain major/minor ones).
 
 Usage: uv run paper/key_scores.py
 """
@@ -65,6 +68,21 @@ def legacy(ref, est):
     return 0.0
 
 
+def category(ref, est):
+    """Which symmetric-fifth credit bucket a prediction falls in."""
+    r, e = parse(ref), parse(est)
+    iv = (e[0] - r[0]) % 12
+    if iv == 0 and e[1] == r[1]:
+        return "exact"
+    if e[1] == r[1] and iv in (7, 5):
+        return "fifth"
+    if (r[1], e[1], iv) in (("major", "minor", 9), ("minor", "major", 3)):
+        return "relative"
+    if iv == 0:
+        return "parallel"
+    return "other"
+
+
 def main() -> int:
     rows = [json.loads(line) for line in PRED.read_text().splitlines() if line.strip()]
     ids = [r["track_id"] for r in rows]
@@ -98,8 +116,35 @@ def main() -> int:
             "weighted_ascending_fifth": round(float(asc.mean()), 4),
             "exact": round(float(exact.mean()), 4),
         }
-    for conv in ("sym", "asc"):
-        d = per["k10"][conv] - per["madmom"][conv]
+    # Error categories of the symmetric-fifth scorer (counts, one per track).
+    out["error_categories"] = {
+        name: {
+            c: int(sum(category(r["ref_key"], r[f"{name}_key"]) == c for r in usable))
+            for c in ("exact", "fifth", "relative", "parallel", "other")
+        }
+        for name in ("k10", "madmom")
+    }
+    # Descriptive per-genre means (symmetric fifth) for K10. Genre is the GiantSteps
+    # Beatport genre tag; every excerpt has at most one, and 100 of the 567 have none.
+    genre = {}
+    for r in usable:
+        g = (r.get("genre") or [None])[0] or "(no genre tag)"
+        genre.setdefault(g, []).append(legacy(r["ref_key"], r["k10_key"]))
+    out["k10_by_genre"] = {
+        g: {"n": len(v), "weighted_symmetric_fifth": round(float(np.mean(v)), 4)}
+        for g, v in sorted(genre.items(), key=lambda kv: -len(kv[1]))
+    }
+    for conv in ("sym", "asc", "exact"):
+        if conv == "exact":
+            d = np.array(
+                [
+                    float(norm(r["ref_key"]) == norm(r["k10_key"]))
+                    - float(norm(r["ref_key"]) == norm(r["madmom_key"]))
+                    for r in usable
+                ]
+            )
+        else:
+            d = per["k10"][conv] - per["madmom"][conv]
         rng = np.random.default_rng(0)
         bs = [d[rng.integers(0, len(d), len(d))].mean() for _ in range(10_000)]
         out[f"paired_k10_minus_madmom_{conv}"] = {
@@ -112,6 +157,52 @@ def main() -> int:
             "losses": int((d < 0).sum()),
             "ties": int((d == 0).sum()),
         }
+    # Reference-label sensitivity. The acquisition script normalized every GiantSteps Key
+    # annotation to one major/minor key: modal qualifiers were collapsed by mode family and
+    # two-key annotations ("C major | C minor phrygian") were collapsed by the same rule
+    # (tonic of the first key; minor if any listed key is minor-family). The rows below
+    # rescore the same predictions on the subsets whose reference is a single annotated key.
+    raw = {r["track_id"]: (r.get("ref_key_raw") or "") for r in usable}
+    single = [r for r in usable if "|" not in raw[r["track_id"]]]
+    plain = [
+        r
+        for r in single
+        if raw[r["track_id"]].lower().split()[1:]
+        in (["major"], ["minor"], ["major", "ionian"], ["minor", "aeolian"])
+    ]
+    out["reference_label_categories"] = {
+        "two_key_annotation_collapsed": len(usable) - len(single),
+        "single_key_modal_qualifier_collapsed": len(single) - len(plain),
+        "single_key_plain_major_minor_or_ionian_aeolian": len(plain),
+    }
+    for name, sub in (("single_key_subset", single), ("plain_major_minor_subset", plain)):
+        s = {"n": len(sub)}
+        for sysname in ("k10", "madmom"):
+            s[sysname] = {
+                "weighted_symmetric_fifth": round(
+                    float(np.mean([legacy(r["ref_key"], r[f"{sysname}_key"]) for r in sub])), 4
+                ),
+                "exact": round(
+                    float(np.mean([norm(r["ref_key"]) == norm(r[f"{sysname}_key"]) for r in sub])),
+                    4,
+                ),
+            }
+        d = np.array(
+            [
+                legacy(r["ref_key"], r["k10_key"]) - legacy(r["ref_key"], r["madmom_key"])
+                for r in sub
+            ]
+        )
+        rng = np.random.default_rng(0)
+        bs = [d[rng.integers(0, len(d), len(d))].mean() for _ in range(10_000)]
+        s["paired_k10_minus_madmom_sym"] = {
+            "mean": round(float(d.mean()), 4),
+            "ci": [
+                round(float(np.percentile(bs, 2.5)), 4),
+                round(float(np.percentile(bs, 97.5)), 4),
+            ],
+        }
+        out[name] = s
     print(json.dumps(out, indent=1))
     return 0
 
