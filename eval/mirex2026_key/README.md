@@ -1,6 +1,13 @@
-# MIREX 2026 Audio Key Detection — K10 candidate package
+# MIREX 2026 Audio Key Detection — K10 submission package
 
-**Eligibility unresolved (8 September 2026).** The [2026 task rules](https://music-ir.org/mirex/wiki/2026:Audio_Key_Detection) prohibit GiantSteps Key use for any development purpose. Prior project test-error analysis informed K10. Do not represent this package as eligible without organizer clarification using the full history below. The October 1 deadline does not remove this issue. See [publication plan](../../paper/VENUE.md); a required task extended abstract is not yet included.
+**Eligibility: confirmed by the task captains (28 September 2026).** The organizers
+replied that a submission is not disqualified solely because GiantSteps Key was used for
+evaluation during development, provided the usage is described accurately in the
+extended abstract; K10 participates in the ranked results with that disclosure. They
+will report both the symmetric and the asymmetric (ascending-only) fifth-credit
+conventions; previous MIREX evaluations used the symmetric one. **Deadline extended to
+7 October 2026 (AoE).** Upload at <http://futuremirex.com/submission>. The required 2–4
+page extended abstract is `abstract/main.pdf` (source alongside).
 
 ## Authors / contact
 
@@ -29,14 +36,14 @@ candidates) by 5-fold cross-validation within the training corpus; the
 submitted weights are the final model trained on the full corpus at the
 CV-selected epoch budget.
 
-Reference (in preparation): John Hurliman, *Evaluating a Modular Mix-to-MIDI Pipeline on Slakh2100*, 2026. Key results and qualifications are secondary appendix material; there is no arXiv identifier yet.
+Reference: John Hurliman, *Evaluating a Modular Mix-to-MIDI Pipeline on Slakh2100*, 2026 (repository `paper/arxiv/`; key results are appendix material; arXiv deposit pending).
 
-The historical K10 summary reports a **legacy symmetric-fifth weighted score** of
-0.8321 [95% CI 0.8039, 0.8586] and exact accuracy 0.7795 on 567 GiantSteps Key
-examples. The legacy scorer gives fifth credit in both directions; mir_eval 0.8.2
-uses +7 only. Confirm the organizers' implementation before claiming protocol
-compatibility. These intervals are exploratory and the raw archives still require
-release; they do not demonstrate equivalence to madmom or predict a future result.
+Development-time result (one evaluation of the locked model, 567 usable GiantSteps
+Key excerpts): weighted **0.8321** [0.8039, 0.8586] with symmetric fifth credit,
+**0.8145** with mir_eval 0.8.2's ascending-only fifth credit, exact **0.7795**. madmom's
+default processor on the same tracks: 0.8328 / 0.8134 / 0.7725; the paired difference
+crosses zero under both conventions. These are subset numbers on a benchmark the
+project had used before and do not predict the MIREX full-set score.
 
 ## Training and development disclosure
 
@@ -47,13 +54,15 @@ with GiantSteps Key. `uv run eval/verify_key_disjoint.py` checks dataset index I
 it does not check audio duplicates or development history.
 
 **GiantSteps Key was previously used in this project's development.** Earlier
-systems were scored and their errors analyzed; an older mode classifier was fit
-on that test set. K10's motivation explicitly uses the banked GiantSteps error and
-oracle analysis to justify a stronger base model. The ledger says the frozen K10
-checkpoint received one final test evaluation, but the project as a whole was not
-blind to that benchmark. This broader history is material under the 2026 rule
-against any development use. Seek an organizer ruling with this disclosure before
-competitive submission; do not claim that disjoint final training IDs resolve it.
+systems (template matcher, S-KEY, madmom, two logistic refinements fit on GS-MTG) were
+scored on the 567 usable excerpts and their errors analyzed; one older mode classifier
+had been fit on GiantSteps Key itself and was retired as contaminated before any
+comparison was reported. The analysis of those banked predictions motivated building a
+stronger base model (K10), but did not inform K10's architecture, hyperparameters, or
+weights, which were selected by cross-validation within `beatport_key`. The locked K10
+checkpoint was evaluated once on GiantSteps Key; a post-hoc genre breakdown followed.
+This history was disclosed to the task captains, who confirmed eligibility on
+2026-09-28 (see the abstract, Section 2, for the full account).
 
 ## Calling format
 
@@ -87,6 +96,7 @@ failure (no output file is written on failure).
   (md5 `6141daf25376c16a7bc4326b742e4a3c`). This is the frozen K10 `final.pt`;
   no download step is required.
 - `README.md` — this file.
+- `abstract/main.pdf` — the 2–4 page extended abstract (LaTeX source alongside).
 
 ## Historically recorded runtime environment
 
