@@ -13,6 +13,16 @@ CNN's out-of-fold posteriors (n = 1,129). This script re-implements the archived
 (paper/evidence/key/k10_train/scripts/k10_candidates_cv.py, kept verbatim) on committed
 inputs and checks the four numbers against the ledger.
 
+Limitation, stated rather than fixed: the meta-models of candidates (b) and (c) are
+cross-validated (StratifiedKFold, seed 0) over one global out-of-fold posterior table.
+Each track's posterior comes from a CNN fold model that did not train on that track, but
+the meta-model's outer validation track was in the training data of the fold models that
+produced its outer-training features, so its label can influence those features
+indirectly. A fully nested design would retrain the CNN inside every outer split. This was
+not done in the archived run and is not redone here, because the effect can only inflate
+the two fusion candidates, and the standalone CNN (a), which has no meta-model, was the
+one selected.
+
 Inputs (all under paper/evidence/key/):
   k10_oof_train.jsonl                          CNN out-of-fold posteriors (bp_tid, track_id)
   k10_train/selection/gsmtg_labels.jsonl       GS-MTG track ids and reference keys

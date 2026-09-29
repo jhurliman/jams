@@ -12,7 +12,9 @@ author's job scratch directory and the training box's home directory.
   It imports `key_fusion.py` (the fusion feature/scoring module of the earlier key work,
   also kept here verbatim) and the GS-MTG feature files.
   `paper/key_candidates_cv.py` re-implements it on the committed inputs in
-  `../selection/` and reproduces its four numbers.
+  `../selection/` and reproduces its four numbers. Its fusion candidates (b) and (c)
+  cross-validate their meta-models over one global out-of-fold table, not nested inside
+  the CNN folds; see that script's docstring for why this is stated rather than redone.
 - `k10_test_shot.py`: the single pre-registered GiantSteps Key evaluation of `final.pt`.
 
 Inputs committed for reproduction (`../selection/`): `gsmtg_labels.jsonl` (GS-MTG track
