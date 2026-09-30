@@ -173,7 +173,10 @@ export function ImportDropZone() {
         if (es.current === stream) {
           stream.close();
           es.current = null;
-          setPhase({ kind: 'error', message: 'lost connection to the import progress stream' });
+          setPhase({
+            kind: 'error',
+            message: 'Lost the import progress stream — is the jams backend still running?',
+          });
         }
       };
     } catch (err) {
